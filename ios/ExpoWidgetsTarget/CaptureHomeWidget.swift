@@ -1,56 +1,109 @@
 import WidgetKit
 import SwiftUI
 
-// Matches `ios/Chinotto/Images.xcassets/SplashScreenBackground.colorset` (#0A0A0E).
-private let CHINOTTO_BRAND_DARK = Color(
-  red: 0.0392156862745098,
-  green: 0.0392156862745098,
-  blue: 0.0549019607843137
-)
-private let CHINOTTO_BRAND_ELEVATED = Color(
-  red: 0.0549019607843137,
-  green: 0.0509803921568627,
-  blue: 0.0823529411764706
-)
 private let WIDGET_THOUGHTS_APP_GROUP_ID = "group.com.chinotto.mobile"
 private let WIDGET_THOUGHTS_KEY = "chinotto_widget_recent_thoughts_v1"
 
-/// The mark is ink on the widget's field — no tint of its own, and no glow.
-/// "Chinotto - Identity" asset 02, and its inventory row for this file: the periwinkle
-/// triple and its glow shadow go, ink and paper only.
-private let chinottoLogoMarkInk = Color(red: 230 / 255, green: 230 / 255, blue: 227 / 255)
+/// The widget's palette, taken from "Chinotto - Identity" — the medium widget and the
+/// "small widget · 2×2" panel, which draws the light appearance too.
+///
+/// The mark carries no tint of its own and no glow: the inventory row for this file withdraws
+/// the periwinkle triple. Periwinkle survives in the product only on the sync dot.
+private enum WidgetInk {
+  /// #e6e6e3 on the dark field, #1b1b1d on paper. The mark, `capture`, the ring affordance.
+  static func ink(_ scheme: ColorScheme) -> Color {
+    scheme == .light
+      ? Color(red: 27 / 255, green: 27 / 255, blue: 29 / 255)
+      : Color(red: 230 / 255, green: 230 / 255, blue: 227 / 255)
+  }
 
-/// Capture header trio (all sizes): more air logo→title, title + tagline tighter together.
-private let smallLogoToCaptureGap: CGFloat = 18
-private let smallCaptureToTaglineGap: CGFloat = 2
-private let smallLogoSize: CGFloat = 21
-private let smallLogoToTextGap: CGFloat = 16
+  /// #8f8e89 / #6b6a66. The tagline, the time, a thought held at arm's length.
+  static func meta(_ scheme: ColorScheme) -> Color {
+    scheme == .light
+      ? Color(red: 107 / 255, green: 106 / 255, blue: 102 / 255)
+      : Color(red: 143 / 255, green: 142 / 255, blue: 137 / 255)
+  }
 
-/// Medium information block: up to 2 newest thoughts (payload sorted newest-first).
-private let mediumThoughtsVisibleMax = 2
-private let mediumHeaderToThoughtsGap: CGFloat = 16
-private let mediumHeaderTextSize: CGFloat = 19
+  /// #5f5e5a. The `16:42 · ` prefix, a step below meta. The design draws it on dark only.
+  static func faint(_ scheme: ColorScheme) -> Color {
+    scheme == .light
+      ? Color(red: 143 / 255, green: 143 / 255, blue: 143 / 255)
+      : Color(red: 95 / 255, green: 94 / 255, blue: 90 / 255)
+  }
 
-// Shared “thought plaque” chrome (medium right column + large tray) — same fill/stroke/radius.
-private let thoughtPlaqueCornerRadius: CGFloat = 20
-private let thoughtPlaqueFillOpacity: Double = 0.042
-private let thoughtPlaqueStrokeOpacity: Double = 0.06
-private let thoughtPlaqueStrokeWidth: CGFloat = 0.75
-// Medium plaque insets — tuned; do not change when adjusting large-only layout.
-private let mediumThoughtPlaqueEdgeV: CGFloat = 12
-private let mediumThoughtPlaqueEdgeH: CGFloat = 12
-private let mediumThoughtPlaqueRowSpacing: CGFloat = 10
+  /// The sync dot, and the only periwinkle left in the product. It marks liveness, not
+  /// success: an offline record is not an error and lights nothing.
+  static func live(_ scheme: ColorScheme) -> Color {
+    scheme == .light
+      ? Color(red: 91 / 255, green: 98 / 255, blue: 160 / 255)
+      : Color(red: 154 / 255, green: 160 / 255, blue: 200 / 255)
+  }
+
+  /// #141416 / #f2f1ec — the tile itself.
+  static func surface(_ scheme: ColorScheme) -> Color {
+    scheme == .light
+      ? Color(red: 242 / 255, green: 241 / 255, blue: 236 / 255)
+      : Color(red: 20 / 255, green: 20 / 255, blue: 22 / 255)
+  }
+}
+
+/// The design's type: `capture` at 17, its second line at 11, a thought at 12.
+private let widgetActionTextSize: CGFloat = 17
+private let widgetSecondaryTextSize: CGFloat = 11
+private let widgetThoughtTextSize: CGFloat = 12
+
+/// The capture affordance — a ring with a dot, 1.5pt stroke. 34pt on the small tile where the
+/// whole tile answers to it, 30pt in the medium header.
+private let smallCaptureRingSize: CGFloat = 34
+private let smallCaptureRingDot: CGFloat = 8
+private let mediumCaptureRingSize: CGFloat = 30
+private let mediumCaptureRingDot: CGFloat = 7
+
+/// A ring with a dot at its centre. The design gives it no fill and no label.
+private struct CaptureRing: View {
+  let size: CGFloat
+  let dot: CGFloat
+  let scheme: ColorScheme
+
+  var body: some View {
+    ZStack {
+      Circle()
+        .stroke(WidgetInk.ink(scheme), lineWidth: 1.5)
+        .frame(width: size, height: size)
+      Circle()
+        .fill(WidgetInk.ink(scheme))
+        .frame(width: dot, height: dot)
+    }
+    .frame(width: size, height: size)
+  }
+}
+
+/// `capture`, and the line under it. Lower case: the product's own voice, per the lockup.
+private struct CaptureHeading: View {
+  let secondary: String
+  let scheme: ColorScheme
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 2) {
+      Text("capture")
+        .font(.system(size: widgetActionTextSize))
+        .tracking(-0.17) // −0.01em at 17pt
+        .foregroundStyle(WidgetInk.ink(scheme))
+        .lineLimit(1)
+      Text(secondary)
+        .font(.system(size: widgetSecondaryTextSize))
+        .foregroundStyle(WidgetInk.meta(scheme))
+        .lineLimit(1)
+    }
+  }
+}
+
+/// The design is explicit: the small tile's mark "holds the 22pt rung — it does not shrink
+/// with the tile, or the ring closes up."
+private let smallLogoSize: CGFloat = 22
 
 // Large-only: logo, header↔tray gap, plaque inner rhythm (edge padding ≥ row spacing).
 private let largeLogoSize: CGFloat = 30
-private let largeHeaderToTraySpacing: CGFloat = 20
-private let largeHeaderDividerOpacity: Double = 0.1
-private let largeHeaderDividerBottomSpacing: CGFloat = 20
-private let largeThoughtPlaqueEdgeV: CGFloat = 10
-private let largeThoughtPlaqueEdgeH: CGFloat = 16
-private let largeThoughtRowSpacing: CGFloat = 6
-private let largeThoughtLinkVerticalPad: CGFloat = 4
-private let largeThoughtRowMinHeight: CGFloat = 31
 
 // Logo scale: small baseline 18 → medium (unchanged).
 private let mediumLogoSize: CGFloat = 22
@@ -96,10 +149,15 @@ private struct Entry: TimelineEntry {
 
 private struct CaptureHomeWidgetView: View {
   @Environment(\.widgetFamily) private var family
+  /// The design draws both appearances; the tile follows the one it is placed in.
+  @Environment(\.colorScheme) private var scheme
 
-  private var thoughts: [WidgetThought] {
-    readWidgetThoughts()
+  private var state: WidgetState {
+    readWidgetState()
   }
+
+  private var thoughts: [WidgetThought] { state.thoughts }
+  private var syncOn: Bool { state.syncOn }
 
   var body: some View {
     let content = Group {
@@ -116,7 +174,6 @@ private struct CaptureHomeWidgetView: View {
     }
     .unredacted()
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    .padding(paddingInsets)
     .widgetURL(captureDeepLink)
 
     if #available(iOSApplicationExtension 17.0, *) {
@@ -128,301 +185,132 @@ private struct CaptureHomeWidgetView: View {
     }
   }
 
-  private var paddingInsets: EdgeInsets {
-    switch family {
-    case .systemSmall:
-      return EdgeInsets(top: 14, leading: 16, bottom: 14, trailing: 16)
-    case .systemMedium:
-      return EdgeInsets(top: 14, leading: 10, bottom: 14, trailing: 10)
-    case .systemLarge:
-      // Bottom at least side inset so the tray never feels clipped at the foot.
-      return EdgeInsets(top: 17, leading: 17, bottom: 17, trailing: 17)
-    default:
-      return EdgeInsets(top: 14, leading: 16, bottom: 14, trailing: 16)
-    }
-  }
 
-  // MARK: Small — same shell as before spec: logo + Capture + tagline
+  // MARK: Small — "Chinotto - Identity", the 2x2 panel
+  //
+  // "no record text fits here at a size worth reading, so the small widget drops it rather
+  // than truncating: the mark, the action, the time of the last one, and a tap target the
+  // whole tile answers to." The mark stays at 22pt; only the room around it shrinks.
 
   private var smallLayout: some View {
     VStack(alignment: .leading, spacing: 0) {
-      ChinottoLogoMark(size: smallLogoSize)
-      Spacer().frame(height: smallLogoToTextGap)
-      captureTitle(fontSize: 26)
-      Spacer().frame(height: smallCaptureToTaglineGap)
-      supportingLine
+      HStack(alignment: .top, spacing: 0) {
+        ChinottoLogoMark(size: smallLogoSize, scheme: scheme)
+        Spacer(minLength: 0)
+        if syncOn {
+          Circle()
+            .fill(WidgetInk.live(scheme))
+            .frame(width: 6, height: 6)
+            // The design sets it 8 below the mark's top edge rather than level with it.
+            .padding(.top, 8)
+        }
+      }
+
+      Spacer(minLength: 0)
+
+      HStack(alignment: .bottom, spacing: 10) {
+        CaptureHeading(secondary: lastThoughtLine, scheme: scheme)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .layoutPriority(1)
+        CaptureRing(size: smallCaptureRingSize, dot: smallCaptureRingDot, scheme: scheme)
+      }
+    }
+  }
+
+  /// `16:42 · last`, or just `last` when the payload carries no time.
+  private var lastThoughtLine: String {
+    guard let newest = thoughts.first else { return "nothing yet" }
+    guard let time = newest.clockTime else { return "last" }
+    return "\(time) · last"
+  }
+
+  // MARK: Medium — "Chinotto - Identity", the home-screen panel
+  //
+  // Header: the mark, `capture` over `it lands, and stays`, and the ring on the right. Under
+  // it, one recent thought at 12pt with its time in faint. gap 16 between the two.
+
+  private var mediumLayout: some View {
+    VStack(alignment: .leading, spacing: 16) {
+      HStack(alignment: .top, spacing: 12) {
+        ChinottoLogoMark(size: mediumLogoSize, scheme: scheme)
+        CaptureHeading(secondary: "it lands, and stays", scheme: scheme)
+        Spacer(minLength: 0)
+        CaptureRing(size: mediumCaptureRingSize, dot: mediumCaptureRingDot, scheme: scheme)
+      }
+      .frame(maxWidth: .infinity, alignment: .leading)
+
+      if let newest = thoughts.first {
+        thoughtLine(newest)
+      } else {
+        Text("nothing here yet")
+          .font(.system(size: widgetThoughtTextSize))
+          .foregroundStyle(WidgetInk.faint(scheme))
+          .lineLimit(1)
+      }
+
       Spacer(minLength: 0)
     }
   }
 
-  // MARK: Medium — top capture header + soft thoughts container below
-
-  private var mediumLayout: some View {
-    VStack(alignment: .leading, spacing: 0) {
-      HStack(alignment: .center, spacing: 10) {
-        ChinottoLogoMark(size: mediumLogoSize)
-
-        mediumCaptureActionLine
-      }
-      .frame(maxWidth: .infinity, alignment: .leading)
-
-      Spacer().frame(height: mediumHeaderToThoughtsGap)
-
-      Group {
-        if thoughts.isEmpty {
-          mediumSoftInformationContainer {
-            emptyThoughtsHintMedium
-          }
-        } else {
-          mediumSoftInformationContainer {
-            VStack(alignment: .leading, spacing: mediumThoughtPlaqueRowSpacing) {
-              ForEach(Array(thoughts.prefix(mediumThoughtsVisibleMax).enumerated()), id: \.element.id) { index, thought in
-                if index > 0 {
-                  Rectangle()
-                    .fill(Color.white.opacity(0.08))
-                    .frame(height: thoughtPlaqueStrokeWidth)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, 1)
-                }
-                thoughtLinkLine(
-                  thought: thought,
-                  fontSize: mediumThoughtFontSize(index: index),
-                  weight: index == 0 ? .medium : .regular,
-                  foregroundOpacity: mediumThoughtForegroundOpacity(index: index),
-                  design: .rounded
-                )
-              }
-            }
-          }
-        }
-      }
-      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    }
-  }
-
-  private func mediumThoughtFontSize(index: Int) -> CGFloat {
-    switch index {
-    case 0: return 14.5
-    default: return 13.5
-    }
-  }
-
-  private func mediumThoughtForegroundOpacity(index: Int) -> Double {
-    switch index {
-    case 0: return 0.98
-    default: return 0.82
-    }
-  }
-
-  private var emptyThoughtsHintMedium: some View {
-    Text("No thoughts yet")
-      .font(.system(size: 11, weight: .regular, design: .rounded))
-      .foregroundStyle(Color(red: 154 / 255, green: 154 / 255, blue: 167 / 255).opacity(0.32))
-      .lineLimit(1)
-      .frame(maxWidth: .infinity, alignment: .leading)
-  }
-
-  private var mediumCaptureActionLine: some View {
-    HStack(alignment: .firstTextBaseline, spacing: 4) {
-      Text("Capture")
-        .font(.system(size: mediumHeaderTextSize, weight: .semibold))
-        .foregroundStyle(Color.white.opacity(0.97))
-        .lineLimit(1)
-        .minimumScaleFactor(0.88)
-
-      Text("your thought")
-        .font(.system(size: mediumHeaderTextSize - 2, weight: .regular))
-        .foregroundStyle(Color.white.opacity(0.7))
-        .lineLimit(1)
-        .minimumScaleFactor(0.88)
-    }
-  }
-
-  private var largeCaptureActionLine: some View {
-    HStack(alignment: .center, spacing: 5) {
-      Text("Capture")
-        .font(.system(size: 27, weight: .semibold))
-        .foregroundStyle(Color.white.opacity(0.97))
-        .lineLimit(1)
-        .minimumScaleFactor(0.88)
-
-      Text("your thought")
-        .font(.system(size: 24, weight: .regular))
-        .foregroundStyle(Color.white.opacity(0.7))
-        .lineLimit(1)
-        .minimumScaleFactor(0.88)
-    }
-  }
-
-  /// Same plaque chrome as large tray (fill + hairline stroke, continuous radius).
-  private func mediumSoftInformationContainer<Content: View>(
-    @ViewBuilder content: () -> Content
-  ) -> some View {
-    content()
-      .frame(maxWidth: .infinity, alignment: .leading)
-      .padding(.horizontal, mediumThoughtPlaqueEdgeH)
-      .padding(.vertical, mediumThoughtPlaqueEdgeV)
-      .background(thoughtPlaqueBackground)
-      .frame(maxHeight: .infinity, alignment: .topLeading)
-  }
-
-  private var thoughtPlaqueBackground: some View {
-    RoundedRectangle(cornerRadius: thoughtPlaqueCornerRadius, style: .continuous)
-      .fill(Color.white.opacity(thoughtPlaqueFillOpacity))
-      .overlay(
-        RoundedRectangle(cornerRadius: thoughtPlaqueCornerRadius, style: .continuous)
-          .stroke(Color.white.opacity(thoughtPlaqueStrokeOpacity), lineWidth: thoughtPlaqueStrokeWidth)
-      )
-  }
-
-  // MARK: Large — capture header + inset tray (как до soft-glass обёртки)
-
-  private var largeLayout: some View {
-    GeometryReader { geo in
-      let maxLines = largeThoughtLineBudget(for: geo.size.height)
-      let visibleCount = min(maxLines, thoughts.count)
-      let visible = Array(thoughts.prefix(visibleCount))
-
-      VStack(alignment: .leading, spacing: 0) {
-        Spacer(minLength: 0)
-
-        VStack(alignment: .leading, spacing: 0) {
-          VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .center, spacing: 10) {
-              ChinottoLogoMark(size: largeLogoSize)
-              largeCaptureActionLine
-            }
-          }
-          .padding(.bottom, largeHeaderToTraySpacing)
-
-          Rectangle()
-            .fill(Color.white.opacity(largeHeaderDividerOpacity))
-            .frame(height: thoughtPlaqueStrokeWidth)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.bottom, largeHeaderDividerBottomSpacing)
-
-          if visible.isEmpty {
-            emptyThoughtsHint
-              .frame(maxWidth: .infinity, alignment: .leading)
-          } else {
-            largeThoughtsTray(rows: visible)
-          }
-        }
-
-        Spacer(minLength: 0)
-      }
-      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    }
-  }
-
-  /// How many rows to show on large (newest-first payload).
-  private func largeThoughtLineBudget(for totalHeight: CGFloat) -> Int {
-    switch totalHeight {
-    case ..<268:
-      return 4
-    case ..<312:
-      return 5
-    default:
-      return 6
-    }
-  }
-
-  private func largeThoughtsTray(rows: [WidgetThought]) -> some View {
-    VStack(alignment: .leading, spacing: 0) {
-      ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
-        if index > 0 {
-          Spacer()
-            .frame(height: largeThoughtRowSpacing)
-        }
-        Link(destination: URL(string: "chinotto://thought/\(row.id)")!) {
-          Text(row.text)
-            .font(.system(size: index == 0 ? 14.5 : 13.5, weight: index == 0 ? .medium : .regular, design: .rounded))
-            .foregroundStyle(
-              Color(red: 224 / 255, green: 224 / 255, blue: 234 / 255)
-                .opacity(index == 0 ? 0.94 : 0.78)
-            )
-            .lineLimit(1)
-            .truncationMode(.tail)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, largeThoughtLinkVerticalPad)
-            .frame(minHeight: largeThoughtRowMinHeight, alignment: .center)
-        }
-        .buttonStyle(.plain)
-      }
-    }
-    .padding(.horizontal, largeThoughtPlaqueEdgeH)
-    .padding(.vertical, largeThoughtPlaqueEdgeV)
-    .background(thoughtPlaqueBackground)
-  }
-
-  /// One tappable thought: single line + ellipsis (URLs / long text handled upstream).
-  private func thoughtLinkLine(
-    thought: WidgetThought,
-    fontSize: CGFloat,
-    weight: Font.Weight,
-    foregroundOpacity: Double,
-    design: Font.Design = .default
-  ) -> some View {
+  /// `16:42 · the return should only come back if it can show me why` — the time a step below
+  /// the words, so the words are what you read.
+  private func thoughtLine(_ thought: WidgetThought, lineLimit: Int = 2) -> some View {
     Link(destination: URL(string: "chinotto://thought/\(thought.id)")!) {
-      Text(thought.text)
-        .font(.system(size: fontSize, weight: weight, design: design))
-        .foregroundStyle(Color(red: 228 / 255, green: 228 / 255, blue: 236 / 255).opacity(foregroundOpacity))
-        .lineLimit(1)
-        .truncationMode(.tail)
-        .frame(maxWidth: .infinity, alignment: .leading)
+      Group {
+        if let time = thought.clockTime {
+          // `foregroundColor` rather than `foregroundStyle`: the latter only returns a
+          // concatenable Text from iOS 17, and this extension deploys lower.
+          Text(verbatim: "\(time) · ").foregroundColor(WidgetInk.faint(scheme))
+            + Text(thought.text).foregroundColor(WidgetInk.meta(scheme))
+        } else {
+          Text(thought.text).foregroundColor(WidgetInk.meta(scheme))
+        }
+      }
+      .font(.system(size: widgetThoughtTextSize))
+      .lineSpacing(widgetThoughtTextSize * 0.35)
+      .lineLimit(lineLimit)
+      .multilineTextAlignment(.leading)
+      .frame(maxWidth: .infinity, alignment: .leading)
     }
     .buttonStyle(.plain)
   }
 
-  private func captureTitle(fontSize: CGFloat) -> some View {
-    Text("Capture")
-      .font(.system(size: fontSize, weight: .bold))
-      .tracking(-0.35)
-      .foregroundStyle(Color(red: 240 / 255, green: 240 / 255, blue: 245 / 255))
-      .lineLimit(1)
-      .minimumScaleFactor(0.85)
-  }
+  // MARK: Large — not drawn in the Identity project.
+  //
+  // Derived, not designed: the medium header verbatim, then the same thought line repeated.
+  // Nothing here invents a treatment the design does not state.
 
-  private var supportingLine: some View {
-    Text("your thought")
-      .font(.system(size: 12, weight: .regular))
-      .foregroundStyle(Color(red: 150 / 255, green: 150 / 255, blue: 162 / 255).opacity(0.88))
-      .lineLimit(1)
-  }
+  private var largeLayout: some View {
+    VStack(alignment: .leading, spacing: 16) {
+      HStack(alignment: .top, spacing: 12) {
+        ChinottoLogoMark(size: largeLogoSize, scheme: scheme)
+        CaptureHeading(secondary: "it lands, and stays", scheme: scheme)
+        Spacer(minLength: 0)
+        CaptureRing(size: mediumCaptureRingSize, dot: mediumCaptureRingDot, scheme: scheme)
+      }
+      .frame(maxWidth: .infinity, alignment: .leading)
 
-  private var emptyThoughtsHint: some View {
-    Text("No thoughts yet")
-      .font(.system(size: 11, weight: .regular, design: .rounded))
-      .foregroundStyle(Color(red: 154 / 255, green: 154 / 255, blue: 167 / 255).opacity(0.34))
-      .lineLimit(1)
-  }
+      if thoughts.isEmpty {
+        Text("nothing here yet")
+          .font(.system(size: widgetThoughtTextSize))
+          .foregroundStyle(WidgetInk.faint(scheme))
+          .lineLimit(1)
+      } else {
+        VStack(alignment: .leading, spacing: 12) {
+          ForEach(thoughts.prefix(5)) { thought in
+            thoughtLine(thought, lineLimit: 2)
+          }
+        }
+      }
 
-  @ViewBuilder
-  private var widgetBackground: some View {
-    ZStack {
-      LinearGradient(
-        colors: [CHINOTTO_BRAND_ELEVATED, CHINOTTO_BRAND_DARK],
-        startPoint: .bottomTrailing,
-        endPoint: .topLeading
-      )
-      LinearGradient(
-        colors: [
-          Color(red: 106 / 255, green: 124 / 255, blue: 194 / 255).opacity(0.12),
-          Color.clear,
-        ],
-        startPoint: .bottomTrailing,
-        endPoint: UnitPoint(x: 0.26, y: 0.22)
-      )
-      RadialGradient(
-        colors: [
-          Color(red: 156 / 255, green: 172 / 255, blue: 1.0).opacity(0.06),
-          Color.clear,
-        ],
-        center: UnitPoint(x: 0.82, y: 0.82),
-        startRadius: 2,
-        endRadius: 92
-      )
+      Spacer(minLength: 0)
     }
+  }
+
+  /// The tile itself. "Chinotto - Identity" draws it flat — the periwinkle gradients that
+  /// used to sit under it are not part of the identity.
+  private var widgetBackground: some View {
+    WidgetInk.surface(scheme)
   }
 }
 
@@ -430,27 +318,67 @@ private struct CaptureHomeWidgetView: View {
 
 private struct WidgetThoughtPayload: Decodable {
   let thoughts: [WidgetThought]
+  /// Absent in a payload written by an older build, which reads as "not live".
+  let syncOn: Bool?
 }
 
 private struct WidgetThought: Decodable, Identifiable {
   let id: String
   let text: String
+  /// ISO-8601, written by `widgetThoughtsBridge.ts`. Optional so a payload from an older
+  /// build still decodes; without it the line simply carries no time.
+  let createdAt: String?
+
+  /// `16:42`, in the reader's own locale and clock.
+  var clockTime: String? {
+    guard let createdAt else { return nil }
+    // Both spellings occur in the wild: SQLite rows written with and without milliseconds.
+    let date = WidgetThought.isoFractional.date(from: createdAt)
+      ?? WidgetThought.isoPlain.date(from: createdAt)
+    guard let date else { return nil }
+    return WidgetThought.clock.string(from: date)
+  }
+
+  private static let isoFractional: ISO8601DateFormatter = {
+    let f = ISO8601DateFormatter()
+    f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    return f
+  }()
+
+  private static let isoPlain = ISO8601DateFormatter()
+
+  private static let clock: DateFormatter = {
+    let f = DateFormatter()
+    f.setLocalizedDateFormatFromTemplate("j:mm")
+    return f
+  }()
 }
 
-private func readWidgetThoughts() -> [WidgetThought] {
+/// What the app last wrote to the shared group: the recent thoughts, and whether sync is live.
+private struct WidgetState {
+  let thoughts: [WidgetThought]
+  let syncOn: Bool
+
+  static let empty = WidgetState(thoughts: [], syncOn: false)
+}
+
+private func readWidgetState() -> WidgetState {
   guard
     let defaults = UserDefaults(suiteName: WIDGET_THOUGHTS_APP_GROUP_ID),
     let raw = defaults.string(forKey: WIDGET_THOUGHTS_KEY),
     let data = raw.data(using: .utf8)
   else {
-    return []
+    return .empty
   }
 
   do {
     let payload = try JSONDecoder().decode(WidgetThoughtPayload.self, from: data)
-    return payload.thoughts.filter { !$0.id.isEmpty && !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    let thoughts = payload.thoughts.filter {
+      !$0.id.isEmpty && !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+    return WidgetState(thoughts: thoughts, syncOn: payload.syncOn ?? false)
   } catch {
-    return []
+    return .empty
   }
 }
 
@@ -469,6 +397,7 @@ private func readWidgetThoughts() -> [WidgetThought] {
 /// centred at y=23, and a dot of r5 centred at y=40.
 private struct ChinottoLogoMark: View {
   let size: CGFloat
+  let scheme: ColorScheme
 
   // Ring: r28 of 64 is a diameter of 0.875; stroke 3.5 of 64.
   private static let ringDiameter: CGFloat = 0.875
@@ -485,16 +414,16 @@ private struct ChinottoLogoMark: View {
   var body: some View {
     ZStack {
       Circle()
-        .stroke(chinottoLogoMarkInk, lineWidth: size * Self.ringStroke)
+        .stroke(WidgetInk.ink(scheme), lineWidth: size * Self.ringStroke)
         .frame(width: size * Self.ringDiameter, height: size * Self.ringDiameter)
 
       Circle()
-        .fill(chinottoLogoMarkInk)
+        .fill(WidgetInk.ink(scheme))
         .frame(width: size * Self.upperDotDiameter, height: size * Self.upperDotDiameter)
         .offset(y: size * Self.upperDotOffset)
 
       Circle()
-        .fill(chinottoLogoMarkInk)
+        .fill(WidgetInk.ink(scheme))
         .frame(width: size * Self.lowerDotDiameter, height: size * Self.lowerDotDiameter)
         .offset(y: size * Self.lowerDotOffset)
     }

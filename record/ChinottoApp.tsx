@@ -349,8 +349,10 @@ export function ChinottoApp({ services }: { services: Services }) {
    * than being given a second source that could disagree with the first.
    */
   useEffect(() => {
-    void refreshWidgetThoughtsFromLocalDb().catch(() => {});
-  }, [changedAt]);
+    // `sync.state === 'on'` and nothing else: the tile's dot says sync is live, not that a
+    // push succeeded. Connecting, offline and error all leave it unlit.
+    void refreshWidgetThoughtsFromLocalDb(sync.state === 'on').catch(() => {});
+  }, [changedAt, sync.state]);
 
   /* --------------------------------------------------------------------- voice */
 
