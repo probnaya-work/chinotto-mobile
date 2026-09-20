@@ -3,14 +3,9 @@ INSTRUMENT
 
 Independent Computational Laboratory
 
-<p align="center">
-  <img src="docs/logo.svg" width="80" alt="Chinotto" />
-</p>
-
 # Chinotto
 
-*Capture first.  
-Continue later.*
+A pocket for thoughts, encounters, and what comes back.
 
 Chinotto Mobile is a minimal companion to Chinotto desktop — built for capturing thoughts the moment they appear.
 

@@ -465,7 +465,10 @@ private struct ChinottoLogoMark: View {
 
   var body: some View {
     ZStack {
-      // Matches docs/logo.svg geometry (64x64 viewBox).
+      // Drawn on a 64-unit grid. NOTE: these are the superseded four-dot proportions
+      // (r6@20, r5@22/42,34, r4@44, stroke 2); the current mark is three dots receding
+      // down a column (r8@23, r4.5@38, r2.5@47.5, stroke 3) — see assets/chinotto-icon.svg.
+      // The widget has not been redrawn to it.
       Circle()
         .stroke(markColor, lineWidth: max(1.2, size * 0.032))
         .frame(width: size * 0.875, height: size * 0.875)
