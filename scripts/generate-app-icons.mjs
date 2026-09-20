@@ -125,6 +125,25 @@ await png(
   2048
 );
 
+/* ------------------------------------------------- the native splash, on iOS and Android */
+
+// The native splash is NOT `assets/splash-icon.png`. iOS reads a separate, committed copy in
+// `Images.xcassets/SplashScreenLogo.imageset`, which `expo-splash-screen` only rewrites
+// during a prebuild — and this repo commits its `ios/` directory, so a prebuild does not
+// happen. Regenerating only the asset left the app opening on the OLD mark for the whole
+// pre-JS frame, before the launch lockup could draw the new one.
+//
+// `imageWidth` in `app.json` is 120pt, so the three scales are 120 / 240 / 360.
+const SPLASH_WIDTH = 120;
+const splashSvg = transparentMarkSvg({ foreground: dark.foreground, scale: 1 });
+for (const [suffix, scale] of [['', 1], ['@2x', 2], ['@3x', 3]]) {
+  await png(
+    splashSvg,
+    `ios/Chinotto/Images.xcassets/SplashScreenLogo.imageset/image${suffix}.png`,
+    SPLASH_WIDTH * scale
+  );
+}
+
 /* ---------------------------------------------------------------- the two variants */
 
 // Anything the old six-variant scheme left behind goes, rather than sitting in the bundle
