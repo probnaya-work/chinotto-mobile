@@ -34,6 +34,9 @@ import { createRecordStore, type RecordStore } from './store';
 import { createVoiceCapture, type VoiceEngine } from './voice';
 import { readShare, type ShareIntake, type SharePayloadLike } from './share';
 import { useSyncSurface, type SyncPorts } from './useSyncSurface';
+import { initAnalyticsOptIn, isOptIn, setOptIn, setUmami } from '../analytics/analytics';
+import { useSyncDeepLink } from '../linking/useSyncDeepLink';
+import { isFirebaseSyncConfigured } from '../sync/firebaseConfig';
 import { useSyncAccount, type SyncAccountPorts } from './useSyncAccount';
 import type { ChinottoPackageKind } from '../src/services/purchases/constants';
 import { shouldRunMobileFirestoreIngest } from '../sync/ingestGate';
@@ -103,7 +106,32 @@ export function ChinottoApp({ services }: { services: Services }) {
 
   const [appearance, setAppearance] = useState<'system' | 'light' | 'dark'>('system');
   const [sunOn, setSunOn] = useState(false);
+  /**
+   * Off until storage says otherwise, and off for good if storage cannot be read.
+   *
+   * The preference is the analytics module's own, not a second copy kept here — a toggle
+   * that remembered a different answer from the thing it governs would be the worst of both.
+   */
   const [analyticsOn, setAnalyticsOn] = useState(false);
+  useEffect(() => {
+    setUmami(
+      process.env.EXPO_PUBLIC_UMAMI_URL?.trim() || null,
+      process.env.EXPO_PUBLIC_UMAMI_WEBSITE_ID?.trim() || null
+    );
+    let alive = true;
+    void initAnalyticsOptIn().then((on) => {
+      if (alive) setAnalyticsOn(on);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const toggleAnalytics = useCallback(() => {
+    const next = !isOptIn();
+    setOptIn(next);
+    setAnalyticsOn(next);
+  }, []);
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [deleteArmed, setDeleteArmed] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -244,6 +272,22 @@ export function ChinottoApp({ services }: { services: Services }) {
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bridge]);
+
+  /**
+   * `chinotto://sync` — the link the desktop app shows as a QR when it wants this phone.
+   *
+   * The hook holds the intent until the record is actually up, so a link followed from a
+   * cold start opens the sheet once the surface exists rather than into nothing. The
+   * desktop session id travels with it and is stashed by the hook, which is what lets the
+   * mac see the access mirror without being signed in yet.
+   */
+  useSyncDeepLink({
+    enabled: Platform.OS === 'ios' && isFirebaseSyncConfigured(),
+    phase: 'main',
+    dbReady: true,
+    subscriptionLoaded: services.subscriptionLoaded,
+    onSyncDeepLink: () => openSync(),
+  });
 
   /* ------------------------------------------------------------------ incoming */
 
@@ -476,7 +520,7 @@ export function ChinottoApp({ services }: { services: Services }) {
           icon={services.icon}
           setIcon={services.onPickIcon}
           analyticsOn={analyticsOn}
-          setAnalyticsOn={setAnalyticsOn}
+          setAnalyticsOn={toggleAnalytics}
           privacyOpen={privacyOpen}
           setPrivacyOpen={setPrivacyOpen}
           deleteArmed={deleteArmed}
@@ -593,7 +637,8 @@ function SettingsSurface(props: {
   icon: 'dark' | 'light';
   setIcon: (v: 'dark' | 'light') => void;
   analyticsOn: boolean;
-  setAnalyticsOn: (v: boolean) => void;
+  /** Flips the preference in the analytics module itself; the value shown follows it. */
+  setAnalyticsOn: () => void;
   privacyOpen: boolean;
   setPrivacyOpen: (v: boolean) => void;
   deleteArmed: boolean;
@@ -635,7 +680,7 @@ function SettingsSurface(props: {
       onOpenSystemSettings={props.services.openSystemSettings}
       onSeeWidget={props.onSeeWidget}
       analyticsOn={props.analyticsOn}
-      onToggleAnalytics={() => props.setAnalyticsOn(!props.analyticsOn)}
+      onToggleAnalytics={props.setAnalyticsOn}
       privacyOpen={props.privacyOpen}
       onTogglePrivacy={() => props.setPrivacyOpen(!props.privacyOpen)}
       hasAccount={props.sync.state === 'on' || props.sync.state === 'error'}
