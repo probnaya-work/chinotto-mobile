@@ -74,6 +74,8 @@ export type Services = {
   syncAccount: SyncAccountPorts;
   /** Deletes the cloud copy and the account behind it. `cancelled` when Apple was dismissed. */
   deleteAccount: () => Promise<'deleted' | 'cancelled'>;
+  /** Removes another device from the record. False when it did not happen. */
+  revokeDevice: (deviceId: string) => Promise<boolean>;
   /** Playing retained audio back. Omitted where the platform cannot, and then it is not offered. */
   audio?: AudioPlaybackPort;
   /** Payloads from the share extension, or null when the app was not opened by one. */
@@ -530,6 +532,7 @@ export function ChinottoApp({ services }: { services: Services }) {
           onRestore={() => void account.restore()}
           errorMessage={
             account.error ??
+            sync.deviceError ??
             (account.plansUnavailable ? 'plans could not be read right now' : null)
           }
           onContinueWithApple={() => void account.continueWithApple()}
@@ -541,7 +544,7 @@ export function ChinottoApp({ services }: { services: Services }) {
           confirming={sync.confirming}
           confirmingDeviceName={sync.confirmingDeviceName}
           onAskRemoveDevice={sync.askRemoveDevice}
-          onRemoveDevice={sync.cancelConfirm}
+          onRemoveDevice={() => void sync.removeConfirmedDevice(services.revokeDevice)}
           onAskStop={sync.askStop}
           onStop={() => {
             sync.cancelConfirm();

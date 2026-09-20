@@ -78,6 +78,7 @@ function harness() {
       signOut: async () => {},
     },
     deleteAccount: async () => 'cancelled' as const,
+    revokeDevice: async () => false,
     incomingShare: null,
     onShareHandled: () => {},
     syncPorts: {

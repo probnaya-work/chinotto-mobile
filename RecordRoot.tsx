@@ -14,14 +14,14 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Linking, View } from 'react-native';
+import { Linking, Platform, View } from 'react-native';
 import { randomUUID } from 'expo-crypto';
 import Constants from 'expo-constants';
 import { useIncomingShare } from 'expo-sharing';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { ChinottoApp, type Services } from './record/ChinottoApp';
-import { ensureThisDevice } from './record/devices';
+import { ensureThisDevice, HEARTBEAT_MS, isRevoked, type ThisDevice } from './record/devices';
 import { SURFACE } from './record/ui/tokens';
 import type { VoiceEngine } from './record/voice';
 import {
@@ -61,6 +61,12 @@ import { flushSyncTombstoneOutbox } from './sync/tombstoneFlush';
 import { flushSyncUserThemeOutbox } from './sync/userThemeFlush';
 import { backfillLocalThemesToRemote } from './sync/themeSyncBackfill';
 import { mirrorChinottoSyncAccessToFirestore } from './sync/firestoreSyncAccessMirror';
+import {
+  announceThisDevice,
+  listCloudDevices,
+  revokeCloudDevice,
+} from './sync/firestoreDevices';
+import { setThisDeviceRevoked } from './sync/deviceRevocation';
 import {
   AccountDeletionNeedsRecentLogin,
   deleteChinottoAccountForCurrentUser,
@@ -216,6 +222,28 @@ export default function RecordRoot() {
    * must not claim either way. It gates the paywall the same way it does in the shipping
    * app, so a plan sheet is never drawn against an unread entitlement.
    */
+  /** This install's identity. Generated once, never regenerated — see `record/devices.ts`. */
+  const [thisDevice, setThisDevice] = useState<ThisDevice | null>(null);
+
+  /**
+   * Saying this device is still here, once a minute.
+   *
+   * The heartbeat is what makes `last seen` a fact rather than a guess, and it is the only
+   * thing that writes one. A device that never runs this is simply not listed.
+   */
+  useEffect(() => {
+    if (!thisDevice) return;
+    const beat = () =>
+      void announceThisDevice({
+        id: thisDevice.id,
+        name: thisDevice.name,
+        platform: Platform.OS === 'ios' ? 'iphone' : Platform.OS,
+      });
+    beat();
+    const id = setInterval(beat, HEARTBEAT_MS);
+    return () => clearInterval(id);
+  }, [thisDevice]);
+
   const [subscriptionLoaded, setSubscriptionLoaded] = useState(false);
 
   useEffect(() => {
@@ -285,11 +313,12 @@ export default function RecordRoot() {
       const opened = await getDatabase();
       if (!alive) return;
       setDb(opened);
-      await ensureThisDevice(opened as unknown as RecordDb, {
+      const registered = await ensureThisDevice(opened as unknown as RecordDb, {
         newId: randomUUID,
         deviceName: () => deviceName(),
         now: Date.now,
       });
+      if (alive) setThisDevice(registered);
     })();
     return () => {
       alive = false;
@@ -326,6 +355,7 @@ export default function RecordRoot() {
       subscriptionLoaded,
       syncAccount,
       deleteAccount: deleteCloudAccount,
+      revokeDevice: revokeCloudDevice,
       audio: audioPlayback,
 
       icon,
@@ -355,8 +385,14 @@ export default function RecordRoot() {
         },
         // No device collection is being read yet, so no device list is drawn. A fabricated
         // row with a fabricated last-seen would be worse than an honest absence.
-        devices: async () => null,
-        thisDeviceId: () => null,
+        devices: async () => {
+          const rows = await listCloudDevices();
+          // Reading the list is also how this device learns it has been removed. Nothing
+          // else tells it, and it must stop sending rather than wait to be told twice.
+          if (rows && thisDevice) setThisDeviceRevoked(isRevoked(rows, thisDevice.id));
+          return rows;
+        },
+        thisDeviceId: () => thisDevice?.id ?? null,
         signInExpired: () => false,
         signInExpiredWhen: () => null,
       },
@@ -389,6 +425,7 @@ export default function RecordRoot() {
     voiceOnOpen,
     micPermission,
     subscriptionLoaded,
+    thisDevice,
   ]);
 
   // The ink field, from the first frame, so there is never a white flash before the record.

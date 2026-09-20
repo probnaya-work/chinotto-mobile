@@ -34,6 +34,7 @@ describe('syncAccessPolicy', () => {
       subscriptionHydrated: true,
       hasEntitlement: false,
       hasSyncAccess: true,
+      thisDeviceRevoked: false,
     });
   });
 
@@ -56,6 +57,26 @@ describe('syncAccessPolicy', () => {
     resetSubscriptionStateForTests();
     await stubCompleteChinottoPlusPurchase();
     expect(hasSyncAccess()).toBe(true);
+    expect(isSyncAccessBlocked()).toBe(false);
+  });
+});
+
+
+describe('a device that was removed from the record', () => {
+  it('stops syncing whether or not this build charges for sync', () => {
+    const {
+      setThisDeviceRevoked,
+      resetThisDeviceRevokedForTests,
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+    } = require('../../sync/deviceRevocation');
+
+    try {
+      setThisDeviceRevoked(true);
+      // Nothing to do with entitlement: removal is about this device, not this account.
+      expect(isSyncAccessBlocked()).toBe(true);
+    } finally {
+      resetThisDeviceRevokedForTests();
+    }
     expect(isSyncAccessBlocked()).toBe(false);
   });
 });

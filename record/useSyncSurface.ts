@@ -53,6 +53,8 @@ export function useSyncSurface(
   const [confirming, setConfirming] = useState<'device' | 'stop' | null>(null);
   const [confirmingDeviceId, setConfirmingDeviceId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  /** Said only when a removal genuinely did not happen. */
+  const [deviceError, setDeviceError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setPending(await ports.pendingCount());
@@ -144,9 +146,33 @@ export function useSyncSurface(
       return at ? fmtTime(at) : 'recently';
     })(),
 
+    deviceError,
+
     askRemoveDevice: (id: string) => {
+      setDeviceError(null);
       setConfirmingDeviceId(id);
       setConfirming('device');
+    },
+
+    /**
+     * Removes the device the sheet is asking about.
+     *
+     * The row leaves the list only when the cloud says it has been revoked. A removal that
+     * failed leaves the device exactly where it was and says so — a list that quietly drops
+     * a row while the device goes on syncing would be the worst kind of wrong here.
+     */
+    removeConfirmedDevice: async (revoke: (id: string) => Promise<boolean>) => {
+      const id = confirmingDeviceId;
+      setConfirming(null);
+      setConfirmingDeviceId(null);
+      if (!id) return;
+      const done = await revoke(id);
+      if (!done) {
+        setDeviceError('could not remove that device · it is still syncing');
+        return;
+      }
+      setDeviceError(null);
+      await refresh();
     },
     askStop: () => setConfirming('stop'),
     cancelConfirm: () => {
