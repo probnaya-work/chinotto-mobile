@@ -1,5 +1,5 @@
 /**
- * Chinotto v2 on mobile — the Record.
+ * The Record model on mobile — schema v2.
  *
  * This is the mobile expression of the same durable model the desktop app holds in
  * `src-tauri/src/db/schema_v2.sql`. The table shapes, the column meanings and the

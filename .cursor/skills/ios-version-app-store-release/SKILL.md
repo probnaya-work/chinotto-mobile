@@ -12,13 +12,7 @@ description: >-
 
 This repo **commits `ios/`**. Updating **only** `app.json` / `package.json` can ship an IPA with **stale** `CFBundleShortVersionString` — Apple rejects it.
 
-## Required reading
-
-Follow the canonical checklist (single source of truth):
-
-**`docs/internal/release/ios-app-store-version-bump.md`**
-
-## Agent summary
+## The procedure
 
 1. Set the same marketing version in `package.json`, `app.json` (`expo.version`).
 2. Increment `app.json` → `expo.ios.buildNumber`.

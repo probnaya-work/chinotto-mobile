@@ -156,7 +156,7 @@ Avoid:
 - Over-engineered layers
 - Complex state management (no Redux unless truly needed)
 
-### Where things live (`feat/chinotto-next-mobile` onward)
+### Where things live — the Record model
 
 `index.ts` → `RecordRoot.tsx` → `record/`. There is no navigator: the Record is one surface
 with an edge at the bottom, and focus, the years, settings, sync, the share sheet and the
@@ -248,7 +248,6 @@ If you are about to implement:
 - Complex global state
 - Multiple screens for simple flows (beyond brand splash → capture)
 - Heavy UI components
-- **EntryThoughtSheet layout changes** without reading `.cursor/rules/entry-thought-sheet-layout.mdc` (flex dismiss + sheet last child; never `KeyboardAvoidingView` / `absolute` / `translateY` on shell)
 
 → STOP and propose a simpler alternative
 

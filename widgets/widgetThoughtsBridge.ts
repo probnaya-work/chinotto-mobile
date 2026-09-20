@@ -70,7 +70,7 @@ export async function syncRecentThoughtsToWidget(entries: Entry[]): Promise<void
 }
 
 /**
- * Refreshes widget payload from SQLite (newest first) without waiting for CaptureScreen.
+ * Refreshes widget payload from SQLite (newest first) without waiting for the Record to write.
  * Use after DB init and on foreground so home-screen widgets aren’t stale after reinstall.
  */
 export async function refreshWidgetThoughtsFromLocalDb(): Promise<void> {
