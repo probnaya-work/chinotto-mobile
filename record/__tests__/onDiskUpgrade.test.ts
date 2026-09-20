@@ -1,14 +1,21 @@
-import { existsSync, rmSync, statSync } from 'fs';
+import { existsSync, mkdtempSync, rmSync, statSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import { buildLegacyFixture } from '../__testsupport__/legacyFixture';
 import { openTestDb } from '../__testsupport__/nodeSqliteDb';
 import { migrate, TARGET_VERSION } from '../migrate';
 import { archiveThemesIfNeeded } from '../themeArchive';
 import { createRecordStore } from '../store';
 
-const FILE = '/private/tmp/claude-501/-Users-bogart-Dev-chinotto-mobile/65d89514-c647-4c36-802e-01512008c008/scratchpad/chinotto-upgrade.db';
+// A real file, because this is the one test that must not run in memory — but in this
+// machine's temp directory, not a path baked into the source. It used to name an
+// absolute scratchpad path that existed only on the author's laptop, so the suite
+// passed there and failed everywhere else.
+const DIR = mkdtempSync(join(tmpdir(), 'chinotto-upgrade-'));
+const FILE = join(DIR, 'chinotto-upgrade.db');
 
 describe('upgrading a real database file on disk', () => {
-  afterAll(() => rmSync(FILE, { force: true }));
+  afterAll(() => rmSync(DIR, { recursive: true, force: true }));
 
   it('carries a four-year v1 phone across, reopening the file as the app would', async () => {
     rmSync(FILE, { force: true });
