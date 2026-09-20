@@ -309,7 +309,9 @@ describe('the record surface', () => {
     await mount(h);
 
     const field = screen.getByLabelText('capture');
+    // Typing a date means the field is in hand: it has focus when the movement happens.
     await act(async () => {
+      fireEvent(field, 'focus');
       fireEvent.changeText(field, 'march 2024');
     });
     await act(async () => {
@@ -326,6 +328,10 @@ describe('the record surface', () => {
       fireEvent.press(screen.getByText('▲ back to the edge'));
     });
     await waitFor(() => expect(screen.queryByText('▲ back to the edge')).toBeNull());
+
+    // Standing unmounted the field, which therefore never said it lost focus — and the
+    // caret is drawn from that flag. The edge used to come back from standing bare.
+    expect(screen.getByLabelText('start typing')).toBeTruthy();
     h.db.close();
   });
 

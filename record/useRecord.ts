@@ -47,6 +47,17 @@ export function useRecord(store: RecordStore, bridge: RecordBridge, nowFn = Date
   const [input, setInput] = useState('');
   const [inputFocused, setInputFocused] = useState(false);
   const [anchor, setAnchor] = useState<Anchor | null>(null);
+
+  /**
+   * Standing takes the field off the surface — `▲ back to the edge` stands where it was —
+   * and an unmounted field never says it lost focus. The flag the caret is drawn from has
+   * to follow whether the field is there at all, not the events it can no longer send, or
+   * the edge comes back from standing with no caret on it. Every way of standing goes
+   * through `anchor`, so this is the one place that can be sure.
+   */
+  useEffect(() => {
+    if (anchor) setInputFocused(false);
+  }, [anchor]);
   const [byMeaning, setByMeaning] = useState(false);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);

@@ -135,7 +135,13 @@ export function Edge(props: EdgeProps) {
           ) : (
             <>
               {showCaret ? (
-                <Pressable onPress={props.onPressCaret} hitSlop={12}>
+                <Pressable
+                  onPress={props.onPressCaret}
+                  hitSlop={12}
+                  accessibilityRole="button"
+                  // A 3pt line is the whole affordance, and it had no name at all.
+                  accessibilityLabel="start typing"
+                >
                   <View
                     style={{
                       width: edge.caretWidth,
