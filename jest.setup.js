@@ -163,7 +163,6 @@ jest.mock('react-native-purchases', () => {
   };
 });
 
-jest.mock('react-native-purchases-ui', () => ({}));
 
 jest.mock('expo-haptics', () => ({
   ImpactFeedbackStyle: {

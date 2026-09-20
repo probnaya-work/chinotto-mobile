@@ -309,31 +309,31 @@ PODS:
     - GoogleUtilities/Network (~> 8.1)
     - "GoogleUtilities/NSData+zlib (~> 8.1)"
     - nanopb (~> 3.30910.0)
-  - GoogleUtilities/AppDelegateSwizzler (8.1.0):
+  - GoogleUtilities/AppDelegateSwizzler (8.1.3):
     - GoogleUtilities/Environment
     - GoogleUtilities/Logger
     - GoogleUtilities/Network
     - GoogleUtilities/Privacy
-  - GoogleUtilities/Environment (8.1.0):
+  - GoogleUtilities/Environment (8.1.3):
     - GoogleUtilities/Privacy
-  - GoogleUtilities/Logger (8.1.0):
+  - GoogleUtilities/Logger (8.1.3):
     - GoogleUtilities/Environment
     - GoogleUtilities/Privacy
-  - GoogleUtilities/MethodSwizzler (8.1.0):
+  - GoogleUtilities/MethodSwizzler (8.1.3):
     - GoogleUtilities/Logger
     - GoogleUtilities/Privacy
-  - GoogleUtilities/Network (8.1.0):
+  - GoogleUtilities/Network (8.1.3):
     - GoogleUtilities/Logger
     - "GoogleUtilities/NSData+zlib"
     - GoogleUtilities/Privacy
     - GoogleUtilities/Reachability
-  - "GoogleUtilities/NSData+zlib (8.1.0)":
+  - "GoogleUtilities/NSData+zlib (8.1.3)":
     - GoogleUtilities/Privacy
-  - GoogleUtilities/Privacy (8.1.0)
-  - GoogleUtilities/Reachability (8.1.0):
+  - GoogleUtilities/Privacy (8.1.3)
+  - GoogleUtilities/Reachability (8.1.3):
     - GoogleUtilities/Logger
     - GoogleUtilities/Privacy
-  - GoogleUtilities/UserDefaults (8.1.0):
+  - GoogleUtilities/UserDefaults (8.1.3):
     - GoogleUtilities/Logger
     - GoogleUtilities/Privacy
   - hermes-engine (0.14.1):
@@ -344,12 +344,9 @@ PODS:
     - nanopb/encode (= 3.30910.0)
   - nanopb/decode (3.30910.0)
   - nanopb/encode (3.30910.0)
-  - PromisesObjC (2.4.0)
-  - PurchasesHybridCommon (17.53.0):
-    - RevenueCat (= 5.66.0)
-  - PurchasesHybridCommonUI (17.53.0):
-    - PurchasesHybridCommon (= 17.53.0)
-    - RevenueCatUI (= 5.66.0)
+  - PromisesObjC (2.4.1)
+  - PurchasesHybridCommon (19.0.0):
+    - RevenueCat (= 5.89.0)
   - RCTDeprecation (0.83.2)
   - RCTRequired (0.83.2)
   - RCTSwiftUI (0.83.2)
@@ -2196,9 +2193,7 @@ PODS:
     - React-utils (= 0.83.2)
     - ReactNativeDependencies
   - ReactNativeDependencies (0.83.2)
-  - RevenueCat (5.66.0)
-  - RevenueCatUI (5.66.0):
-    - RevenueCat (= 5.66.0)
+  - RevenueCat (5.89.0)
   - RNCAsyncStorage (2.2.0):
     - hermes-engine
     - RCTRequired
@@ -2338,11 +2333,8 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - RNPaywalls (9.15.0):
-    - PurchasesHybridCommonUI (= 17.53.0)
-    - React-Core
-  - RNPurchases (9.15.0):
-    - PurchasesHybridCommon (= 17.53.0)
+  - RNPurchases (10.10.0):
+    - PurchasesHybridCommon (= 19.0.0)
     - React-Core
   - RNSVG (15.15.3):
     - hermes-engine
@@ -2502,8 +2494,7 @@ DEPENDENCIES:
   - "RNFBApp (from `../node_modules/.pnpm/@react-native-firebase+app@24.0.0_@react-native-async-storage+async-storage@2.2.0_react_eff8b7b1757e7b2988d236a2c816510c/node_modules/@react-native-firebase/app`)"
   - "RNFBRemoteConfig (from `../node_modules/.pnpm/@react-native-firebase+remote-config@24.0.0_@react-native-firebase+analytics@24.0.0_pat_ea61f90ecdcc5e052f7cbf2671222cfd/node_modules/@react-native-firebase/remote-config`)"
   - "RNGestureHandler (from `../node_modules/.pnpm/react-native-gesture-handler@2.28.0_react-native@0.83.2_@babel+core@7.29.0_@types+react_39a3dec273940aea89a07e376461b2c8/node_modules/react-native-gesture-handler`)"
-  - "RNPaywalls (from `../node_modules/.pnpm/react-native-purchases-ui@9.15.0_react-native-purchases@9.15.0_react-native@0.83.2_@bab_b20d81c85b4aa15aaa997918b5e7efd3/node_modules/react-native-purchases-ui`)"
-  - "RNPurchases (from `../node_modules/.pnpm/react-native-purchases@9.15.0_react-native@0.83.2_@babel+core@7.29.0_@types+react@19.2.14_react@19.2.0__react@19.2.0/node_modules/react-native-purchases`)"
+  - "RNPurchases (from `../node_modules/.pnpm/react-native-purchases@10.10.0_react-native@0.83.2_@babel+core@7.29.0_@types+react@19.2.14_react@19.2.0__react@19.2.0/node_modules/react-native-purchases`)"
   - "RNSVG (from `../node_modules/.pnpm/react-native-svg@15.15.3_react-native@0.83.2_@babel+core@7.29.0_@types+react@19.2.14_react@19.2.0__react@19.2.0/node_modules/react-native-svg`)"
   - "Yoga (from `../node_modules/.pnpm/react-native@0.83.2_@babel+core@7.29.0_@types+react@19.2.14_react@19.2.0/node_modules/react-native/ReactCommon/yoga`)"
 
@@ -2523,9 +2514,7 @@ SPEC REPOS:
     - nanopb
     - PromisesObjC
     - PurchasesHybridCommon
-    - PurchasesHybridCommonUI
     - RevenueCat
-    - RevenueCatUI
 
 EXTERNAL SOURCES:
   EXConstants:
@@ -2747,10 +2736,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/.pnpm/@react-native-firebase+remote-config@24.0.0_@react-native-firebase+analytics@24.0.0_pat_ea61f90ecdcc5e052f7cbf2671222cfd/node_modules/@react-native-firebase/remote-config"
   RNGestureHandler:
     :path: "../node_modules/.pnpm/react-native-gesture-handler@2.28.0_react-native@0.83.2_@babel+core@7.29.0_@types+react_39a3dec273940aea89a07e376461b2c8/node_modules/react-native-gesture-handler"
-  RNPaywalls:
-    :path: "../node_modules/.pnpm/react-native-purchases-ui@9.15.0_react-native-purchases@9.15.0_react-native@0.83.2_@bab_b20d81c85b4aa15aaa997918b5e7efd3/node_modules/react-native-purchases-ui"
   RNPurchases:
-    :path: "../node_modules/.pnpm/react-native-purchases@9.15.0_react-native@0.83.2_@babel+core@7.29.0_@types+react@19.2.14_react@19.2.0__react@19.2.0/node_modules/react-native-purchases"
+    :path: "../node_modules/.pnpm/react-native-purchases@10.10.0_react-native@0.83.2_@babel+core@7.29.0_@types+react@19.2.14_react@19.2.0__react@19.2.0/node_modules/react-native-purchases"
   RNSVG:
     :path: "../node_modules/.pnpm/react-native-svg@15.15.3_react-native@0.83.2_@babel+core@7.29.0_@types+react@19.2.14_react@19.2.0__react@19.2.0/node_modules/react-native-svg"
   Yoga:
@@ -2798,12 +2785,11 @@ SPEC CHECKSUMS:
   FirebaseRemoteConfigInterop: a169873f4093b241eb5e27a4fbad91af36d64b8d
   FirebaseSharedSwift: 3d1e448b7202e36821a492941c84592d1308ea14
   GoogleAppMeasurement: 57270ccc2b77472d7e85c4cbe45972564eff78bb
-  GoogleUtilities: 00c88b9a86066ef77f0da2fab05f65d7768ed8e1
-  hermes-engine: 54ebc949cd8414aa531c1ec46ed16028c3de9a2c
+  GoogleUtilities: 4e0c2ad9fa0d0d18b5c4df8bf57b461cba35b0bb
+  hermes-engine: a8ad211dc02648720142f5c3e1704b377e444d72
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
-  PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
-  PurchasesHybridCommon: 53d966ac5c39df13c3c759289bb3ef3e2f9f1622
-  PurchasesHybridCommonUI: c9ac2debefc5a098cfeca28bf05a9602eb49cb32
+  PromisesObjC: 752c3227f599e3467650e47ea36f433eeb10c273
+  PurchasesHybridCommon: 526db4f4895166e57ae866b3daeb0025030f84bd
   RCTDeprecation: a522c536d2c7be8f518dd834883cf6dce1d4f545
   RCTRequired: 44337def23abb244c025e9e7ab58f9cd3d63ec7d
   RCTSwiftUI: b2f0c2f2761631b8cd605767536cbb1cbf8d020f
@@ -2812,7 +2798,7 @@ SPEC CHECKSUMS:
   React: f4edc7518ccb0b54a6f580d89dd91471844b4990
   React-callinvoker: 79ef4e3f1c021571f6d2dafbe45ca432b2f3a146
   React-Core: c19ad4660fd48bc8abc060d979f8ee37f1fc4a5a
-  React-Core-prebuilt: 5069aa2d9bd4fa0ced70f635fc1c12edf24f7c2e
+  React-Core-prebuilt: 27fa85706c7b697d941ecfea1960575778c47b24
   React-CoreModules: f94ec3ee2bac588d033ad15a2377af746284f8c8
   React-cxxreact: de66364f2d5fb77d3da3cfa927b2fd960892c711
   React-debug: b6bbe2625010ac0cb0141096dc291fe064e648a4
@@ -2874,17 +2860,15 @@ SPEC CHECKSUMS:
   ReactAppDependencyProvider: d69159b417e8c9d82b8fe4d0a27def4c3e8f767f
   ReactCodegen: 492350e354f3080b60fd65ca6e67e254a15bb21c
   ReactCommon: 8868269b67561136a7970be188b40738135af077
-  ReactNativeDependencies: eb9dca7f46bc8bbed4b1fb6325dd251d3a3c5d70
-  RevenueCat: a3cf721ad8b1b56a930d748a40342aba16c09bbb
-  RevenueCatUI: 1091be7f4e7eb6068bc0c78d470af3a2a19d3a49
+  ReactNativeDependencies: caae2b5c60ac53f3c8cec444800e2523f5abee39
+  RevenueCat: 5e390c204dafb3ceeff76ade29bf295b952e6681
   RNCAsyncStorage: c8407cc394627a3a4cf56b457d594bfa822b6ab8
   RNCMaskedView: ee2fc4739eb35be50bcf4f95daca19f316b5d50c
   RNFBAnalytics: b50d6e12060587201ec541e602a5c7c449e03321
   RNFBApp: a600bd13799bb4d8268a1d9b37b032e6e3a3f2e2
   RNFBRemoteConfig: 126c77fe5bb9b254d56a4ff49f034af2d5235733
   RNGestureHandler: 2035ca7782686a26e220c2bac4e01af3264fef41
-  RNPaywalls: ce7defe6876f9d3952ea230b9ada67363925ec5f
-  RNPurchases: f3384f8db42ad8abb7525b13c2ecb9bd2a443102
+  RNPurchases: 11d5e6e80a5b1ae278e4ed385db196fa384e7503
   RNSVG: 0f9847106cff58a2017ee4f2ddf191efe83c0c9f
   Yoga: ee2c4c95104c844da138a67d1155f2cc02b00051
 
