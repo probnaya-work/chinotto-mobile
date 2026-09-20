@@ -13,7 +13,7 @@
  * desktop/mobile transition is over.
  */
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, View } from 'react-native';
 import { randomUUID } from 'expo-crypto';
 import Constants from 'expo-constants';
@@ -30,6 +30,12 @@ import {
   subscribeVoiceCapture,
 } from './src/features/voiceCapture/NativeVoiceCapture';
 import { getDatabase } from './storage/db';
+import { getRuntimeAppVersion, useAppUpdateCheck } from './src/services/appUpdate/useAppUpdateCheck';
+import {
+  getCurrentAppIconVariantId,
+  setCurrentAppIconVariantId,
+} from './src/services/icons/appIcon';
+import { parseWidgetDeepLink } from './widgets/parseWidgetDeepLink';
 import { isFirebaseSyncConfigured } from './sync/firebaseConfig';
 import { getOrInitAuth } from './sync/firebaseAuth';
 import { isSyncAccessBlocked } from './monetization/syncAccessPolicy';
@@ -38,7 +44,7 @@ import { enqueueSyncTombstoneWithDb } from './sync/tombstoneOutbox';
 import { addFirestoreIngestSuppressionWithDb } from './sync/ingestSuppression';
 import type { RecordDb } from './record/db';
 
-const APP_VERSION = (Constants.expoConfig?.version as string | undefined) ?? '2.0.0';
+const APP_VERSION = getRuntimeAppVersion();
 
 /**
  * What this device calls itself, for the device list.
@@ -59,6 +65,31 @@ const voiceEngine: VoiceEngine = {
 
 export default function RecordRoot() {
   const [db, setDb] = useState<SQLiteDatabase | null>(null);
+
+  // The real gate, from remote config. `forced` is the one blocking surface the product
+  // has, and it is not something to guess at: until this says otherwise, nothing is claimed.
+  const { gate, dismissSoft } = useAppUpdateCheck({ enabled: true });
+
+  const [icon, setIcon] = useState<'dark' | 'light'>('dark');
+  useEffect(() => {
+    void getCurrentAppIconVariantId().then(setIcon);
+  }, []);
+  const chooseIcon = useCallback((next: 'dark' | 'light') => {
+    setIcon(next);
+    void setCurrentAppIconVariantId(next);
+  }, []);
+
+  /** The widget and the scheme both mean one thing: put the caret in the field. */
+  const [voiceOnOpen, setVoiceOnOpen] = useState(false);
+  useEffect(() => {
+    const handle = (url: string | null) => {
+      const action = parseWidgetDeepLink(url);
+      if (action?.type === 'capture' && action.mode === 'voice') setVoiceOnOpen(true);
+    };
+    void Linking.getInitialURL().then(handle);
+    const sub = Linking.addEventListener('url', (e) => handle(e.url));
+    return () => sub.remove();
+  }, []);
   const { resolvedSharedPayloads, sharedPayloads, clearSharedPayloads } = useIncomingShare();
   // Resolved payloads carry the title and the selection; the raw ones are the fallback when
   // resolution failed or returned nothing.
@@ -97,16 +128,27 @@ export default function RecordRoot() {
       newId: randomUUID,
       deviceName: () => deviceName(),
 
-      // The gate is read from the existing update service; until it reports otherwise,
-      // nothing is claimed.
-      update: { soft: false, forced: false, version: APP_VERSION },
-      openStore: () => void Linking.openURL('itms-apps://apps.apple.com/app/id0'),
+      update: {
+        soft: gate?.kind === 'soft',
+        forced: gate?.kind === 'forced',
+        version: APP_VERSION,
+      },
+      onDismissSoftUpdate: dismissSoft,
+      openStore: () => {
+        const url = gate?.storeUrl;
+        if (url) void Linking.openURL(url);
+      },
       openSystemSettings: () => void Linking.openSettings(),
 
       // Permission is reported by the native module the first time the circle is held; the
       // app asks iOS rather than guessing, so this starts at `ask` and is corrected there.
       microphonePermission: () => 'ask',
       requestMicrophonePermission: () => {},
+
+      icon,
+      onPickIcon: chooseIcon,
+      voiceOnOpen,
+      onVoiceOnOpenHandled: () => setVoiceOnOpen(false),
 
       incomingShare: handledShare.current ? null : (sharePayloads ?? null),
       onShareHandled: () => {
@@ -153,7 +195,7 @@ export default function RecordRoot() {
     };
     // `shareSeen` is in the deps so the payload clears once it has been taken.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [db, sharePayloads, shareSeen]);
+  }, [db, sharePayloads, shareSeen, gate, dismissSoft, icon, chooseIcon, voiceOnOpen]);
 
   // The ink field, from the first frame, so there is never a white flash before the record.
   if (!services) return <View style={{ flex: 1, backgroundColor: SURFACE }} />;

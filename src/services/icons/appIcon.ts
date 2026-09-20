@@ -37,7 +37,8 @@ export async function getCurrentAppIconVariantId(): Promise<AppIconVariantId> {
       }
     }
   }
-  return (await getStoredAppIconVariant()) ?? 'default';
+  // `dark` is the default icon, and the fallback when nothing has been chosen.
+  return (await getStoredAppIconVariant()) ?? 'dark';
 }
 
 export async function setCurrentAppIconVariantId(id: AppIconVariantId): Promise<AppIconVariantId> {

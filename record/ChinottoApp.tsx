@@ -45,7 +45,16 @@ export type Services = {
   deviceName: () => string;
   /** From `resolveUpdateGate`. */
   update: { soft: boolean; forced: boolean; version: string };
+  onDismissSoftUpdate: () => void;
   openStore: () => void;
+
+  /** The home-screen icon, which is a real system setting rather than a preference. */
+  icon: 'dark' | 'light';
+  onPickIcon: (icon: 'dark' | 'light') => void;
+
+  /** The widget's `mode=voice` deep link: open listening rather than typing. */
+  voiceOnOpen: boolean;
+  onVoiceOnOpenHandled: () => void;
   openSystemSettings: () => void;
   microphonePermission: () => 'granted' | 'ask' | 'denied';
   requestMicrophonePermission: () => void;
@@ -74,7 +83,6 @@ export function ChinottoApp({ services }: { services: Services }) {
 
   const [appearance, setAppearance] = useState<'system' | 'light' | 'dark'>('system');
   const [sunOn, setSunOn] = useState(false);
-  const [icon, setIcon] = useState<'dark' | 'light'>('dark');
   const [analyticsOn, setAnalyticsOn] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [deleteArmed, setDeleteArmed] = useState(false);
@@ -170,6 +178,18 @@ export function ChinottoApp({ services }: { services: Services }) {
     }, 100);
     return () => clearInterval(id);
   }, [recording !== null]);
+
+  /**
+   * The widget's circle opens the app already listening. Held until the fonts are up so the
+   * first frame is not a half-drawn surface behind a recording.
+   */
+  useEffect(() => {
+    if (!services.voiceOnOpen || !fontsReady) return;
+    services.onVoiceOnOpenHandled();
+    const id = setTimeout(() => void startVoice(), 320);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [services.voiceOnOpen, fontsReady]);
 
   const startVoice = useCallback(async () => {
     recordingStartedAt.current = Date.now();
@@ -280,7 +300,10 @@ export function ChinottoApp({ services }: { services: Services }) {
             setUpdateDismissed(true);
             services.openStore();
           },
-          onLater: () => setUpdateDismissed(true),
+          onLater: () => {
+            setUpdateDismissed(true);
+            services.onDismissSoftUpdate();
+          },
         }}
       />
 
@@ -297,8 +320,8 @@ export function ChinottoApp({ services }: { services: Services }) {
           setAppearance={setAppearance}
           sunOn={sunOn}
           setSunOn={setSunOn}
-          icon={icon}
-          setIcon={setIcon}
+          icon={services.icon}
+          setIcon={services.onPickIcon}
           analyticsOn={analyticsOn}
           setAnalyticsOn={setAnalyticsOn}
           privacyOpen={privacyOpen}

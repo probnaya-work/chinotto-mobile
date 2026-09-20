@@ -11,7 +11,9 @@ jest.mock('../firebaseAuth', () => ({
   getOrInitAuth: jest.fn(),
 }));
 
-const mockInitFirestore = jest.fn((..._args: unknown[]) => undefined as never);
+// Returns `unknown` rather than `never` so a mocked Firestore can actually be handed back;
+// `never` made `mockReturnValue(db)` unassignable.
+const mockInitFirestore = jest.fn((..._args: unknown[]): unknown => undefined);
 const mockGetFirestore = jest.fn((..._args: unknown[]) => fallbackDb);
 
 jest.mock('firebase/firestore', () => ({
