@@ -223,6 +223,10 @@ export function Focus(props: FocusProps) {
             <TextInput
               accessibilityLabel="a new moment, dated now"
               autoFocus
+              // Chinotto keeps the casing somebody chose. `dinner friday` is how they wrote
+              // it, and iOS turning it into `Dinner friday` is the product overruling them
+              // about their own words. Autocorrection stays — only the capitalising goes.
+              autoCapitalize="none"
               multiline
               value={props.continueText}
               onChangeText={props.onChangeContinueText}
@@ -339,6 +343,7 @@ function Moment({
           <TextInput
             accessibilityLabel="correct the wording"
             autoFocus
+            autoCapitalize="none"
             multiline
             value={props.editText}
             onChangeText={props.onChangeEditText}

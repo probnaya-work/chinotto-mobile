@@ -237,8 +237,11 @@ const CaptureField = React.forwardRef<TextInput, TextInputProps>(function Captur
       returnKeyType="done"
       submitBehavior="submit"
       spellCheck={false}
+      // Autocorrection stays — it is useful. Capitalisation does not: Chinotto keeps the
+      // casing somebody chose, and `dinner friday` becoming `Dinner friday` is the product
+      // overruling them about their own words.
       autoCorrect
-      autoCapitalize="sentences"
+      autoCapitalize="none"
       selectionColor={ink.ink}
       style={[
         type({ size: edge.fieldSize, width: 100, lineHeight: 1.3, tracking: -0.01 }),

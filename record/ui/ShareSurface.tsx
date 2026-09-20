@@ -91,6 +91,7 @@ export function ShareSurface(props: ShareSurfaceProps) {
       <View style={{ position: 'absolute', left: 24, right: 24, bottom: 40, gap: 18 }}>
         <TextInput
           accessibilityLabel="a word about it, or not"
+          autoCapitalize="none"
           multiline
           value={props.words}
           onChangeText={props.onChangeWords}
