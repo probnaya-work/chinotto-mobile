@@ -67,6 +67,9 @@ importers:
       expo-dev-client:
         specifier: ~55.0.18
         version: 55.0.18(expo@55.0.8)(typescript@5.9.3)
+      expo-file-system:
+        specifier: ~55.0.11
+        version: 55.0.11(expo@55.0.8)(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))
       expo-font:
         specifier: ^55.0.4
         version: 55.0.4(expo@55.0.8)(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0)
