@@ -74,3 +74,6 @@ docs/internal/
 # What we commit: source, assets, app.json, pnpm-lock.yaml, docs, scripts, ios/.
 # What stays local: node_modules, .expo, android/ prebuild output (if untracked), env files, logs, coverage,
 # INTERNAL_*.
+
+# fontTools output is generated from @fontsource-variable/archivo by `pnpm generate:fonts`,
+# but the instances ARE committed: a build must not depend on a python toolchain.

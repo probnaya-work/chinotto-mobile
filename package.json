@@ -12,7 +12,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "typecheck": "tsc --noEmit",
-    "generate:icons": "node scripts/generate-app-icons.mjs"
+    "generate:icons": "node scripts/generate-app-icons.mjs",
+    "generate:fonts": "python3 scripts/generate-archivo-instances.py"
   },
   "dependencies": {
     "@expo/ui": "^55.0.5",
@@ -52,6 +53,7 @@
     "react-native-svg": "15.15.3"
   },
   "devDependencies": {
+    "@fontsource-variable/archivo": "^5.3.0",
     "@testing-library/react-native": "^13.3.3",
     "@types/jest": "^29.5.14",
     "@types/react": "~19.2.2",
