@@ -163,19 +163,23 @@ export function Edge(props: EdgeProps) {
               />
 
               {props.findSummary ? (
-                <Text
-                  style={[
-                    type({ size: 12, width: 90, color: ink.meta }),
-                    { paddingBottom: 22 },
-                  ]}
-                  numberOfLines={1}
+                // The reading is a verb, not a label — pressing it changes what Find does —
+                // so the whole summary is the target rather than two words of 12pt type.
+                <Pressable
+                  onPress={props.onToggleMeaning}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${props.findSummary} · change the reading`}
+                  hitSlop={{ top: 14, bottom: 14, left: 10, right: 10 }}
+                  style={{ paddingBottom: 22 }}
                 >
-                  {props.findSummary.split(' · ')[0]}
-                  {' · '}
-                  <Text onPress={props.onToggleMeaning} style={{ color: ink.verb }}>
-                    {props.findSummary.split(' · ')[1]}
+                  <Text style={type({ size: 12, width: 90, color: ink.meta })} numberOfLines={1}>
+                    {props.findSummary.split(' · ')[0]}
+                    {' · '}
+                    <Text style={{ color: ink.verb }}>
+                      {props.findSummary.split(' · ')[1]}
+                    </Text>
                   </Text>
-                </Text>
+                </Pressable>
               ) : null}
 
               {showSend ? (

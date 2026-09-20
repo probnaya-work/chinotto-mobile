@@ -418,6 +418,13 @@ describe('the record surface', () => {
     await waitFor(() => expect(screen.getByText('in words')).toBeTruthy());
     expect(screen.getByText('the shared folder has three versions')).toBeTruthy();
     expect(screen.queryByText('ferry back is 16:40')).toBeNull();
+
+    // The reading is a verb: pressing it changes what Find is doing, and it says so.
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText(/change the reading/));
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(screen.getByText('by meaning')).toBeTruthy());
     h.db.close();
   });
 

@@ -106,12 +106,18 @@ export const hay = (m: Material): string =>
  * Mobile has two sources desktop cannot produce. They are named rather than flattened to
  * `typed`, for the reason desktop gave when it made the same call for the menu bar
  * (their 0.8): a source the product has and then does not show is a gap nobody notices again.
+ *
+ * `carried over` is the one that matters most here, because it is the one the record does
+ * **not** know. A v1 entry arrives with a body and a date and nothing else — the old model
+ * had no notion of how anything was captured — so calling it `typed` would be the record
+ * stating something it was never told. Four years of somebody's material would all claim to
+ * have been typed, including whatever they spoke.
  */
 export const sourceOf = (m: Material): string => {
   if (isVoice(m)) return 'voice';
   if (m.origin === 'widget') return 'widget';
   if (m.origin === 'share' || m.method === 'shared') return 'shared';
-  if (m.method === 'imported') return m.origin === 'desktop' ? 'the mac' : 'typed';
+  if (m.method === 'imported') return m.origin === 'desktop' ? 'the mac' : 'carried over';
   return 'typed';
 };
 

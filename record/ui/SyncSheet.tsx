@@ -84,6 +84,17 @@ export type SyncSheetProps = {
 const body = type({ size: 16, width: 94, lineHeight: 1.4, color: ink.near });
 const quiet = type({ size: 14, width: 90, lineHeight: 1.4, color: ink.meta });
 
+/**
+ * A standalone link that can actually be hit.
+ *
+ * Fourteen-point text is about twenty points tall, and `restore a purchase` is on the one
+ * surface where missing costs somebody money or a subscription they already own. The padding
+ * grows the touch target to the platform's forty-four; the negative margin gives the space
+ * back, so nothing moves. Links that sit *inside* a sentence are left alone — they belong to
+ * the line they are in, and cannot be boxed without breaking it.
+ */
+const linkPad = { paddingVertical: 12, marginVertical: -12 } as const;
+
 export function SyncSheet(props: SyncSheetProps) {
   const pendingLine = props.pending === 1 ? '1 moment is' : `${props.pending} moments are`;
 
@@ -203,12 +214,12 @@ function Plan(props: SyncSheetProps) {
       <Filled label={props.planCta} onPress={props.onContinueWithPlan} />
 
       <View style={{ flexDirection: 'row', gap: 18, flexWrap: 'wrap' }}>
-        <Text onPress={props.onRestore} style={quiet}>
+        <Text onPress={props.onRestore} style={[quiet, linkPad]}>
           restore a purchase
         </Text>
         <Text style={quiet}>terms</Text>
         <Text style={quiet}>privacy</Text>
-        <Text onPress={props.onClose} style={[quiet, { marginLeft: 'auto' }]}>
+        <Text onPress={props.onClose} style={[quiet, linkPad, { marginLeft: 'auto' }]}>
           not now
         </Text>
       </View>
@@ -344,10 +355,10 @@ function On(props: SyncSheetProps & { pendingLine: string }) {
       </View>
 
       <View style={{ flexDirection: 'row', gap: 18, paddingTop: 8 }}>
-        <Text onPress={props.onAskStop} style={quiet}>
+        <Text onPress={props.onAskStop} style={[quiet, linkPad]}>
           stop syncing on this phone
         </Text>
-        <Text onPress={props.onClose} style={[quiet, { marginLeft: 'auto', color: ink.ink }]}>
+        <Text onPress={props.onClose} style={[quiet, linkPad, { marginLeft: 'auto', color: ink.ink }]}>
           done
         </Text>
       </View>
@@ -381,7 +392,7 @@ function SignInExpired(props: SyncSheetProps & { pendingLine: string }) {
         {`this phone’s sign-in expired ${props.errorWhen}. nothing was lost — ${props.pendingLine} waiting here, and the mac kept going.`}
       </Text>
       <Filled label="sign in again" onPress={props.onSignInAgain} />
-      <Text onPress={props.onAskStop} style={quiet}>
+      <Text onPress={props.onAskStop} style={[quiet, linkPad]}>
         or stop syncing on this phone
       </Text>
     </View>
