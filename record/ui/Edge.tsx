@@ -121,26 +121,7 @@ export function Edge(props: EdgeProps) {
           }}
         >
           {recording ? (
-            <>
-              <View style={{ flex: 1 }} />
-              <Pressable
-                onPressOut={props.onStopRecording}
-                accessibilityRole="button"
-                accessibilityLabel="stop recording"
-                style={{
-                  width: edge.micRecordingSize,
-                  height: edge.micRecordingSize,
-                  borderRadius: edge.micRecordingSize / 2,
-                  backgroundColor: ink.ink,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <View
-                  style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: SURFACE }}
-                />
-              </Pressable>
-            </>
+            <View style={{ flex: 1 }} />
           ) : props.anchored ? (
             <Text
               onPress={props.onClearAnchor}
@@ -208,31 +189,54 @@ export function Edge(props: EdgeProps) {
                   <Text style={{ fontFamily: face(100), fontSize: 20, color: SURFACE }}>↑</Text>
                 </Pressable>
               ) : null}
-
-              {showMic ? (
-                <Pressable
-                  onPressIn={props.onStartRecording}
-                  onPressOut={props.onStopRecording}
-                  accessibilityRole="button"
-                  accessibilityLabel="hold to speak"
-                  style={{
-                    width: edge.micSize,
-                    height: edge.micSize,
-                    borderRadius: edge.micSize / 2,
-                    borderWidth: 1.5,
-                    borderColor: ink.ink,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginBottom: 4,
-                  }}
-                >
-                  <View
-                    style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: ink.ink }}
-                  />
-                </Pressable>
-              ) : null}
             </>
           )}
+
+          {/*
+            One circle, across both states, and never swapped for another one.
+            "Hold to speak, release to leave it" is a single touch: pressing it starts the
+            recording, which is also what changes how it looks. Drawing the speaking state
+            as a *different* Pressable unmounted the element the finger was on, so the
+            release landed on nothing and the recording ran on after the hand was gone. A
+            tap on the new circle stopped it, which is how it looked like it worked.
+          */}
+          {showMic || recording ? (
+            <Pressable
+              onPressIn={recording ? undefined : props.onStartRecording}
+              onPressOut={props.onStopRecording}
+              accessibilityRole="button"
+              accessibilityLabel={recording ? 'stop recording' : 'hold to speak'}
+              style={
+                recording
+                  ? {
+                      width: edge.micRecordingSize,
+                      height: edge.micRecordingSize,
+                      borderRadius: edge.micRecordingSize / 2,
+                      backgroundColor: ink.ink,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }
+                  : {
+                      width: edge.micSize,
+                      height: edge.micSize,
+                      borderRadius: edge.micSize / 2,
+                      borderWidth: 1.5,
+                      borderColor: ink.ink,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginBottom: 4,
+                    }
+              }
+            >
+              <View
+                style={
+                  recording
+                    ? { width: 14, height: 14, borderRadius: 7, backgroundColor: SURFACE }
+                    : { width: 12, height: 12, borderRadius: 6, backgroundColor: ink.ink }
+                }
+              />
+            </Pressable>
+          ) : null}
         </View>
       </Animated.View>
     </>

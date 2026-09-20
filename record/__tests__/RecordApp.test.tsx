@@ -49,10 +49,9 @@ const defaults = {
   update: { soft: false, onUpdate: jest.fn(), onLater: jest.fn() },
 };
 
-async function mount(
-  h: ReturnType<typeof harness>,
-  over: Partial<typeof defaults> = {}
-) {
+type AppProps = React.ComponentProps<typeof RecordApp>;
+
+async function mount(h: ReturnType<typeof harness>, over: Partial<AppProps> = {}) {
   const view = render(
     <RecordApp store={h.store} bridge={h.bridge} {...defaults} {...over} />
   );
@@ -159,6 +158,44 @@ describe('the record surface', () => {
     // left voice unreachable for good, because nothing else ever asks.
     expect(voice.start).toHaveBeenCalled();
     expect(screen.getByText(/ios will ask once/)).toBeTruthy();
+    h.db.close();
+  });
+
+  it('keeps one circle across both states, so the release reaches it', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const voice = { ...defaults.voice, start: jest.fn(async () => true), stop: jest.fn(async () => {}) };
+    const view = await mount(h, { voice });
+
+    // The element the finger goes down on.
+    const circle = screen.getByLabelText('hold to speak');
+    await act(async () => {
+      fireEvent(circle, 'pressIn');
+      await Promise.resolve();
+    });
+    expect(voice.start).toHaveBeenCalled();
+
+    // Recording starts, which is also what changes how the circle looks.
+    await act(async () => {
+      view.rerender(
+        <RecordApp
+          store={h.store}
+          bridge={h.bridge}
+          {...defaults}
+          voice={{ ...voice, state: { seconds: 1, transcript: '' } }}
+        />
+      );
+      await Promise.resolve();
+    });
+
+    // The same element, still there. Drawing the speaking state as a different Pressable
+    // unmounted the one the finger was on, and the release landed on nothing.
+    expect(circle.props.accessibilityLabel).toBe('stop recording');
+    await act(async () => {
+      fireEvent(circle, 'pressOut');
+      await Promise.resolve();
+    });
+    expect(voice.stop).toHaveBeenCalled();
     h.db.close();
   });
 
