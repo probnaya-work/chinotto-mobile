@@ -208,6 +208,11 @@ for (const stale of ['Violet', 'Cyan', 'Orange', 'Gradient', 'Light']) {
   rmSync(join(xcassets, `${stale}AppIcon.appiconset`), { recursive: true, force: true });
 }
 
+// An older Expo template named the marketing icon `App-Icon-1024x1024@1x.png`. Nothing in
+// `Contents.json` has referenced it since, so it was sitting in the catalog carrying the old
+// four-dot mark and being compiled into the bundle for no reason.
+rmSync(join(xcassets, 'AppIcon.appiconset', 'App-Icon-1024x1024@1x.png'), { force: true });
+
 // `dark` is the primary icon, so it is written as `AppIcon` and NOT also as a named
 // alternate — an extra set nothing can select would still be compiled into the bundle.
 // `light` is the only alternate, which is exactly what `iconVariants.ts` declares and what
