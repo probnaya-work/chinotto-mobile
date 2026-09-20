@@ -15,10 +15,10 @@ private let CHINOTTO_BRAND_ELEVATED = Color(
 private let WIDGET_THOUGHTS_APP_GROUP_ID = "group.com.chinotto.mobile"
 private let WIDGET_THOUGHTS_KEY = "chinotto_widget_recent_thoughts_v1"
 
-/// Mid stop of app headline text gradient (`theme.ts` `chinottoHeadlineTextGradient`); widget-only mark tint.
-private let chinottoLogoMarkCore = Color(red: 198 / 255, green: 206 / 255, blue: 1).opacity(0.92)
-private let chinottoLogoMarkLifted = Color(red: 198 / 255, green: 206 / 255, blue: 1).opacity(0.96)
-private let chinottoLogoMarkGlow = Color(red: 198 / 255, green: 206 / 255, blue: 1).opacity(0.22)
+/// The mark is ink on the widget's field — no tint of its own, and no glow.
+/// "Chinotto - Identity" asset 02, and its inventory row for this file: the periwinkle
+/// triple and its glow shadow go, ink and paper only.
+private let chinottoLogoMarkInk = Color(red: 230 / 255, green: 230 / 255, blue: 227 / 255)
 
 /// Capture header trio (all sizes): more air logo→title, title + tagline tighter together.
 private let smallLogoToCaptureGap: CGFloat = 18
@@ -160,7 +160,7 @@ private struct CaptureHomeWidgetView: View {
   private var mediumLayout: some View {
     VStack(alignment: .leading, spacing: 0) {
       HStack(alignment: .center, spacing: 10) {
-        ChinottoLogoMark(size: mediumLogoSize, brandLift: true)
+        ChinottoLogoMark(size: mediumLogoSize)
 
         mediumCaptureActionLine
       }
@@ -289,7 +289,7 @@ private struct CaptureHomeWidgetView: View {
         VStack(alignment: .leading, spacing: 0) {
           VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .center, spacing: 10) {
-              ChinottoLogoMark(size: largeLogoSize, brandLift: true)
+              ChinottoLogoMark(size: largeLogoSize)
               largeCaptureActionLine
             }
           }
@@ -454,46 +454,50 @@ private func readWidgetThoughts() -> [WidgetThought] {
   }
 }
 
+/// The Chinotto mark at the widget's rung.
+///
+/// "Chinotto - Identity" asset 05 is a ladder, not one drawing: ≥40px is three dots at
+/// stroke 2.5, 24–39px is two dots at stroke 3.5, ≤20px is one dot at stroke 6. Each step is
+/// drawn rather than scaled, and picking the wrong rung is the only way to get this wrong.
+///
+/// The widget takes the **two-dot rung**, which the Identity project states for this surface
+/// directly: "the widget takes the 22pt rung — two dots — because the ring's thin stroke
+/// breaks in a widget's dimmed render." Every size below (21, 22, 30) sits in that band, so
+/// there is no second rung to choose here.
+///
+/// Ratios are the design's 64-unit geometry divided by 64: ring r28 stroke 3.5, a dot of r9
+/// centred at y=23, and a dot of r5 centred at y=40.
 private struct ChinottoLogoMark: View {
   let size: CGFloat
-  /// Medium / Large only: subtle lift without changing Small’s default look.
-  var brandLift: Bool = false
 
-  private var markColor: Color {
-    brandLift ? chinottoLogoMarkLifted : chinottoLogoMarkCore
-  }
+  // Ring: r28 of 64 is a diameter of 0.875; stroke 3.5 of 64.
+  private static let ringDiameter: CGFloat = 0.875
+  private static let ringStroke: CGFloat = 3.5 / 64
+
+  // Upper dot: r9 at y=23 — diameter 18/64, centre (23 - 32)/64 above the middle.
+  private static let upperDotDiameter: CGFloat = 18.0 / 64
+  private static let upperDotOffset: CGFloat = -9.0 / 64
+
+  // Lower dot: r5 at y=40 — diameter 10/64, centre (40 - 32)/64 below the middle.
+  private static let lowerDotDiameter: CGFloat = 10.0 / 64
+  private static let lowerDotOffset: CGFloat = 8.0 / 64
 
   var body: some View {
     ZStack {
-      // Drawn on a 64-unit grid. NOTE: these are the superseded four-dot proportions
-      // (r6@20, r5@22/42,34, r4@44, stroke 2); the current mark is three dots receding
-      // down a column (r8@23, r4.5@38, r2.5@47.5, stroke 3) — see assets/chinotto-icon.svg.
-      // The widget has not been redrawn to it.
       Circle()
-        .stroke(markColor, lineWidth: max(1.2, size * 0.032))
-        .frame(width: size * 0.875, height: size * 0.875)
+        .stroke(chinottoLogoMarkInk, lineWidth: size * Self.ringStroke)
+        .frame(width: size * Self.ringDiameter, height: size * Self.ringDiameter)
 
       Circle()
-        .fill(markColor)
-        .frame(width: size * 0.1875, height: size * 0.1875)
-        .offset(y: -size * 0.1875)
+        .fill(chinottoLogoMarkInk)
+        .frame(width: size * Self.upperDotDiameter, height: size * Self.upperDotDiameter)
+        .offset(y: size * Self.upperDotOffset)
 
       Circle()
-        .fill(markColor)
-        .frame(width: size * 0.15625, height: size * 0.15625)
-        .offset(x: -size * 0.15625, y: size * 0.03125)
-
-      Circle()
-        .fill(markColor)
-        .frame(width: size * 0.15625, height: size * 0.15625)
-        .offset(x: size * 0.15625, y: size * 0.03125)
-
-      Circle()
-        .fill(markColor)
-        .frame(width: size * 0.125, height: size * 0.125)
-        .offset(y: size * 0.1875)
+        .fill(chinottoLogoMarkInk)
+        .frame(width: size * Self.lowerDotDiameter, height: size * Self.lowerDotDiameter)
+        .offset(y: size * Self.lowerDotOffset)
     }
     .frame(width: size, height: size, alignment: .center)
-    .shadow(color: brandLift ? chinottoLogoMarkGlow : .clear, radius: 6, x: 0, y: 0)
   }
 }
