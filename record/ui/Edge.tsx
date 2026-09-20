@@ -74,9 +74,21 @@ export type EdgeProps = {
    * it has simply been given a different floor.
    */
   keyboardInset: Animated.Value;
+
+  /**
+   * How tall the edge actually is, reported whenever that changes.
+   *
+   * The record reserves this much above the keyboard. It has to be measured rather than
+   * assumed: the edge is one row when it is idle, taller with every notice stacked over it,
+   * and taller again as the field grows with the words in it. A constant reserved the
+   * height of the quietest case and the edge — opaque, and in front — covered the newest
+   * material in every other one.
+   */
+  onHeightChange?: (height: number) => void;
 };
 
 export function Edge(props: EdgeProps) {
+  const reportedHeight = useRef(0);
   const recording = props.recording !== null;
   const showCaret = !props.input && !props.focused && !props.anchored && !recording;
   const showSend = Boolean(props.input) && !props.input.startsWith('/') && !props.anchored;
@@ -87,6 +99,15 @@ export function Edge(props: EdgeProps) {
       {recording ? <SpeakingVeil recording={props.recording!} /> : null}
 
       <Animated.View
+        testID="edge"
+        onLayout={(e) => {
+          const height = e.nativeEvent.layout.height;
+          // Sub-pixel churn is not a change anybody can see, and passing it on would
+          // re-render the record on every keystroke that does not move a line.
+          if (Math.abs(height - reportedHeight.current) < 0.5) return;
+          reportedHeight.current = height;
+          props.onHeightChange?.(height);
+        }}
         style={{
           position: 'absolute',
           left: 0,

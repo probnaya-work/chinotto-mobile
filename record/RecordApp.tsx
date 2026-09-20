@@ -80,6 +80,14 @@ export function RecordApp(props: RecordAppProps) {
   const reducedMotion = useReducedMotion();
   const keyboardInset = useKeyboardInset();
 
+  /**
+   * How tall the edge is right now, so the record can stop short of it.
+   *
+   * Starts at the design's own figure — the height of an idle edge — and is corrected by
+   * the first layout, so nothing moves at launch and nothing is covered afterwards.
+   */
+  const [edgeHeight, setEdgeHeight] = useState<number>(frame.bottom);
+
   // Reading again is cheap and being wrong is not: a moment that exists and is not drawn
   // reads as a capture that was lost. The first value is skipped — that is the initial load.
   const changedAt = props.changedAt ?? 0;
@@ -327,6 +335,7 @@ export function RecordApp(props: RecordAppProps) {
 
       <RecordList
         keyboardInset={keyboardInset}
+        edgeHeight={edgeHeight}
         rows={record.rows}
         now={record.now}
         highlight={record.highlight}
@@ -434,6 +443,7 @@ export function RecordApp(props: RecordAppProps) {
         onStopRecording={stopRecording}
         notices={notices}
         keyboardInset={keyboardInset}
+        onHeightChange={setEdgeHeight}
       />
 
       {record.focus ? (

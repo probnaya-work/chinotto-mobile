@@ -68,6 +68,17 @@ export type RecordListProps = {
    * and nothing jumps.
    */
   keyboardInset: Animated.Value;
+
+  /**
+   * How much room the edge is taking right now, measured rather than assumed.
+   *
+   * `frame.bottom` is the height of the quietest possible edge — one empty row. The edge
+   * grows with every notice stacked above it and with every line the capture field gains,
+   * and it is opaque and in front, so reserving the constant meant the newest material was
+   * simply covered: a moment would be cut off mid-line with the undo notice sitting under
+   * the cut. Measuring it is the whole fix; nothing here scrolls or jumps.
+   */
+  edgeHeight?: number;
 };
 
 export function RecordList(props: RecordListProps) {
@@ -179,6 +190,7 @@ export function RecordList(props: RecordListProps) {
     // The viewport. Its floor rises with the keyboard; the list inside simply fills it, so
     // the list itself never learns about keyboards and its scroll offset is never touched.
     <Animated.View
+      testID="record-viewport"
       style={{
         position: 'absolute',
         // Full width, with the gutter as content padding rather than as the viewport's
@@ -189,7 +201,10 @@ export function RecordList(props: RecordListProps) {
         left: 0,
         right: 0,
         top: frame.top,
-        bottom: Animated.add(props.keyboardInset, new Animated.Value(frame.bottom)),
+        bottom: Animated.add(
+          props.keyboardInset,
+          new Animated.Value(Math.max(frame.bottom, props.edgeHeight ?? frame.bottom))
+        ),
       }}
     >
       <FlatList
