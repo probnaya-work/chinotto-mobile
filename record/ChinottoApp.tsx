@@ -410,7 +410,9 @@ export function ChinottoApp({ services }: { services: Services }) {
   /* --------------------------------------------------------------------- share */
 
   useEffect(() => {
-    if (!services.incomingShare) return;
+    // Nothing arrived is not something to handle. Saying it was handled is how a share
+    // gets marked taken before it is made.
+    if (!services.incomingShare || services.incomingShare.length === 0) return;
     const intake = readShare(services.incomingShare);
     services.onShareHandled();
     if (!intake) return;

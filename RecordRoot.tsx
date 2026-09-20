@@ -297,7 +297,8 @@ export default function RecordRoot() {
     const sub = Linking.addEventListener('url', (e) => handle(e.url));
     return () => sub.remove();
   }, []);
-  const { resolvedSharedPayloads, sharedPayloads, clearSharedPayloads } = useIncomingShare();
+  const { resolvedSharedPayloads, sharedPayloads, clearSharedPayloads, refreshSharePayloads } =
+    useIncomingShare();
   // Resolved payloads carry the title and the selection; the raw ones are the fallback when
   // resolution failed or returned nothing.
   const sharePayloads =
@@ -305,13 +306,16 @@ export default function RecordRoot() {
   /**
    * Whether the share currently in hand has already been taken.
    *
-   * It has to be reset, and used not to be: once true it stayed true for the life of the
-   * process, so the *second* thing shared into a running Chinotto was dropped without a
-   * word. The reset is the payloads going empty, which is what `clearSharedPayloads` does
-   * after one is taken — so the next arrival is a new arrival.
+   * It has to be reset, and the reset is the payloads going empty. `clearSharedPayloads`
+   * empties the store the extension writes into, but not the hook's own copy of it — so
+   * this is only true once the hook has re-read the store and found nothing, which is why
+   * `onShareHandled` asks it to. Without that re-read the hook sat holding the last share
+   * forever: the second thing shared into a running Chinotto never looked like an arrival,
+   * and sharing the same page twice never did either.
    */
   const handledShare = useRef(false);
   const [shareSeen, setShareSeen] = useState(0);
+
 
   useEffect(() => {
     if (!sharePayloads || sharePayloads.length === 0) handledShare.current = false;
@@ -375,10 +379,17 @@ export default function RecordRoot() {
       voiceOnOpen,
       onVoiceOnOpenHandled: () => setVoiceOnOpen(false),
 
-      incomingShare: handledShare.current ? null : (sharePayloads ?? null),
+      // An empty list is not a share. It is what the hook holds from the moment it mounts,
+      // and passing it on as one was enough to lose every share the app ever received:
+      // the intake took the nothing, found nothing in it, and said it had been handled —
+      // once, at launch, permanently. Everything shared afterwards arrived already spent.
+      incomingShare:
+        handledShare.current || !sharePayloads?.length ? null : sharePayloads,
       onShareHandled: () => {
         handledShare.current = true;
         clearSharedPayloads?.();
+        // Reading the now-empty store back is what lets the next share be a share.
+        void refreshSharePayloads?.();
         setShareSeen((n) => n + 1);
       },
 
