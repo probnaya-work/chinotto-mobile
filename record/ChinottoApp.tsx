@@ -124,6 +124,20 @@ export function ChinottoApp({ services }: { services: Services }) {
     [services.db, services.legacy]
   );
 
+  /**
+   * The voice controller holds the recording that is currently happening — the id the file
+   * was opened under, and the path it is being written to. It must therefore outlive
+   * anything that is not a new database.
+   *
+   * It used to be rebuilt whenever `bridge` was, and `bridge` is rebuilt whenever the
+   * services object is — which happens the moment the microphone permission becomes known.
+   * That moment is the start of the first recording of every launch. So the controller was
+   * replaced underneath the recording it was holding, the replacement had no pending id,
+   * and when the audio finished it settled into nothing: a file on disk, and no moment.
+   *
+   * `bridge` is reached lazily instead, the same way `onChanged` above reaches it, because
+   * it cannot be called before there is something to mirror.
+   */
   const voice = useMemo(
     () =>
       createVoiceCapture({
@@ -132,7 +146,8 @@ export function ChinottoApp({ services }: { services: Services }) {
         newId: services.newId,
         onCaptured: (m) => void bridge.mirrorFragment(m.id),
       }),
-    [store, bridge, services.voiceEngine, services.newId]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [store, services.voiceEngine, services.newId]
   );
 
   const sync = useSyncSurface(services.syncPorts, bridge);
