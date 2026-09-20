@@ -108,6 +108,58 @@ describe('the record surface', () => {
     h.db.close();
   });
 
+  it('keeps the last letter typed before return', async () => {
+    const h = harness();
+    await migrate(h.db);
+    await mount(h);
+
+    const field = screen.getByLabelText('capture');
+
+    // Return is its own native event, arriving straight after the keystroke before it — so
+    // both land before the surface has re-rendered. The submit handler used to be a render
+    // behind, and dropped that last letter.
+    await act(async () => {
+      fireEvent.changeText(field, 'ferry back');
+      fireEvent(field, 'submitEditing');
+      await Promise.resolve();
+    });
+
+    await waitFor(async () => {
+      const rows = await h.store.loadRecord();
+      expect(rows.map((r) => r.body)).toEqual(['ferry back']);
+    });
+    h.db.close();
+  });
+
+  it('keeps the last letter of a correction, and of a continue', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const m = await h.store.capture({ body: 'ferry at 18:40' });
+    await mount(h);
+
+    // Open the moment, then correct it and press return in the same breath.
+    await act(async () => {
+      fireEvent.press(screen.getByText('ferry at 18:40'));
+      await Promise.resolve();
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByText('correct'));
+      await Promise.resolve();
+    });
+    const field = screen.getByLabelText('correct the wording');
+    await act(async () => {
+      fireEvent.changeText(field, 'ferry at 16:40');
+      fireEvent(field, 'submitEditing');
+      await Promise.resolve();
+    });
+
+    await waitFor(async () => {
+      const rows = await h.store.loadRecord();
+      expect(rows.find((r) => r.id === m.id)?.body).toBe('ferry at 16:40');
+    });
+    h.db.close();
+  });
+
   it('is one line again the moment the words leave it, focus or no focus', async () => {
     const h = harness();
     await migrate(h.db);

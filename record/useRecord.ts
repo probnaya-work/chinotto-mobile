@@ -50,7 +50,25 @@ export function useRecord(
   const [judgements, setJudgements] = useState<Record<string, 'confirmed' | 'rejected'>>({});
   const [ready, setReady] = useState(false);
 
-  const [input, setInput] = useState('');
+  const [inputState, setInputState] = useState('');
+
+  /**
+   * What is in the field right now, as opposed to what the last render was told.
+   *
+   * Return arrives as its own native event, immediately after the keystroke before it. The
+   * submit handler is a closure over state, and state is a render behind — so pressing Return
+   * straight after the last letter submitted the text *without that letter*. Typed `back`,
+   * kept `bac`.
+   *
+   * Nothing about capture is allowed to be a render behind, so the value is mirrored here
+   * synchronously and submit reads this rather than the render's copy.
+   */
+  const inputNow = useRef('');
+  const input = inputState;
+  const setInput = useCallback((text: string) => {
+    inputNow.current = text;
+    setInputState(text);
+  }, []);
   const [inputFocused, setInputFocused] = useState(false);
   const [anchor, setAnchor] = useState<Anchor | null>(null);
 
@@ -72,11 +90,25 @@ export function useRecord(
   const [yearsOpen, setYearsOpen] = useState(false);
 
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editText, setEditText] = useState('');
+  const [editTextState, setEditTextState] = useState('');
+  /** The same rule as the capture field: a correction saved on Return is not a render behind. */
+  const editNow = useRef('');
+  const editText = editTextState;
+  const setEditText = useCallback((text: string) => {
+    editNow.current = text;
+    setEditTextState(text);
+  }, []);
   const [shownPrevious, setShownPrevious] = useState<Record<string, boolean>>({});
 
   const [continuing, setContinuing] = useState(false);
-  const [continueText, setContinueText] = useState('');
+  const [continueTextState, setContinueTextState] = useState('');
+  /** And the same for a Continue, which is a new moment and must not arrive short. */
+  const continueNow = useRef('');
+  const continueText = continueTextState;
+  const setContinueText = useCallback((text: string) => {
+    continueNow.current = text;
+    setContinueTextState(text);
+  }, []);
 
   const [justSaved, setJustSaved] = useState<{ id: string; at: number } | null>(null);
   const [offer, setOffer] = useState<ContinuationOffer | null>(null);
@@ -239,7 +271,7 @@ export function useRecord(
   /* -------------------------------------------------------------------- capture */
 
   const submit = useCallback(async () => {
-    const text = input.trim();
+    const text = inputNow.current.trim();
     if (!text || text.startsWith('/')) return;
 
     // A typed date moves the record rather than landing in it. The three-way answer from
@@ -262,7 +294,9 @@ export function useRecord(
     setOffer(suggestContinuation(created, material, nowFn()));
     setSelectedId(null);
     void bridge.mirrorFragment(created.id);
-  }, [input, material, store, bridge, reload, nowFn]);
+    // `input` stays in the deps: the closure is still rebuilt as the field changes, and the
+    // ref is what guarantees the value is current even when it has not been yet.
+  }, [input, material, store, bridge, reload, nowFn, setInput]);
 
   /** The twelve seconds close on their own. */
   useEffect(() => {
@@ -347,7 +381,7 @@ export function useRecord(
 
   const saveCorrection = useCallback(async () => {
     if (!editingId) return;
-    await store.correct(editingId, editText);
+    await store.correct(editingId, editNow.current);
     setEditingId(null);
     await reload();
     void bridge.mirrorFragment(editingId);
@@ -356,7 +390,7 @@ export function useRecord(
   /* ------------------------------------------------------------------- continue */
 
   const submitContinue = useCallback(async () => {
-    const text = continueText.trim();
+    const text = continueNow.current.trim();
     if (!text || !focusId) return;
     setContinueText('');
     setContinuing(false);
