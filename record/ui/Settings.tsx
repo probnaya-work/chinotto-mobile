@@ -21,7 +21,6 @@ import { Mark } from './Mark';
 import { ink, rule, SURFACE } from './tokens';
 import { face, type } from './type';
 
-export type AppearanceChoice = 'system' | 'light' | 'dark';
 export type IconChoice = 'dark' | 'light';
 export type SettingsPage = 'root' | 'manifesto' | 'delete';
 
@@ -35,11 +34,6 @@ export type SettingsProps = {
   syncVerb: string;
   onOpenSync: () => void;
 
-  appearance: AppearanceChoice;
-  onPickAppearance: (choice: AppearanceChoice) => void;
-  appearanceNote: string;
-  sunOn: boolean;
-  onToggleSun: () => void;
 
   icon: IconChoice;
   onPickIcon: (choice: IconChoice) => void;
@@ -151,46 +145,23 @@ function Root(props: SettingsProps) {
         </Text>
       </Section>
 
+      {/*
+        One appearance, because there is one.
+
+        This used to offer `system · light · dark` and a contrast lift. None of the three
+        did anything: there is a single palette in `tokens.ts`, the prototype draws no light
+        screen, and the choice did not even survive a relaunch. A control that selects an
+        appearance the app cannot render is worse than no control — `system` in particular
+        promised to follow a phone it could not follow.
+
+        So it says what is true and offers nothing. When light is designed, this becomes a
+        choice again; see 8.9 / 8.10.
+      */}
       <Section label="appearance" gap={10}>
-        <View style={{ flexDirection: 'row', gap: 22, alignItems: 'baseline' }}>
-          {(['system', 'light', 'dark'] as const).map((choice) => (
-            <Pressable
-              key={choice}
-              onPress={() => props.onPickAppearance(choice)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: props.appearance === choice }}
-            >
-              <Text
-                style={[
-                  type({
-                    size: 16,
-                    width: 94,
-                    color: props.appearance === choice ? ink.ink : ink.meta,
-                  }),
-                  props.appearance === choice
-                    ? {
-                        borderBottomWidth: 2,
-                        borderBottomColor: ink.ink,
-                        paddingBottom: 3,
-                      }
-                    : { paddingBottom: 3 },
-                ]}
-              >
-                {choice}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+        <Text style={body}>dark.</Text>
         <Text style={type({ size: 14, width: 90, lineHeight: 1.4, color: ink.meta })}>
-          {props.appearanceNote}
-        </Text>
-        <Text style={type({ size: 14, width: 90, lineHeight: 1.4, color: ink.far })}>
-          {'lift contrast in bright light · '}
-          <Text style={{ color: ink.near }}>{props.sunOn ? 'on' : 'off'}</Text>
-          {' · '}
-          <Text onPress={props.onToggleSun} style={{ color: ink.ink }}>
-            {props.sunOn ? 'turn off' : 'turn on'}
-          </Text>
+          the record has one appearance, and this is it. a light one is not designed yet, so
+          it is not offered.
         </Text>
       </Section>
 
@@ -472,14 +443,5 @@ export const settingsCopy = {
     if (permission === 'denied') return 'off for chinotto.';
     if (permission === 'ask') return 'not asked yet · ios asks the first time you hold the circle.';
     return 'allowed.';
-  },
-  appearance(choice: AppearanceChoice): string {
-    if (choice === 'system') {
-      return 'follows the phone. dark is the record’s home; light is a full second appearance.';
-    }
-    if (choice === 'light') {
-      return 'paper field, ink words — the same distances read the other way round.';
-    }
-    return 'the ink field, always.';
   },
 };

@@ -26,6 +26,7 @@ import { traces, type Trace } from './model/traces';
 import { monthLabel, MS_DAY } from './model/time';
 import { flattenRecord, type Row } from './ui/rows';
 import { motion } from './ui/tokens';
+import { thoughtLanded } from './feedback';
 import { NO_PLAYBACK, type AudioPlaybackPort } from './playback';
 import type { RecordBridge } from './bridge';
 import type { RecordStore } from './store';
@@ -290,6 +291,7 @@ export function useRecord(
     const created = await store.capture({ body: text, origin: 'mobile' });
     await reload();
 
+    thoughtLanded();
     setJustSaved({ id: created.id, at: nowFn() });
     setOffer(suggestContinuation(created, material, nowFn()));
     setSelectedId(null);
@@ -397,6 +399,7 @@ export function useRecord(
     const created = await store.continueFrom(focusId, { body: text, origin: 'mobile' });
     await reload();
     if (created) {
+      thoughtLanded();
       setFocusId(created.id);
       void bridge.mirrorFragment(created.id);
     }

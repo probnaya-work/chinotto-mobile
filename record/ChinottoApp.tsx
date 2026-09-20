@@ -35,6 +35,7 @@ import { createVoiceCapture, type VoiceEngine } from './voice';
 import { readShare, type ShareIntake, type SharePayloadLike } from './share';
 import { useSyncSurface, type SyncPorts } from './useSyncSurface';
 import { initAnalyticsOptIn, isOptIn, setOptIn, setUmami } from '../analytics/analytics';
+import { loadFeedbackPreference, thoughtLanded } from './feedback';
 import { useSyncDeepLink } from '../linking/useSyncDeepLink';
 import { isFirebaseSyncConfigured } from '../sync/firebaseConfig';
 import { useSyncAccount, type SyncAccountPorts } from './useSyncAccount';
@@ -104,8 +105,6 @@ export function ChinottoApp({ services }: { services: Services }) {
   const [shareWords, setShareWords] = useState('');
   const [shareMetBefore, setShareMetBefore] = useState('first time here');
 
-  const [appearance, setAppearance] = useState<'system' | 'light' | 'dark'>('system');
-  const [sunOn, setSunOn] = useState(false);
   /**
    * Off until storage says otherwise, and off for good if storage cannot be read.
    *
@@ -114,6 +113,7 @@ export function ChinottoApp({ services }: { services: Services }) {
    */
   const [analyticsOn, setAnalyticsOn] = useState(false);
   useEffect(() => {
+    void loadFeedbackPreference();
     setUmami(
       process.env.EXPO_PUBLIC_UMAMI_URL?.trim() || null,
       process.env.EXPO_PUBLIC_UMAMI_WEBSITE_ID?.trim() || null
@@ -356,7 +356,11 @@ export function ChinottoApp({ services }: { services: Services }) {
       },
       onTranscriptFinal: (text, _reason, audio, failure) => {
         setRecording(null);
-        void voice.settle(text, audio, failure);
+        void voice.settle(text, audio, failure).then((outcome) => {
+          // Only when something was actually kept. A recording too short to be a thought
+          // is not a thought that landed.
+          if (outcome.kind === 'kept') thoughtLanded();
+        });
       },
       onError: () => setRecording(null),
     });
@@ -443,6 +447,7 @@ export function ChinottoApp({ services }: { services: Services }) {
     if (share.url && share.title) {
       await store.setEnrichment(created.id, { state: 'ok', title: share.title });
     }
+    thoughtLanded();
     void bridge.mirrorFragment(created.id);
     setShare(null);
     setShareWords('');
@@ -518,10 +523,6 @@ export function ChinottoApp({ services }: { services: Services }) {
           onOpenSync={openSync}
           sync={sync}
           services={services}
-          appearance={appearance}
-          setAppearance={setAppearance}
-          sunOn={sunOn}
-          setSunOn={setSunOn}
           icon={services.icon}
           setIcon={services.onPickIcon}
           analyticsOn={analyticsOn}
@@ -635,10 +636,6 @@ function SettingsSurface(props: {
   onOpenSync: () => void;
   sync: ReturnType<typeof useSyncSurface>;
   services: Services;
-  appearance: 'system' | 'light' | 'dark';
-  setAppearance: (v: 'system' | 'light' | 'dark') => void;
-  sunOn: boolean;
-  setSunOn: (v: boolean) => void;
   icon: 'dark' | 'light';
   setIcon: (v: 'dark' | 'light') => void;
   analyticsOn: boolean;
@@ -673,11 +670,6 @@ function SettingsSurface(props: {
         error: props.sync.state === 'error',
       })}
       onOpenSync={props.onOpenSync}
-      appearance={props.appearance}
-      onPickAppearance={props.setAppearance}
-      appearanceNote={settingsCopy.appearance(props.appearance)}
-      sunOn={props.sunOn}
-      onToggleSun={() => props.setSunOn(!props.sunOn)}
       icon={props.icon}
       onPickIcon={props.setIcon}
       micLine={settingsCopy.microphone(permission)}
