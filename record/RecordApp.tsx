@@ -194,39 +194,41 @@ export function RecordApp(props: RecordAppProps) {
     >
       <StatusBar barStyle="light-content" backgroundColor={SURFACE} />
 
-      {/* status bar row */}
-      <View
-        style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          top: 0,
-          height: frame.statusBarHeight,
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          paddingHorizontal: 28,
-          zIndex: 3,
-        }}
-        pointerEvents="box-none"
-      >
-        <Text style={type({ size: 14, width: 90, color: ink.far })}>
-          {fmtTime(record.now)}
-        </Text>
-        {record.anchor ? (
+      {/*
+        Chinotto's own temporal orientation, and nothing else.
+
+        The prototype draws a clock and a signal/battery glyph here because it is a browser
+        mock of a phone. On a phone, iOS owns that row — drawing our own clock put two of
+        them on screen at once. So this says only the thing iOS cannot: where in the record
+        you are standing, and how to come back.
+      */}
+      {record.anchor ? (
+        <View
+          style={{
+            position: 'absolute',
+            left: 24,
+            right: 24,
+            top: frame.statusBarHeight,
+            alignItems: 'flex-end',
+            zIndex: 3,
+          }}
+          pointerEvents="box-none"
+        >
           <Text
             onPress={record.clearAnchor}
+            accessibilityRole="button"
             style={type({ size: 12, width: 90, color: ink.meta })}
           >
             {`▲ today · you are in ${record.anchorLabelFor(record.anchor)}`}
           </Text>
-        ) : null}
-      </View>
+        </View>
+      ) : null}
 
       {/* pull down for the instrument's own register */}
       <PullStrip onOpen={props.onOpenSettings} disabled={Boolean(record.focus)} />
 
       <RecordList
+        keyboardInset={keyboardInset}
         rows={record.rows}
         now={record.now}
         highlight={record.highlight}
