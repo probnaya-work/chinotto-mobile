@@ -352,3 +352,66 @@ describe('removal across the bridge', () => {
     db.close();
   });
 });
+
+describe('what arrives over the wire', () => {
+  it('brings in remote material the Record has never seen', async () => {
+    const h = await fresh();
+
+    // Ingest writes into `entries`, because that is the protocol both sides speak.
+    await h.db.runAsync(
+      "INSERT INTO entries (id, text, created_at) VALUES ('r1', 'from the mac', '2026-09-18T09:00:00.000Z')"
+    );
+
+    expect(await h.bridge.projectCatchUp()).toEqual({ created: 1, conflicts: 0 });
+
+    const rows = await h.store.loadRecord();
+    expect(rows.map((r) => r.body)).toContain('from the mac');
+    // It says it does not know how this was captured, rather than guessing.
+    expect(rows.find((r) => r.id === 'r1')?.method).toBe('imported');
+    h.db.close();
+  });
+
+  it('takes a differing wording as a conflict, never as an overwrite', async () => {
+    const h = await fresh();
+    const m = await h.store.capture({ body: 'ferry at 16:40' });
+    // Capture already mirrored this out, so what ingest brings back is the same row with
+    // different words — which is exactly the case this is about.
+    await h.db.runAsync('UPDATE entries SET text = ? WHERE id = ?', 'ferry at 18:40', m.id);
+
+    expect(await h.bridge.projectCatchUp()).toEqual({ created: 0, conflicts: 1 });
+
+    // The local wording still stands, and both are kept.
+    const rows = await h.store.loadRecord();
+    expect(rows.find((r) => r.id === m.id)?.body).toBe('ferry at 16:40');
+    const open = await h.bridge.openConflicts();
+    expect(open).toHaveLength(1);
+    expect(open[0].remoteText).toBe('ferry at 18:40');
+    h.db.close();
+  });
+
+  it('does not resurrect what was removed here, or what was removed there', async () => {
+    const h = await fresh();
+
+    const gone = await h.store.capture({ body: 'removed here' });
+    await h.store.remove(gone.id);
+    await h.db.runAsync(
+      `INSERT INTO entries (id, text, created_at) VALUES (?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET text = excluded.text`,
+      gone.id,
+      'said again elsewhere',
+      '2026-09-18T09:00:00.000Z'
+    );
+
+    await h.db.runAsync(
+      "INSERT INTO entries (id, text, created_at) VALUES ('r2', 'removed there', '2026-09-18T09:00:00.000Z')"
+    );
+    await h.db.runAsync(
+      "INSERT INTO sync_tombstone_outbox (entry_id, enqueued_at) VALUES ('r2', '2026-09-18T09:01:00.000Z')"
+    );
+
+    expect(await h.bridge.projectCatchUp()).toEqual({ created: 0, conflicts: 0 });
+    const rows = await h.store.loadRecord();
+    expect(rows.map((r) => r.id)).not.toContain('r2');
+    h.db.close();
+  });
+});

@@ -260,3 +260,51 @@ jest.mock('react-native-svg', () => {
     Stop: Mock,
   };
 });
+
+/**
+ * The Firebase SDK ships ESM that Jest does not transform, and our own sync modules import
+ * it at module scope. They are mocked here rather than in each test so that OUR code still
+ * runs for real — `isFirebaseSyncConfigured()` is false without env, so ingest and auth take
+ * their real "not configured" paths and do nothing, which is exactly what a test should see.
+ */
+jest.mock('firebase/app', () => ({
+  initializeApp: jest.fn(() => ({})),
+  getApp: jest.fn(() => ({})),
+  getApps: jest.fn(() => []),
+}));
+
+jest.mock('firebase/auth', () => ({
+  getAuth: jest.fn(() => ({ currentUser: null })),
+  initializeAuth: jest.fn(() => ({ currentUser: null })),
+  getReactNativePersistence: jest.fn(() => ({})),
+  onAuthStateChanged: jest.fn(() => () => {}),
+  signInWithCredential: jest.fn(async () => ({ user: { uid: 'test' } })),
+  signOut: jest.fn(async () => {}),
+  deleteUser: jest.fn(async () => {}),
+  reauthenticateWithCredential: jest.fn(async () => ({})),
+  OAuthProvider: class {
+    credential() {
+      return {};
+    }
+  },
+}));
+
+jest.mock('firebase/firestore', () => ({
+  getFirestore: jest.fn(() => ({})),
+  initializeFirestore: jest.fn(() => ({})),
+  collection: jest.fn(() => ({})),
+  doc: jest.fn(() => ({})),
+  query: jest.fn(() => ({})),
+  where: jest.fn(() => ({})),
+  orderBy: jest.fn(() => ({})),
+  limit: jest.fn(() => ({})),
+  onSnapshot: jest.fn(() => () => {}),
+  getDocs: jest.fn(async () => ({ docs: [], empty: true })),
+  getDoc: jest.fn(async () => ({ exists: () => false, data: () => undefined })),
+  setDoc: jest.fn(async () => {}),
+  updateDoc: jest.fn(async () => {}),
+  deleteDoc: jest.fn(async () => {}),
+  writeBatch: jest.fn(() => ({ set: jest.fn(), delete: jest.fn(), commit: jest.fn(async () => {}) })),
+  serverTimestamp: jest.fn(() => ({})),
+  Timestamp: { now: () => ({ toMillis: () => 0 }), fromMillis: (n) => ({ toMillis: () => n }) },
+}));

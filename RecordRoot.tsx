@@ -43,6 +43,10 @@ import {
 } from './src/services/icons/appIcon';
 import { parseWidgetDeepLink } from './widgets/parseWidgetDeepLink';
 import { isFirebaseSyncConfigured } from './sync/firebaseConfig';
+import { resolvePushEntryForSync } from './sync/pushEntryForSync';
+import { startBackgroundSync } from './sync/syncEngine';
+import { loadSubscriptionState } from './monetization/subscriptionState';
+import { bootstrapRevenueCat } from './src/services/purchases/initRevenueCat';
 import { getOrInitAuth } from './sync/firebaseAuth';
 import { isSyncAccessBlocked } from './monetization/syncAccessPolicy';
 import { insertPendingSyncItem, removePendingSyncItemsForEntry } from './sync/syncQueue';
@@ -104,6 +108,41 @@ export default function RecordRoot() {
    * happened. It never claims to know an answer it has not been given. (Desktop reached the
    * same rule independently; their decision 12.6.)
    */
+  /**
+   * Whether the subscription state has been read at all.
+   *
+   * Not the same as "subscribed": until this is true nothing is known, and the sync surface
+   * must not claim either way. It gates the paywall the same way it does in the shipping
+   * app, so a plan sheet is never drawn against an unread entitlement.
+   */
+  const [subscriptionLoaded, setSubscriptionLoaded] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      // Local flags first, so the gate is answerable offline; RevenueCat then corrects it.
+      await loadSubscriptionState().catch(() => {});
+      if (alive) setSubscriptionLoaded(true);
+      await bootstrapRevenueCat().catch(() => {});
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  /**
+   * The outbox, emptied on a timer.
+   *
+   * Capture writes to the queue whether or not anything can send it, which is the point —
+   * the record does not wait for a network. This is the other half: it drains when there is
+   * one, and does nothing quietly when there is not.
+   */
+  useEffect(() => {
+    if (!db) return;
+    const handle = startBackgroundSync({ pushEntry: resolvePushEntryForSync() });
+    return () => handle.stop();
+  }, [db]);
+
   const [micPermission, setMicPermission] = useState<'granted' | 'ask' | 'denied'>('ask');
   useEffect(
     () =>
@@ -183,6 +222,7 @@ export default function RecordRoot() {
       // attempt, so there is nothing separate to request — and nothing separate that could
       // quietly become a stub while the surface waited on it.
       microphonePermission: () => micPermission,
+      subscriptionLoaded,
       audio: audioPlayback,
 
       icon,
@@ -245,6 +285,7 @@ export default function RecordRoot() {
     chooseIcon,
     voiceOnOpen,
     micPermission,
+    subscriptionLoaded,
   ]);
 
   // The ink field, from the first frame, so there is never a white flash before the record.

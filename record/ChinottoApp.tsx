@@ -34,6 +34,13 @@ import { createRecordStore, type RecordStore } from './store';
 import { createVoiceCapture, type VoiceEngine } from './voice';
 import { readShare, type ShareIntake, type SharePayloadLike } from './share';
 import { useSyncSurface, type SyncPorts } from './useSyncSurface';
+import { shouldRunMobileFirestoreIngest } from '../sync/ingestGate';
+import { startMobileFirestoreIngest } from '../sync/firestoreIngest';
+import {
+  createDebouncedRemoteIngestNotifier,
+  REMOTE_INGEST_AFTER_SYNC_MODAL_MS,
+} from '../sync/remoteIngestStreamNotify';
+import { refreshWidgetThoughtsFromLocalDb } from '../widgets/widgetThoughtsBridge';
 import { firstLine, type Material } from './model/material';
 import { dayLabel, fmtTime, monthLabel } from './model/time';
 import { urlKey } from './urlKey';
@@ -59,6 +66,8 @@ export type Services = {
   onVoiceOnOpenHandled: () => void;
   openSystemSettings: () => void;
   microphonePermission: () => 'granted' | 'ask' | 'denied';
+  /** False until the entitlement has been read at all — which is not the same as unsubscribed. */
+  subscriptionLoaded: boolean;
   /** Playing retained audio back. Omitted where the platform cannot, and then it is not offered. */
   audio?: AudioPlaybackPort;
   /** Payloads from the share extension, or null when the app was not opened by one. */
@@ -213,6 +222,62 @@ export function ChinottoApp({ services }: { services: Services }) {
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bridge]);
+
+  /* ------------------------------------------------------------------ incoming */
+
+  /**
+   * What other devices send, brought into the Record.
+   *
+   * Ingest writes into `entries`, because that is the protocol the deployed Firestore
+   * contract and the desktop bridge both speak; `projectCatchUp` is what carries it across.
+   * Without this the phone could send and never receive, which is half a sync.
+   *
+   * Paused while the sync sheet is open, as in the shipping app: material arriving under
+   * somebody's hands while they are deciding whether to turn sync on is a surface moving
+   * for reasons they cannot see.
+   */
+  useEffect(() => {
+    if (
+      !shouldRunMobileFirestoreIngest({
+        dbReady: true,
+        subscriptionLoaded: services.subscriptionLoaded,
+        syncModalVisible: sync.open,
+      })
+    ) {
+      return;
+    }
+
+    let stop: (() => void) | undefined;
+    const notifier = createDebouncedRemoteIngestNotifier(() => {
+      void (async () => {
+        const { created, conflicts } = await bridge.projectCatchUp();
+        // Only disturb the surface when something actually arrived.
+        if (created > 0 || conflicts > 0) setChangedAt((n) => n + 1);
+      })();
+    });
+
+    // Attached after the sheet's dismissal has finished, so the record does not move while
+    // it is still animating away.
+    const attach = setTimeout(() => {
+      stop = startMobileFirestoreIngest(() => notifier.notify());
+    }, REMOTE_INGEST_AFTER_SYNC_MODAL_MS);
+
+    return () => {
+      clearTimeout(attach);
+      notifier.flush();
+      stop?.();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [services.subscriptionLoaded, sync.open, bridge]);
+
+  /**
+   * The home widget shows the last few thoughts, and reads them from the legacy table the
+   * bridge already keeps current. So it is refreshed whenever the record changes, rather
+   * than being given a second source that could disagree with the first.
+   */
+  useEffect(() => {
+    void refreshWidgetThoughtsFromLocalDb().catch(() => {});
+  }, [changedAt]);
 
   /* --------------------------------------------------------------------- voice */
 

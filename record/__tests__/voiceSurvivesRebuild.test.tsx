@@ -65,6 +65,7 @@ function harness() {
     onVoiceOnOpenHandled: () => {},
     openSystemSettings: () => {},
     microphonePermission: () => permission,
+    subscriptionLoaded: true,
     incomingShare: null,
     onShareHandled: () => {},
     syncPorts: {

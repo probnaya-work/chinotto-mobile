@@ -127,6 +127,44 @@ export function createBridge(db: RecordDb, options: BridgeOptions = {}) {
   }
 
   /**
+   * Brings in everything that arrived over the wire and is not in the Record yet.
+   *
+   * The mirror image of `mirrorCatchUp`, and the other half of the transition: ingest
+   * writes remote material into `entries`, because that is the protocol the deployed
+   * Firestore contract and the desktop bridge both speak, and this is what carries it
+   * across into the Record. Without it a device could send and never receive.
+   *
+   * A tombstoned entry is not projected — a row that has been removed elsewhere is not new
+   * material — and neither is one whose fragment was removed here, which would resurrect it.
+   */
+  async function projectCatchUp(limit = 500): Promise<{ created: number; conflicts: number }> {
+    const rows = await db.getAllAsync<LegacyEntryRow & { has_fragment: number }>(
+      `SELECT e.id AS id, e.text AS text, e.created_at AS createdAt,
+              CASE WHEN f.id IS NULL THEN 0 ELSE 1 END AS has_fragment
+         FROM entries e
+         LEFT JOIN fragments f ON f.id = e.id
+        WHERE ${NOT_BLANK('e.text')}
+          AND (f.id IS NULL OR (f.removed_at IS NULL AND f.body <> e.text))
+          AND e.id NOT IN (SELECT entry_id FROM sync_tombstone_outbox)
+        ORDER BY e.created_at DESC
+        LIMIT ?`,
+      limit
+    );
+
+    let created = 0;
+    let conflicts = 0;
+    for (const row of rows) {
+      const what = await projectEntry(
+        { id: row.id, text: row.text, createdAt: row.createdAt },
+        row.has_fragment ? 'sync' : 'desktop'
+      );
+      if (what === 'created') created += 1;
+      if (what === 'conflict') conflicts += 1;
+    }
+    return { created, conflicts };
+  }
+
+  /**
    * Projects one legacy entry into the Record.
    *
    * `capture_method` is `imported` and the origin is whatever we were told — never a guess.
@@ -281,6 +319,7 @@ export function createBridge(db: RecordDb, options: BridgeOptions = {}) {
   return {
     mirrorFragment,
     mirrorCatchUp,
+    projectCatchUp,
     projectEntry,
     noticeRemoteWording,
     openConflicts,
