@@ -134,6 +134,31 @@ newlines becomes a blank fragment in the Record. Caught by the hostile fixture, 
 If only one could exist it would be the database row, because the product is what guarantees
 it. The v1 theme tables are **not** dropped by any of this.
 
+## 8a. Decisions the build added after the plan
+
+| # | Decision | Value | Where | Status |
+|---|---|---|---|---|
+| 8a.1 | Archivo's `wdth` axis is resolved into static instances ahead of time | 14 faces, 205 KB | `scripts/generate-archivo-instances.py` | invented |
+| 8a.2 | The instances are committed, not generated at build time | — | same | invented |
+| 8a.3 | A share's long leftover is a selection; a short one is a title | 40 characters | `record/share.ts` | invented |
+| 8a.4 | The app icon is two variants, and a retired colour resolves to `dark` | — | `src/services/icons/iconVariants.ts` | **decided** |
+| 8a.5 | Connectivity with no reachability check reports "unknown", never "offline" | — | `RecordRoot.tsx` | invented |
+| 8a.6 | The device list is empty until a real device collection is read | — | same | **product rule** |
+| 8a.7 | A wording conflict's two sides are labelled by *where*, not *when* | — | `record/useSyncSurface.ts` | forced by the contract |
+
+8a.1 is the largest mobile-only divergence in the build. React Native has no
+`fontVariationSettings`, so the width axis that carries half of "this is further away"
+cannot be varied at runtime. Resolving it ahead of time is the only way to keep the ladder;
+8a.2 follows because a release build must not depend on a python toolchain.
+
+8a.3 is a guess with a number in it, and it is the kind of guess worth revisiting with real
+shares: a 40-character threshold separates "A Brief History" from a highlighted passage
+today, and will occasionally be wrong in both directions.
+
+8a.7 is the honest consequence of 6.7. Over `{id, text, created_at}` there is no way to know
+which wording is later, so the sides say `this iphone` and `your other device` rather than
+inventing an order.
+
 ## 8. Pending surfaces — named, not decided
 
 | # | What | Why it is open |
@@ -144,6 +169,10 @@ it. The v1 theme tables are **not** dropped by any of this.
 | 8.4 | Price, saving and trial copy | RevenueCat supplies them; the prototype states they are unresolved and the layout holds the longest plausible line. |
 | 8.5 | Android parity for the new surface | `AGENTS.md` defers it and the prototype is an iPhone prototype. The Android sign-in path is untouched, not redesigned. |
 | 8.6 | Wording history on the sync wire | See 6.7. Needs both repositories. |
+| 8.7 | The plan rows, `continue with apple`, `restore a purchase` and account deletion | The surfaces are built to the prototype and the underlying modules (`syncPurchaseFlow`, `enableAppleSync`, `deleteChinottoAccount`) are kept and tested, but the sheet's buttons are not yet joined to them. These are real payment and identity flows and joining them is not something to do without a device and a sandbox Apple ID. |
+| 8.8 | The cloud device collection | `record/devices.ts` holds the rules — generate once, revoke rather than delete, never draw a row with nothing behind it — and `this_device` is registered locally. Nothing writes to or reads from a remote collection yet, so the list is honestly empty rather than populated with invented rows. |
+| 8.9 | Light appearance | The control is built and the choice persists; the token pass that would make light actually render is not done, and the prototype draws no light screens. |
+| 8.10 | `lift contrast in bright light` | Same: the control is drawn and states its state, and no token deltas exist behind it yet. |
 
 ---
 
