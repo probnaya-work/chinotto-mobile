@@ -61,6 +61,12 @@ import { flushSyncTombstoneOutbox } from './sync/tombstoneFlush';
 import { flushSyncUserThemeOutbox } from './sync/userThemeFlush';
 import { backfillLocalThemesToRemote } from './sync/themeSyncBackfill';
 import { mirrorChinottoSyncAccessToFirestore } from './sync/firestoreSyncAccessMirror';
+import {
+  AccountDeletionNeedsRecentLogin,
+  deleteChinottoAccountForCurrentUser,
+  resumeChinottoAccountDeletionAfterReauth,
+} from './sync/deleteChinottoAccount';
+import { AppleUserCanceledError as AppleReauthCanceled } from './auth/appleSignInCredential';
 import type { SyncAccountPorts } from './record/useSyncAccount';
 import { bootstrapRevenueCat } from './src/services/purchases/initRevenueCat';
 import { getOrInitAuth } from './sync/firebaseAuth';
@@ -135,6 +141,31 @@ const syncAccount: SyncAccountPorts = {
   mirrorAccess: (options) => mirrorChinottoSyncAccessToFirestore(options),
   signOut: () => firebaseSignOut(getOrInitAuth()),
 };
+
+/**
+ * Deleting the cloud account.
+ *
+ * Firebase will refuse to delete a user whose sign-in is not recent, and it does so **after**
+ * the Firestore data has already been cleared — so the reauthentication is not optional and
+ * the second half is not a retry, it is a resumption. Backing out of Apple's sheet at that
+ * point leaves the account itself in place, which is why `cancelled` is a distinct answer
+ * rather than an error.
+ */
+async function deleteCloudAccount(): Promise<'deleted' | 'cancelled'> {
+  try {
+    await deleteChinottoAccountForCurrentUser();
+    return 'deleted';
+  } catch (err) {
+    if (!(err instanceof AccountDeletionNeedsRecentLogin)) throw err;
+    try {
+      await resumeChinottoAccountDeletionAfterReauth();
+      return 'deleted';
+    } catch (again) {
+      if (again instanceof AppleReauthCanceled) return 'cancelled';
+      throw again;
+    }
+  }
+}
 
 /** The native module, behind the narrow interface `record/voice.ts` asks for. */
 const voiceEngine: VoiceEngine = {
@@ -294,6 +325,7 @@ export default function RecordRoot() {
       microphonePermission: () => micPermission,
       subscriptionLoaded,
       syncAccount,
+      deleteAccount: deleteCloudAccount,
       audio: audioPlayback,
 
       icon,

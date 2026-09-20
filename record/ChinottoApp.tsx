@@ -72,6 +72,8 @@ export type Services = {
   subscriptionLoaded: boolean;
   /** Turning sync on and off: the store, Apple, and the work that follows signing in. */
   syncAccount: SyncAccountPorts;
+  /** Deletes the cloud copy and the account behind it. `cancelled` when Apple was dismissed. */
+  deleteAccount: () => Promise<'deleted' | 'cancelled'>;
   /** Playing retained audio back. Omitted where the platform cannot, and then it is not offered. */
   audio?: AudioPlaybackPort;
   /** Payloads from the share extension, or null when the app was not opened by one. */
@@ -102,6 +104,8 @@ export function ChinottoApp({ services }: { services: Services }) {
   const [analyticsOn, setAnalyticsOn] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [deleteArmed, setDeleteArmed] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [updateDismissed, setUpdateDismissed] = useState(false);
 
   const [recording, setRecording] = useState<{ seconds: number; transcript: string } | null>(null);
@@ -475,6 +479,28 @@ export function ChinottoApp({ services }: { services: Services }) {
           setPrivacyOpen={setPrivacyOpen}
           deleteArmed={deleteArmed}
           setDeleteArmed={setDeleteArmed}
+          deleteBusy={deleteBusy}
+          deleteError={deleteError}
+          onDelete={async () => {
+            setDeleteError(null);
+            setDeleteBusy(true);
+            try {
+              const what = await services.deleteAccount();
+              if (what === 'deleted') {
+                setDeleteArmed(false);
+                setSurface({ kind: 'record' });
+                await sync.refresh();
+              }
+            } catch (err) {
+              setDeleteError(
+                err instanceof Error && err.message
+                  ? err.message
+                  : 'could not delete the account · try again'
+              );
+            } finally {
+              setDeleteBusy(false);
+            }
+          }}
         />
       ) : null}
 
@@ -569,6 +595,9 @@ function SettingsSurface(props: {
   setPrivacyOpen: (v: boolean) => void;
   deleteArmed: boolean;
   setDeleteArmed: (v: boolean) => void;
+  deleteBusy: boolean;
+  deleteError: string | null;
+  onDelete: () => Promise<void>;
 }) {
   const permission = props.services.microphonePermission();
   return (
@@ -616,15 +645,16 @@ function SettingsSurface(props: {
           : 'up to date'
       }
       deleteArmed={props.deleteArmed}
+      deleteBusy={props.deleteBusy}
+      deleteError={props.deleteError}
       onDeleteStep={() => {
+        // Armed first, then done. The second press is the one that deletes, and it runs the
+        // existing v1 path — Firestore, then the Firebase user, then the local sync state.
         if (!props.deleteArmed) {
           props.setDeleteArmed(true);
           return;
         }
-        // The account deletion itself is the existing v1 path; the two-step confirm in front
-        // of it is what changes.
-        props.setDeleteArmed(false);
-        props.setPage('root');
+        void props.onDelete();
       }}
     />
   );

@@ -63,6 +63,10 @@ export type SettingsProps = {
 
   deleteArmed: boolean;
   onDeleteStep: () => void;
+  /** True while the deletion is actually running, so nothing is pressed twice. */
+  deleteBusy: boolean;
+  /** What went wrong, in a sentence. Null when nothing has. */
+  deleteError: string | null;
 };
 
 const body = type({ size: 16, width: 94, lineHeight: 1.4, color: ink.near });
@@ -392,12 +396,19 @@ function DeleteAccount(props: SettingsProps) {
           this can’t be undone. apple will ask you to sign in once more.
         </Text>
       ) : null}
+      {props.deleteError ? (
+        <Text style={type({ size: 14, width: 90, lineHeight: 1.4, color: ink.ink })}>
+          {props.deleteError}
+        </Text>
+      ) : null}
       <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
         <Pressable
-          onPress={props.onDeleteStep}
+          onPress={props.deleteBusy ? undefined : props.onDeleteStep}
+          disabled={props.deleteBusy}
           accessibilityRole="button"
           style={{
             flex: 1,
+            opacity: props.deleteBusy ? 0.5 : 1,
             height: 56,
             alignItems: 'center',
             justifyContent: 'center',
@@ -413,7 +424,11 @@ function DeleteAccount(props: SettingsProps) {
               color: props.deleteArmed ? SURFACE : ink.near,
             }}
           >
-            {props.deleteArmed ? 'delete for good' : 'delete the account'}
+            {props.deleteBusy
+              ? 'deleting…'
+              : props.deleteArmed
+                ? 'delete for good'
+                : 'delete the account'}
           </Text>
         </Pressable>
         <Pressable

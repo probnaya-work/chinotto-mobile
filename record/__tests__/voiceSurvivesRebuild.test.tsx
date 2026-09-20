@@ -77,6 +77,7 @@ function harness() {
       mirrorAccess: async () => {},
       signOut: async () => {},
     },
+    deleteAccount: async () => 'cancelled' as const,
     incomingShare: null,
     onShareHandled: () => {},
     syncPorts: {
