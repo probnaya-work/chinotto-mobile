@@ -8,6 +8,7 @@
  */
 
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import { openTestDb } from '../__testsupport__/nodeSqliteDb';
@@ -100,6 +101,40 @@ describe('the record surface', () => {
 
     const rows = await h.store.loadRecord();
     expect(rows.map((r) => r.body)).toEqual(['dinner friday']);
+    h.db.close();
+  });
+
+  it('is one line again the moment the words leave it, focus or no focus', async () => {
+    const h = harness();
+    await migrate(h.db);
+    await mount(h);
+
+    const styleOf = () =>
+      StyleSheet.flatten(screen.getByLabelText('capture').props.style) as {
+        height?: number;
+        maxHeight?: number;
+      };
+
+    const field = screen.getByLabelText('capture');
+    const oneLine = styleOf().height;
+    expect(oneLine).toBeGreaterThan(0);
+
+    await act(async () => {
+      fireEvent.changeText(field, 'a thought long enough to wrap several times over');
+    });
+
+    // With words in it the platform measures the text, and the cap keeps it off the record.
+    expect(styleOf().height).toBeUndefined();
+    expect(styleOf().maxHeight).toBe(220);
+
+    await act(async () => {
+      fireEvent(field, 'submitEditing');
+      await Promise.resolve();
+    });
+
+    // The field still has focus here, which is exactly where iOS keeps the height it grew
+    // to. An eight-line opaque edge over an empty field would cover the moment just taken.
+    await waitFor(() => expect(styleOf().height).toBe(oneLine));
     h.db.close();
   });
 

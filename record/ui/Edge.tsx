@@ -31,6 +31,9 @@ import { edge, ink, motion, RECORDING_BAR_SECONDS, SURFACE } from './tokens';
 import { face, type } from './type';
 import { fmtDur } from '../model/time';
 
+/** The field's own breathing room, above and below the words. */
+const FIELD_PADDING_Y = 14;
+
 export type EdgeNotice =
   | { kind: 'mic'; text: string; action: string; onAction: () => void }
   | { kind: 'undo'; text: string; secondsLeft: number; onUndo: () => void }
@@ -236,8 +239,22 @@ export function Edge(props: EdgeProps) {
   );
 }
 
+/**
+ * One line high when it is empty, and the size of its words otherwise.
+ *
+ * Growth is left to the platform, which measures the text properly and scrolls inside the
+ * cap once there is more than fits. Emptiness is not: iOS keeps a multiline field at the
+ * height it grew to when its value is cleared while it still has focus, so after a capture
+ * the edge stayed eight lines tall over an empty field — opaque, at zIndex 2, sitting on top
+ * of the very moment it had just taken. It only collapsed when the field lost focus.
+ *
+ * So the one case the platform gets wrong is the one case stated outright, and the rest is
+ * left alone.
+ */
+const FIELD_ONE_LINE = Math.round(edge.fieldSize * 1.3) + FIELD_PADDING_Y * 2;
+
 const CaptureField = React.forwardRef<TextInput, TextInputProps>(function CaptureField(
-  props,
+  { value, style, ...rest },
   ref
 ) {
   return (
@@ -257,16 +274,19 @@ const CaptureField = React.forwardRef<TextInput, TextInputProps>(function Captur
       autoCorrect
       autoCapitalize="none"
       selectionColor={ink.ink}
+      value={value}
       style={[
         type({ size: edge.fieldSize, width: 100, lineHeight: 1.3, tracking: -0.01 }),
         {
           flex: 1,
           color: ink.ink,
-          paddingVertical: 14,
+          paddingVertical: FIELD_PADDING_Y,
           maxHeight: edge.fieldMaxHeight,
         },
+        value ? null : { height: FIELD_ONE_LINE },
+        style,
       ]}
-      {...props}
+      {...rest}
     />
   );
 });
