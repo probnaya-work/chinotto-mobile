@@ -162,10 +162,10 @@ export default function RecordRoot() {
       },
       openSystemSettings: () => void Linking.openSettings(),
 
+      // Asking IS holding the circle: the native side raises both prompts on its first
+      // attempt, so there is nothing separate to request — and nothing separate that could
+      // quietly become a stub while the surface waited on it.
       microphonePermission: () => micPermission,
-      // Asking IS holding the circle: iOS raises the prompt on the first attempt, so there
-      // is nothing separate to request.
-      requestMicrophonePermission: () => {},
 
       icon,
       onPickIcon: chooseIcon,

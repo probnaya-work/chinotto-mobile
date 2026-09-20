@@ -50,7 +50,6 @@ export type RecordAppProps = {
     stop: () => Promise<void>;
     state: { seconds: number; transcript: string } | null;
     permission: 'granted' | 'ask' | 'denied';
-    onRequestPermission: () => void;
     openSystemSettings: () => void;
   };
   sync: {
@@ -121,11 +120,16 @@ export function RecordApp(props: RecordAppProps) {
       setTimeout(() => setMicNotice(null), 7000);
       return;
     }
+    // `ask` is not a refusal, and it is the state every cold launch starts in. Holding the
+    // circle IS the request: the native side raises both prompts on its first attempt, and
+    // answering them is what turns `ask` into `granted` or `denied`. Stopping here instead
+    // left voice unreachable for good — nothing else ever asks.
     if (props.voice.permission === 'ask') {
       setMicNotice('ask');
-      return;
+      setTimeout(() => setMicNotice(null), 7000);
+    } else {
+      setMicNotice(null);
     }
-    setMicNotice(null);
     await props.voice.start();
   }, [props.voice]);
 
@@ -139,12 +143,16 @@ export function RecordApp(props: RecordAppProps) {
         micNotice === 'denied'
           ? 'chinotto can’t hear — the microphone is off for it in ios settings.'
           : 'ios will ask once whether chinotto may hear you.',
-      action: micNotice === 'denied' ? 'open settings ›' : 'allow',
-      onAction: () => {
-        if (micNotice === 'denied') props.voice.openSystemSettings();
-        else props.voice.onRequestPermission();
-        setMicNotice(null);
-      },
+      // Nothing to offer while iOS is the one asking — the notice is saying what is about
+      // to happen, not standing in front of it.
+      action: micNotice === 'denied' ? 'open settings ›' : undefined,
+      onAction:
+        micNotice === 'denied'
+          ? () => {
+              props.voice.openSystemSettings();
+              setMicNotice(null);
+            }
+          : undefined,
     });
   }
   if (record.pendingRemoval) {

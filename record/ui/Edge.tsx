@@ -35,7 +35,7 @@ import { fmtDur } from '../model/time';
 const FIELD_PADDING_Y = 14;
 
 export type EdgeNotice =
-  | { kind: 'mic'; text: string; action: string; onAction: () => void }
+  | { kind: 'mic'; text: string; action?: string; onAction?: () => void }
   | { kind: 'undo'; text: string; secondsLeft: number; onUndo: () => void }
   | { kind: 'sync'; text: string; urgent: boolean; onOpen: () => void }
   | { kind: 'update'; onUpdate: () => void; onLater: () => void };
@@ -401,10 +401,15 @@ function Notice({ notice }: { notice: EdgeNotice }) {
     case 'mic':
       return (
         <Text style={base}>
-          {notice.text}{' '}
-          <Text onPress={notice.onAction} style={{ color: ink.ink }}>
-            {notice.action}
-          </Text>
+          {notice.text}
+          {notice.action ? (
+            <>
+              {' '}
+              <Text onPress={notice.onAction} style={{ color: ink.ink }}>
+                {notice.action}
+              </Text>
+            </>
+          ) : null}
         </Text>
       );
     case 'undo':

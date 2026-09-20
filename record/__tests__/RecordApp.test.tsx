@@ -43,15 +43,19 @@ const defaults = {
     stop: jest.fn(async () => {}),
     state: null,
     permission: 'granted' as const,
-    onRequestPermission: jest.fn(),
     openSystemSettings: jest.fn(),
   },
   sync: { notice: null, onOpen: jest.fn() },
   update: { soft: false, onUpdate: jest.fn(), onLater: jest.fn() },
 };
 
-async function mount(h: ReturnType<typeof harness>) {
-  const view = render(<RecordApp store={h.store} bridge={h.bridge} {...defaults} />);
+async function mount(
+  h: ReturnType<typeof harness>,
+  over: Partial<typeof defaults> = {}
+) {
+  const view = render(
+    <RecordApp store={h.store} bridge={h.bridge} {...defaults} {...over} />
+  );
   // The first read resolves before the record says anything about being empty.
   await act(async () => {
     await Promise.resolve();
@@ -135,6 +139,43 @@ describe('the record surface', () => {
     // The field still has focus here, which is exactly where iOS keeps the height it grew
     // to. An eight-line opaque edge over an empty field would cover the moment just taken.
     await waitFor(() => expect(styleOf().height).toBe(oneLine));
+    h.db.close();
+  });
+
+  it('lets iOS do the asking, rather than waiting for an answer nobody can give', async () => {
+    const h = harness();
+    await migrate(h.db);
+    // Every cold launch starts here, granted or not: the permission is only learned from
+    // what happens when recording is attempted.
+    const voice = { ...defaults.voice, permission: 'ask' as const, start: jest.fn(async () => true) };
+    await mount(h, { voice });
+
+    await act(async () => {
+      fireEvent(screen.getByLabelText('hold to speak'), 'pressIn');
+      await Promise.resolve();
+    });
+
+    // Holding the circle IS the request. Refusing to start while the answer is unknown
+    // left voice unreachable for good, because nothing else ever asks.
+    expect(voice.start).toHaveBeenCalled();
+    expect(screen.getByText(/ios will ask once/)).toBeTruthy();
+    h.db.close();
+  });
+
+  it('says how to undo a refusal, and only then offers a way out', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const voice = { ...defaults.voice, permission: 'denied' as const, start: jest.fn(async () => true) };
+    await mount(h, { voice });
+
+    await act(async () => {
+      fireEvent(screen.getByLabelText('hold to speak'), 'pressIn');
+      await Promise.resolve();
+    });
+
+    // A refusal is the one case where asking again is iOS Settings' job, not the app's.
+    expect(voice.start).not.toHaveBeenCalled();
+    expect(screen.getByText(/open settings/)).toBeTruthy();
     h.db.close();
   });
 

@@ -57,7 +57,6 @@ export type Services = {
   onVoiceOnOpenHandled: () => void;
   openSystemSettings: () => void;
   microphonePermission: () => 'granted' | 'ask' | 'denied';
-  requestMicrophonePermission: () => void;
   /** Payloads from the share extension, or null when the app was not opened by one. */
   incomingShare: SharePayloadLike[] | null;
   onShareHandled: () => void;
@@ -290,7 +289,6 @@ export function ChinottoApp({ services }: { services: Services }) {
           stop: stopVoice,
           state: recording,
           permission: services.microphonePermission(),
-          onRequestPermission: services.requestMicrophonePermission,
           openSystemSettings: services.openSystemSettings,
         }}
         sync={{ notice: sync.notice, onOpen: () => sync.setOpen(true) }}
