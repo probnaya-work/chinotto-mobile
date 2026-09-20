@@ -173,6 +173,13 @@ export function RecordApp(props: RecordAppProps) {
 
   /* --------------------------------------------------------------- the record */
 
+  // The capture field belongs to the edge. Once a moment is open, the edge is not the
+  // surface in front of anybody any more, so a keyboard raised for it goes too — otherwise
+  // it sits over Focus with its caret in a field nobody can see.
+  useEffect(() => {
+    if (record.focusId) dismissKeyboard();
+  }, [record.focusId]);
+
   const tapMoment = useCallback(
     (m: Material, tier: number) => {
       // D0 asks once before it acts: the first tap selects and opens the verbs, the second

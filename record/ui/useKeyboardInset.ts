@@ -40,7 +40,11 @@ const KEYBOARD_EASING: EasingFunction = Easing.bezier(0.17, 0.59, 0.4, 0.99);
 
 /** How far the bottom of the usable surface has risen. Animated, so it can drive layout. */
 export function useKeyboardInset(): Animated.Value {
-  const inset = useRef(new Animated.Value(0)).current;
+  // Seeded from the keyboard's current height rather than from zero. A surface that opens
+  // while the keyboard is already up — Focus, reached by tapping a moment with the field
+  // still in hand — is never told `keyboardWillShow`, because the keyboard did not show; it
+  // was already there. Starting at zero put that surface's own bottom bar under it.
+  const inset = useRef(new Animated.Value(Keyboard.metrics()?.height ?? 0)).current;
 
   useEffect(() => {
     const animate = (toValue: number, duration: number) => {
