@@ -26,6 +26,7 @@ import {
 
 import { Marked } from './Marked';
 import { useKeyboardInset } from './useKeyboardInset';
+import { VoiceChip, type VoiceChipSpec } from './VoiceChip';
 import { ink, motion, rule, SURFACE } from './tokens';
 import { face, type } from './type';
 import { foldLine, lineHeading, type LineEntry } from '../model/lines';
@@ -79,6 +80,16 @@ export type FocusProps = {
   onSubmitContinue: () => void;
 
   onClose: () => void;
+};
+
+/** The line's own chip: a shade tighter than the record's, matching the type around it. */
+const FOCUS_CHIP: VoiceChipSpec = {
+  fontSize: 12,
+  paddingTop: 2,
+  paddingBottom: 2,
+  paddingLeft: 5,
+  paddingRight: 7,
+  marginRight: 6,
 };
 
 export function Focus(props: FocusProps) {
@@ -406,28 +417,13 @@ function Moment({
           <Pressable onPress={() => props.onSelect(selected ? null : m.id)}>
             <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
               {voice ? (
-                <Pressable onPress={() => props.onPlay(m)} hitSlop={8}>
-                  <Text
-                    style={{
-                      fontFamily: face(90),
-                      fontSize: 12,
-                      color: m.audioMissing ? ink.meta : ink.verb,
-                      borderWidth: 1,
-                      borderColor: rule.line,
-                      paddingVertical: 2,
-                      paddingLeft: 5,
-                      paddingRight: 7,
-                      marginRight: 6,
-                      overflow: 'hidden',
-                    }}
-                  >
-                    {m.audioMissing
-                      ? 'audio gone'
-                      : `${props.playingId === m.id ? '■' : '▶'} ${fmtDur(
-                          Math.round((m.durationMs ?? 0) / 1000)
-                        )}`}
-                  </Text>
-                </Pressable>
+                <VoiceChip
+                  seconds={Math.round((m.durationMs ?? 0) / 1000)}
+                  missing={Boolean(m.audioMissing)}
+                  playing={props.playingId === m.id}
+                  spec={FOCUS_CHIP}
+                  onPlay={() => props.onPlay(m)}
+                />
               ) : null}
               <View style={{ flex: 1 }}>
                 <Marked

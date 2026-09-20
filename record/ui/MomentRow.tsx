@@ -18,6 +18,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import { Marked } from './Marked';
 import { bandGap, tierClamp, tierTextStyle, voiceChip } from './tiers';
+import { VoiceChip } from './VoiceChip';
 import { ink, rule, wash } from './tokens';
 import { face, type } from './type';
 import type { Tier } from '../model/bands';
@@ -64,53 +65,6 @@ export type MomentRowProps = {
   onRejectContinuation?: () => void;
   held?: boolean;
 };
-
-/** `▶ 0:42`, or `■ 0:42` while it is playing. Voice is material, not an attachment. */
-function VoiceChip({
-  material,
-  compact,
-  playing,
-  onPlay,
-}: {
-  material: Material;
-  compact: boolean;
-  playing?: boolean;
-  onPlay?: () => void;
-}) {
-  const seconds = Math.round((material.durationMs ?? 0) / 1000);
-  const spec = compact ? voiceChip.compact : voiceChip.d0;
-  const label = material.audioMissing
-    ? 'audio gone'
-    : `${playing ? '■' : '▶'} ${fmtDur(seconds)}`;
-
-  const chip = (
-    <Text
-      style={{
-        fontFamily: face(90),
-        fontSize: spec.fontSize,
-        color: material.audioMissing ? ink.meta : ink.verb,
-        borderWidth: 1,
-        borderColor: rule.line,
-        paddingTop: spec.paddingTop,
-        paddingBottom: spec.paddingBottom,
-        paddingLeft: spec.paddingLeft,
-        paddingRight: spec.paddingRight,
-        marginRight: spec.marginRight,
-        overflow: 'hidden',
-      }}
-    >
-      {label}
-    </Text>
-  );
-
-  // At a distance the chip states the duration but does not play: you open the moment first.
-  if (compact || material.audioMissing || !onPlay) return chip;
-  return (
-    <Pressable onPress={onPlay} hitSlop={8}>
-      {chip}
-    </Pressable>
-  );
-}
 
 /** `theatlantic.com · shared, no words yet` — what arrived, and what has not. */
 function encounterMeta(material: Material): string | null {
@@ -190,7 +144,13 @@ export function MomentRow(props: MomentRowProps) {
     return (
       <Pressable onPress={props.onTap} style={{ marginBottom: gap }}>
         <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-          {voice ? <VoiceChip material={material} compact /> : null}
+          {voice ? (
+            <VoiceChip
+              seconds={Math.round((material.durationMs ?? 0) / 1000)}
+              missing={Boolean(material.audioMissing)}
+              spec={voiceChip.compact}
+            />
+          ) : null}
           <View style={{ flex: 1 }}>{body}</View>
         </View>
       </Pressable>
@@ -233,9 +193,10 @@ export function MomentRow(props: MomentRowProps) {
         <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
           {voice ? (
             <VoiceChip
-              material={material}
-              compact={false}
+              seconds={Math.round((material.durationMs ?? 0) / 1000)}
+              missing={Boolean(material.audioMissing)}
               playing={props.playing}
+              spec={voiceChip.d0}
               onPlay={props.onPlay}
             />
           ) : null}
