@@ -292,6 +292,58 @@ describe('the record surface', () => {
     h.db.close();
   });
 
+  it('starts listening for the widget, and does not end it for not being held', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const voice = { ...defaults.voice, start: jest.fn(async () => true), stop: jest.fn(async () => {}) };
+    const view = await mount(h, { voice });
+
+    await act(async () => {
+      view.rerender(
+        <RecordApp store={h.store} bridge={h.bridge} {...defaults} voice={voice} voiceOnOpen />
+      );
+      await Promise.resolve();
+    });
+    // The effect has to have run before its timer can be advanced.
+    await act(async () => {
+      jest.advanceTimersByTime(400);
+      await Promise.resolve();
+    });
+
+    expect(voice.start).toHaveBeenCalled();
+    // There is no finger behind a widget recording, so the guard that ends a recording
+    // nobody is holding must not apply to it — it ends by pressing the circle.
+    expect(voice.stop).not.toHaveBeenCalled();
+    h.db.close();
+  });
+
+  it('says why nothing happened when the widget asks and the microphone is off', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const voice = {
+      ...defaults.voice,
+      permission: 'denied' as const,
+      start: jest.fn(async () => true),
+    };
+    const view = await mount(h, { voice });
+
+    await act(async () => {
+      view.rerender(
+        <RecordApp store={h.store} bridge={h.bridge} {...defaults} voice={voice} voiceOnOpen />
+      );
+      await Promise.resolve();
+    });
+    await act(async () => {
+      jest.advanceTimersByTime(400);
+      await Promise.resolve();
+    });
+
+    // Silence would be the worst answer here: the widget was pressed and nothing happened.
+    expect(voice.start).not.toHaveBeenCalled();
+    expect(screen.getByText(/open settings/)).toBeTruthy();
+    h.db.close();
+  });
+
   it('says how to undo a refusal, and only then offers a way out', async () => {
     const h = harness();
     await migrate(h.db);

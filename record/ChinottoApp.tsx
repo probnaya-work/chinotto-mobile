@@ -380,12 +380,12 @@ export function ChinottoApp({ services }: { services: Services }) {
    * first frame is not a half-drawn surface behind a recording.
    */
   useEffect(() => {
+    // Handled inside `RecordApp`, where the permission rules live. This only gates it on
+    // the fonts, so the surface exists before it starts listening.
     if (!services.voiceOnOpen || !fontsReady) return;
-    services.onVoiceOnOpenHandled();
-    const id = setTimeout(() => void startVoice(), 320);
-    return () => clearTimeout(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setVoiceOnOpenReady(true);
   }, [services.voiceOnOpen, fontsReady]);
+  const [voiceOnOpenReady, setVoiceOnOpenReady] = useState(false);
 
   const startVoice = useCallback(async () => {
     recordingStartedAt.current = Date.now();
@@ -489,6 +489,11 @@ export function ChinottoApp({ services }: { services: Services }) {
           openSystemSettings: services.openSystemSettings,
         }}
         audio={services.audio}
+        voiceOnOpen={voiceOnOpenReady}
+        onVoiceOnOpenHandled={() => {
+          setVoiceOnOpenReady(false);
+          services.onVoiceOnOpenHandled();
+        }}
         changedAt={changedAt}
         sync={{ notice: sync.notice, onOpen: openSync }}
         update={{

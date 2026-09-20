@@ -56,6 +56,14 @@ export type RecordAppProps = {
   /** Playing a voice moment back. Absent on a platform that cannot, and then it is not offered. */
   audio?: AudioPlaybackPort;
   /**
+   * The widget's `mode=voice`: open listening rather than typing.
+   *
+   * It goes through the same door the circle does, so it gets the same permission handling
+   * — the alternative was a start that failed silently for anybody who had said no.
+   */
+  voiceOnOpen?: boolean;
+  onVoiceOnOpenHandled?: () => void;
+  /**
    * Bumped by anything that writes to the record from outside this surface — a voice
    * capture settling, a share landing. The record reads itself again when it moves.
    */
@@ -154,8 +162,10 @@ export function RecordApp(props: RecordAppProps) {
    */
   const holding = useRef(false);
 
-  const startRecording = useCallback(async () => {
-    holding.current = true;
+  const startRecording = useCallback(async (handsFree = false) => {
+    // A recording asked for by the widget has no finger behind it, so it is not "held" and
+    // must not be ended for being let go of. It ends by pressing the circle.
+    holding.current = !handsFree;
     // Holding the circle is not typing. The keyboard goes away so the recording has the
     // whole edge, which is what the veil and the level meter are drawn against.
     dismissKeyboard();
@@ -176,9 +186,19 @@ export function RecordApp(props: RecordAppProps) {
       setMicNotice(null);
     }
     await props.voice.start();
-    // Let go while it was still opening: end it now, as if the release had waited.
-    if (!holding.current) await props.voice.stop();
+    // Let go while it was still opening: end it now, as if the release had waited. A
+    // hands-free recording was never held, so this does not apply to it.
+    if (!handsFree && !holding.current) await props.voice.stop();
   }, [props.voice]);
+
+  /** The widget asked for listening. Once per arrival, and only once the surface is up. */
+  useEffect(() => {
+    if (!props.voiceOnOpen) return;
+    props.onVoiceOnOpenHandled?.();
+    const id = setTimeout(() => void startRecording(true), 320);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.voiceOnOpen]);
 
   const stopRecording = useCallback(async () => {
     holding.current = false;
@@ -399,7 +419,7 @@ export function RecordApp(props: RecordAppProps) {
         findSummary={record.findSummaryText}
         onToggleMeaning={record.toggleMeaning}
         recording={props.voice.state}
-        onStartRecording={startRecording}
+        onStartRecording={() => void startRecording()}
         onStopRecording={stopRecording}
         notices={notices}
         keyboardInset={keyboardInset}
