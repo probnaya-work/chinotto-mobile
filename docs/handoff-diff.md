@@ -117,6 +117,17 @@ the Record may not leave the phone. It is recorded as a pending surface
 
 ---
 
+## 1b. What has and has not been run
+
+The JavaScript is verified: 445 tests, a clean typecheck, a Metro bundle of 1 001 modules,
+and a migration exercised against a 3 000-entry v1 database written to disk, closed, and
+reopened the way an upgrade actually does it.
+
+**The app has not been run.** `xcodebuild` fails compiling `Pods/RevenueCat` under Xcode 27
+— every error inside that one pod, none in Chinotto's code or any other dependency. See
+`docs/unspecified-decisions.md` §8.11. Everything in the dogfood checklist is therefore
+unobserved, and the surface has never been seen at 1× on a phone.
+
 ## 2. Already matches, or is directly reusable
 
 - **Sync engine shape.** Queue, tombstone outbox, ingest suppression, backfill paging,

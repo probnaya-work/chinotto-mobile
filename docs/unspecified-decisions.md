@@ -198,6 +198,7 @@ inventing an order.
 | 8.8 | The cloud device collection | `record/devices.ts` holds the rules — generate once, revoke rather than delete, never draw a row with nothing behind it — and `this_device` is registered locally. Nothing writes to or reads from a remote collection yet, so the list is honestly empty rather than populated with invented rows. |
 | 8.9 | Light appearance | The control is built and the choice persists; the token pass that would make light actually render is not done, and the prototype draws no light screens. |
 | 8.10 | `lift contrast in bright light` | Same: the control is drawn and states its state, and no token deltas exist behind it yet. |
+| 8.11 | **Nothing on this branch has been seen running on a device or simulator** | The iOS build fails to compile `Pods/RevenueCat` (5.66.0, via `react-native-purchases@9.15.0`) under Xcode 27's Swift: `invalid redeclaration of synthesized memberwise 'init(stringRepresentation:)'` in `PaywallColor.swift`, and `ambiguous use of 'init(stringRepresentation:)'` in `CustomerCenterConfigData.swift`. **Every error is inside that one pod — none in Chinotto's own code and none in any other dependency.** It blocks anyone building this repo on Xcode 27 and is unrelated to this branch. The 9.x line does not fix it (9.15.2 still pins RevenueCat 5.66.0); `react-native-purchases@10.x` presumably does, but that is a major version of a payment SDK with its own migration and no sandbox here to verify it against, so it is left for a deliberate decision rather than bundled into this branch. |
 
 ---
 
