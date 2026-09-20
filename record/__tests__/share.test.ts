@@ -190,3 +190,50 @@ describe('a shared source becoming an encounter', () => {
     expect(urlKey('https://a.com/One')).not.toBe(urlKey('https://a.com/one'));
   });
 });
+
+
+describe('the payload the extension actually writes', () => {
+  /**
+   * Captured from a real share out of Safari on a simulator: the extension received the
+   * URL and serialised exactly this into the app group. The module renames `type` to
+   * `shareType` on the way to JS, which is the shape below.
+   *
+   * Written down because every other case here was composed by hand, and a payload shape
+   * nobody has seen is a guess about the one thing this module exists to read.
+   */
+  it('takes a url-only share from safari', () => {
+    const intake = readShare([
+      {
+        shareType: 'url',
+        mimeType: 'text/html',
+        value: 'https://www.theatlantic.com/ideas/archive/2026/09/second-brain-apps/',
+      } as unknown as Parameters<typeof readShare>[0][number],
+    ]);
+    expect(intake).not.toBeNull();
+    expect(intake!.url).toBe(
+      'https://www.theatlantic.com/ideas/archive/2026/09/second-brain-apps/'
+    );
+    expect(intake!.selectedText).toBeNull();
+  });
+
+  it('takes the same share once it has been resolved, with title and selection', () => {
+    const intake = readShare([
+      {
+        shareType: 'url',
+        mimeType: 'text/html',
+        value: 'https://www.theatlantic.com/ideas/archive/2026/09/second-brain-apps/',
+        contentType: 'website',
+        originalName: 'The Second Brain Is a Filing Cabinet',
+      } as unknown as Parameters<typeof readShare>[0][number],
+      {
+        shareType: 'text',
+        mimeType: 'text/plain',
+        value: 'the moment I name a thing I stop looking at it',
+      } as unknown as Parameters<typeof readShare>[0][number],
+    ]);
+    expect(intake).not.toBeNull();
+    expect(intake!.url).toContain('theatlantic.com');
+    // The passage the source supplied is kept apart from the person's own words.
+    expect(intake!.selectedText).toBe('the moment I name a thing I stop looking at it');
+  });
+});
