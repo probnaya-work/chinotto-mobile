@@ -62,11 +62,23 @@ computed and then flattened. The surface is identical; the tree is not.
 |---|---|---|---|---|
 | 4.1 | Audio is canonical; the transcript is derived | — | `record/voice.ts` | inherited (desktop schema) |
 | 4.2 | Audio is written before transcription is attempted | — | same | **decided** (product instruction) |
-| 4.3 | Container and codec | `.m4a`, AAC | same | invented |
+| 4.3 | Container and codec | `.m4a`, AAC, at the input's own sample rate | `ios/Chinotto/VoiceCaptureModule.swift` | invented |
 | 4.4 | Audio paths are stored relative to the document directory | — | `record/files.ts` | invented |
-| 4.5 | Releasing under `0.8s` drops the recording silently | `0.8s` | `record/ui/` | from the prototype |
-| 4.6 | Retained audio is deleted only when a removal is finally published | — | `record/removal.ts` | invented |
+| 4.5 | Releasing under `0.8s` drops the recording silently, file and all | `0.8s` | `record/voice.ts` | from the prototype |
+| 4.6 | Retained audio is deleted only when a removal is finally published | — | `record/voice.ts` | invented |
 | 4.7 | No retention cap or budget on recorded audio | — | — | **pending** |
+| 4.8 | A recording that could not be written still yields a moment, from the transcript alone | — | `record/voice.ts` | invented |
+| 4.9 | A write failure mid-recording keeps what already reached disk and stops | — | `VoiceCaptureModule.swift` | invented |
+| 4.10 | Audio missing at settle time is recorded as `audio_missing` immediately | — | `record/voice.ts` | invented |
+| 4.11 | The machine transcript fills the body only while `correction_count == 0` | — | `record/store.ts` | **product rule** |
+
+4.9 is the one that reads like an implementation detail and is not: a volume that fills
+mid-sentence should cost the rest of the sentence, not the whole recording. The file is
+closed where it stopped, the failure is reported, and what was already captured is kept.
+
+4.11 is how "the transcript is derived" survives contact with re-transcription. Once somebody
+has worded a moment themselves, the machine's opinion is history — it stays in
+`voice_transcripts` and it never reaches the body again.
 
 4.4 is not a detail. iOS rewrites the app container's absolute path on reinstall and on some
 restores, so an absolute URI recorded today can be wrong tomorrow while the file is intact.
@@ -127,7 +139,7 @@ it. The v1 theme tables are **not** dropped by any of this.
 | # | What | Why it is open |
 |---|---|---|
 | 8.1 | **Export / backup of the Record** | Desktop has `export_record` and `back up now`. The mobile prototype draws no export, and this branch does not read that silence as "the Record may not leave the phone". The material is all in place (`archived_material`, retained audio, `fragment_revisions`); the surface is not designed. |
-| 8.2 | Retained-audio budget | See 4.7. |
+| 8.2 | Retained-audio budget | See 4.7. A phone can fill up, and nothing yet tells anyone that. No number is invented here because any of them — a size cap, an age cap, "keep the last N" — is a product decision about deleting somebody's own recordings, and a canonical source should not be discarded to save space without being asked. |
 | 8.3 | Reading time on a shared article (`14 min`) | Not derivable offline; unresolved content in the prototype. |
 | 8.4 | Price, saving and trial copy | RevenueCat supplies them; the prototype states they are unresolved and the layout holds the longest plausible line. |
 | 8.5 | Android parity for the new surface | `AGENTS.md` defers it and the prototype is an iPhone prototype. The Android sign-in path is untouched, not redesigned. |

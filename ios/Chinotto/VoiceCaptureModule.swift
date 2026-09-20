@@ -4,8 +4,20 @@ import React
 import Speech
 import UIKit
 
-/// On-device speech capture: `AVAudioEngine` buffers + `SFSpeechRecognizer`.
-/// Default `continuous` mode: listen until manual stop (max ~5 min). No audio file / playback.
+/// On-device voice capture: `AVAudioEngine` buffers written to disk, and fed to
+/// `SFSpeechRecognizer` on the way past.
+///
+/// **The audio is the canonical material; the transcript is derived from it.** That ordering
+/// is the whole design of this module and is not an implementation preference:
+///
+///   * the file is opened and written from the same tap that feeds the recogniser, so a
+///     recording exists from the first buffer, before transcription can succeed or fail;
+///   * every exit path — manual stop, silence, timeout, interruption, recogniser error —
+///     closes the file and reports where it is;
+///   * if the recogniser never starts, or dies halfway, the recording is unaffected and is
+///     still reported. A transcription failure must never lose what somebody said.
+///
+/// Default `continuous` mode: listen until manual stop (max ~5 min).
 @objc(VoiceCaptureModule)
 final class VoiceCaptureModule: RCTEventEmitter {
   private static let stateEvent = "VoiceCaptureState"
@@ -17,6 +29,16 @@ final class VoiceCaptureModule: RCTEventEmitter {
   private let workQueue = DispatchQueue(label: "com.chinotto.mobile.voicecapture")
 
   private var engine: AVAudioEngine?
+
+  /// The retained recording. Canonical material — see the type comment.
+  private var audioFile: AVAudioFile?
+  /// Path relative to the app's Documents directory. iOS rewrites the absolute container
+  /// path on reinstall, so an absolute path recorded today can be wrong tomorrow.
+  private var audioRelativePath: String?
+  private var recordedFrames: AVAudioFramePosition = 0
+  private var recordedSampleRate: Double = 0
+  private var audioWriteFailure: String?
+
   private var request: SFSpeechAudioBufferRecognitionRequest?
   private var task: SFSpeechRecognitionTask?
   private var recognizer: SFSpeechRecognizer?
@@ -179,6 +201,11 @@ final class VoiceCaptureModule: RCTEventEmitter {
     isFinalizing = false
     didEmitFinal = false
     recognitionRestartCount = 0
+    audioFile = nil
+    audioRelativePath = nil
+    recordedFrames = 0
+    recordedSampleRate = 0
+    audioWriteFailure = nil
 
     if let continuous = options?["continuous"] as? Bool {
       continuousMode = continuous
@@ -233,6 +260,14 @@ final class VoiceCaptureModule: RCTEventEmitter {
     engine = audioEngine
     let input = audioEngine.inputNode
     let format = input.outputFormat(forBus: 0)
+
+    // Opened BEFORE the recogniser, so the recording is already under way by the time
+    // anything can go wrong with transcription. A failure here is reported and does not
+    // stop the capture: hearing yourself back later is better than nothing, but not being
+    // able to speak at all is worse than either.
+    if let fileName = options?["audioFileName"] as? String {
+      openAudioFile(named: fileName, sourceFormat: format)
+    }
 
     let speechRequest = SFSpeechAudioBufferRecognitionRequest()
     request = speechRequest
@@ -291,7 +326,13 @@ final class VoiceCaptureModule: RCTEventEmitter {
   // MARK: - Audio + recognition
 
   private func processAudioBuffer(_ buffer: AVAudioPCMBuffer) {
-    guard isListening, !isFinalizing, let request else { return }
+    guard isListening, !isFinalizing else { return }
+
+    // The recording first, and unconditionally. `request` may be nil because the recogniser
+    // failed or was torn down mid-session; that must not cost the audio.
+    writeToAudioFile(buffer)
+
+    guard let request else { return }
     request.append(buffer)
 
     let rms = rmsFloat(buffer)
@@ -450,6 +491,8 @@ final class VoiceCaptureModule: RCTEventEmitter {
 
     try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
 
+    let audio = closeAudioFile()
+
     let text = lastTranscript
     lastTranscript = ""
     committedTranscript = ""
@@ -457,7 +500,7 @@ final class VoiceCaptureModule: RCTEventEmitter {
     silenceSeconds = 0
     recognitionRestartCount = 0
 
-    emitFinalIfNeeded(text: text, reason: reason)
+    emitFinalIfNeeded(text: text, reason: reason, audio: audio)
 
     DispatchQueue.main.async {
       if let errorToEmit {
@@ -469,7 +512,10 @@ final class VoiceCaptureModule: RCTEventEmitter {
     isFinalizing = false
   }
 
+  /// Only for a session that never started. Anything that recorded goes through
+  /// `finalizeCapture`, which reports its audio.
   private func tearDownAudioSilently() {
+    _ = closeAudioFile()
     maxTimer?.cancel()
     maxTimer = nil
     if let input = engine?.inputNode { input.removeTap(onBus: 0) }
@@ -485,13 +531,93 @@ final class VoiceCaptureModule: RCTEventEmitter {
     isFinalizing = false
   }
 
-  private func emitFinalIfNeeded(text: String, reason: String) {
+  private func emitFinalIfNeeded(text: String, reason: String, audio: RetainedAudio?) {
     guard !didEmitFinal else { return }
     didEmitFinal = true
-    let payload: [String: String] = ["text": text, "reason": reason]
+    var payload: [String: Any] = ["text": text, "reason": reason]
+    if let audio {
+      payload["audioPath"] = audio.relativePath
+      payload["durationMs"] = audio.durationMs
+    }
+    if let failure = audioWriteFailure {
+      payload["audioFailure"] = failure
+    }
     DispatchQueue.main.async {
       self.sendEvent(withName: Self.finalEvent, body: payload)
     }
+  }
+
+  // MARK: - Retained audio
+
+  struct RetainedAudio {
+    let relativePath: String
+    let durationMs: Int
+  }
+
+  private var documentsDirectory: URL {
+    FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+  }
+
+  /// Opens the recording. AAC in an m4a container, at the input's own sample rate and
+  /// channel count, so nothing is resampled on the way in.
+  private func openAudioFile(named relativePath: String, sourceFormat: AVAudioFormat) {
+    let url = documentsDirectory.appendingPathComponent(relativePath)
+    do {
+      try FileManager.default.createDirectory(
+        at: url.deletingLastPathComponent(),
+        withIntermediateDirectories: true
+      )
+      let settings: [String: Any] = [
+        AVFormatIDKey: kAudioFormatMPEG4AAC,
+        AVSampleRateKey: sourceFormat.sampleRate,
+        AVNumberOfChannelsKey: Int(sourceFormat.channelCount),
+      ]
+      audioFile = try AVAudioFile(
+        forWriting: url,
+        settings: settings,
+        commonFormat: sourceFormat.commonFormat,
+        interleaved: sourceFormat.isInterleaved
+      )
+      audioRelativePath = relativePath
+      recordedSampleRate = sourceFormat.sampleRate
+    } catch {
+      // Capture continues without a recording rather than refusing to listen.
+      audioFile = nil
+      audioRelativePath = nil
+      audioWriteFailure = error.localizedDescription
+    }
+  }
+
+  private func writeToAudioFile(_ buffer: AVAudioPCMBuffer) {
+    guard let file = audioFile else { return }
+    do {
+      try file.write(from: buffer)
+      recordedFrames += AVAudioFramePosition(buffer.frameLength)
+    } catch {
+      // Stop writing, keep what is already on disk, and say what happened. A full volume
+      // mid-sentence should cost the rest of the sentence, not the whole recording.
+      audioFile = nil
+      audioWriteFailure = error.localizedDescription
+    }
+  }
+
+  /// Closes the file and returns where it is. Nil when nothing was ever recorded.
+  private func closeAudioFile() -> RetainedAudio? {
+    let path = audioRelativePath
+    let frames = recordedFrames
+    let rate = recordedSampleRate
+
+    // AVAudioFile finalises the container when the last reference goes.
+    audioFile = nil
+    audioRelativePath = nil
+    recordedFrames = 0
+    recordedSampleRate = 0
+
+    guard let path, frames > 0, rate > 0 else { return nil }
+    return RetainedAudio(
+      relativePath: path,
+      durationMs: Int((Double(frames) / rate) * 1000.0)
+    )
   }
 
   private func emitError(code: String, message: String) {

@@ -49,6 +49,11 @@ export type StoreOptions = {
 };
 
 export type CaptureInput = {
+  /**
+   * An id chosen by the caller. Voice needs this: the audio file is opened under the
+   * fragment's own id before the fragment exists, so the two must agree.
+   */
+  id?: string;
   body: string;
   method?: CaptureMethod;
   origin?: CaptureOrigin;
@@ -202,7 +207,7 @@ export function createRecordStore(db: RecordDb, options: StoreOptions = {}) {
    * no decision asked of the person.
    */
   async function capture(input: CaptureInput): Promise<Material> {
-    const id = newId();
+    const id = input.id ?? newId();
     const at = input.at ?? now();
     const body = input.body ?? '';
 
