@@ -26,6 +26,7 @@ import { traces, type Trace } from './model/traces';
 import { monthLabel, MS_DAY } from './model/time';
 import { flattenRecord, type Row } from './ui/rows';
 import { motion } from './ui/tokens';
+import { NO_PLAYBACK, type AudioPlaybackPort } from './playback';
 import type { RecordBridge } from './bridge';
 import type { RecordStore } from './store';
 
@@ -38,7 +39,12 @@ export type PendingRemoval = { material: Material; at: number };
 
 export type RecordState = ReturnType<typeof useRecord>;
 
-export function useRecord(store: RecordStore, bridge: RecordBridge, nowFn = Date.now) {
+export function useRecord(
+  store: RecordStore,
+  bridge: RecordBridge,
+  nowFn = Date.now,
+  audio: AudioPlaybackPort = NO_PLAYBACK
+) {
   const [material, setMaterial] = useState<Material[]>([]);
   const [heldIds, setHeldIds] = useState<Set<string>>(new Set());
   const [judgements, setJudgements] = useState<Record<string, 'confirmed' | 'rejected'>>({});
@@ -110,6 +116,58 @@ export function useRecord(store: RecordStore, bridge: RecordBridge, nowFn = Date
     setHeldIds(new Set(held));
     setJudgements(judged);
   }, [store]);
+
+  /* ------------------------------------------------------------------- playback */
+
+  /**
+   * The mark follows the sound. A recording that runs out puts itself away, and so does one
+   * that could not start — nothing is left showing a stop mark over silence.
+   *
+   * A recording the native side could not find is written down as gone rather than kept as
+   * a separate piece of screen state, so the row says `audio gone` the next time it is read
+   * and goes on saying it.
+   */
+  useEffect(
+    () =>
+      audio.subscribe({
+        onFinished: (id) => setPlayingId((current) => (current === id ? null : current)),
+        onError: (id, code) => {
+          if (code !== 'audio_missing') return;
+          void store.markAudioMissing(id).then(reload);
+        },
+      }),
+    [audio, store, reload]
+  );
+
+  /** Stops whatever is playing when the surface goes away, rather than talking to nobody. */
+  useEffect(() => () => audio.stop(), [audio]);
+
+  /**
+   * Tapping the chip: start this one, or stop it if it is the one already playing. Starting
+   * another stops the first — the port enforces that too, but the surface has to agree or
+   * it would draw two things as playing.
+   */
+  const togglePlay = useCallback(
+    async (m: Material) => {
+      if (playingId === m.id) {
+        audio.stop();
+        setPlayingId(null);
+        return;
+      }
+      const path = await store.audioPathOf(m.id);
+      if (!path) {
+        await store.markAudioMissing(m.id);
+        await reload();
+        return;
+      }
+      // Set before awaiting: the mark belongs to the tap, and a play that fails puts it
+      // back a moment later through `onFinished`.
+      setPlayingId(m.id);
+      const playing = await audio.play(m.id, path);
+      if (!playing) setPlayingId((current) => (current === m.id ? null : current));
+    },
+    [playingId, audio, store, reload]
+  );
 
   useEffect(() => {
     let alive = true;
@@ -506,6 +564,7 @@ export function useRecord(store: RecordStore, bridge: RecordBridge, nowFn = Date
 
     playingId,
     setPlayingId,
+    togglePlay,
     lines,
     highlight,
     reload,

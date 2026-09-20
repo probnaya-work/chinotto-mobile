@@ -21,6 +21,8 @@
 		A1B2C3D42F00112233445566 /* AppIconModule.m in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D52F00112233445566 /* AppIconModule.m */; };
 		A1B2C3DC2F00112233445566 /* VoiceCaptureModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3DD2F00112233445566 /* VoiceCaptureModule.swift */; };
 		A1B2C3DE2F00112233445566 /* VoiceCaptureModule.m in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3DF2F00112233445566 /* VoiceCaptureModule.m */; };
+		A1B2C3F02F00112233445566 /* AudioPlaybackModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3F12F00112233445566 /* AudioPlaybackModule.swift */; };
+		A1B2C3F22F00112233445566 /* AudioPlaybackModule.m in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3F32F00112233445566 /* AudioPlaybackModule.m */; };
 		A1B2C3E02F00112233445566 /* WidgetThoughtsBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3E12F00112233445566 /* WidgetThoughtsBridge.swift */; };
 		A1B2C3E22F00112233445566 /* WidgetThoughtsBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3E32F00112233445566 /* WidgetThoughtsBridge.m */; };
 		A56C9ADE7C9B4DBAAD1A4369 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7386FB1F3F524E5A95E847F0 /* Constants.swift */; };
@@ -91,6 +93,8 @@
 		A1B2C3D52F00112233445566 /* AppIconModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = AppIconModule.m; path = Chinotto/AppIconModule.m; sourceTree = "<group>"; };
 		A1B2C3DD2F00112233445566 /* VoiceCaptureModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = VoiceCaptureModule.swift; path = Chinotto/VoiceCaptureModule.swift; sourceTree = "<group>"; };
 		A1B2C3DF2F00112233445566 /* VoiceCaptureModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = VoiceCaptureModule.m; path = Chinotto/VoiceCaptureModule.m; sourceTree = "<group>"; };
+		A1B2C3F12F00112233445566 /* AudioPlaybackModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AudioPlaybackModule.swift; path = Chinotto/AudioPlaybackModule.swift; sourceTree = "<group>"; };
+		A1B2C3F32F00112233445566 /* AudioPlaybackModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = AudioPlaybackModule.m; path = Chinotto/AudioPlaybackModule.m; sourceTree = "<group>"; };
 		A1B2C3E12F00112233445566 /* WidgetThoughtsBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WidgetThoughtsBridge.swift; path = Chinotto/WidgetThoughtsBridge.swift; sourceTree = "<group>"; };
 		A1B2C3E32F00112233445566 /* WidgetThoughtsBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = WidgetThoughtsBridge.m; path = Chinotto/WidgetThoughtsBridge.m; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = Chinotto/SplashScreen.storyboard; sourceTree = "<group>"; };
@@ -145,6 +149,8 @@
 				A1B2C3D52F00112233445566 /* AppIconModule.m */,
 				A1B2C3DF2F00112233445566 /* VoiceCaptureModule.m */,
 				A1B2C3DD2F00112233445566 /* VoiceCaptureModule.swift */,
+				A1B2C3F32F00112233445566 /* AudioPlaybackModule.m */,
+				A1B2C3F12F00112233445566 /* AudioPlaybackModule.swift */,
 				A1B2C3E32F00112233445566 /* WidgetThoughtsBridge.m */,
 				A1B2C3E12F00112233445566 /* WidgetThoughtsBridge.swift */,
 				F11748442D0722820044C1D9 /* Chinotto-Bridging-Header.h */,
@@ -666,6 +672,8 @@
 				A1B2C3D42F00112233445566 /* AppIconModule.m in Sources */,
 				A1B2C3DC2F00112233445566 /* VoiceCaptureModule.swift in Sources */,
 				A1B2C3DE2F00112233445566 /* VoiceCaptureModule.m in Sources */,
+				A1B2C3F02F00112233445566 /* AudioPlaybackModule.swift in Sources */,
+				A1B2C3F22F00112233445566 /* AudioPlaybackModule.m in Sources */,
 				A1B2C3E02F00112233445566 /* WidgetThoughtsBridge.swift in Sources */,
 				A1B2C3E22F00112233445566 /* WidgetThoughtsBridge.m in Sources */,
 				18E79BF99FF8378BD583438A /* ExpoModulesProvider.swift in Sources */,

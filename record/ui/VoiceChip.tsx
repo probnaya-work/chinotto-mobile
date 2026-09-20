@@ -80,7 +80,10 @@ export function VoiceChip({
 
   if (missing || !onPlay) return chip;
   return (
-    <Pressable onPress={onPlay} hitSlop={8}>
+    // The chip is about 20pt tall, which is a fine thing to read and a poor thing to hit.
+    // The slop brings it to the 44pt the platform asks for, taken mostly vertically so it
+    // does not reach sideways into the words it sits beside.
+    <Pressable onPress={onPlay} hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}>
       {chip}
     </Pressable>
   );

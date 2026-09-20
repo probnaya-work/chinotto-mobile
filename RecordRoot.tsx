@@ -29,6 +29,12 @@ import {
   stopVoiceCapture,
   subscribeVoiceCapture,
 } from './src/features/voiceCapture/NativeVoiceCapture';
+import type { AudioPlaybackPort } from './record/playback';
+import {
+  playAudio,
+  stopAudio,
+  subscribeAudioPlayback,
+} from './src/features/audioPlayback/NativeAudioPlayback';
 import { getDatabase } from './storage/db';
 import { getRuntimeAppVersion, useAppUpdateCheck } from './src/services/appUpdate/useAppUpdateCheck';
 import {
@@ -61,6 +67,17 @@ const voiceEngine: VoiceEngine = {
   start: (options) => startVoiceCapture({ continuous: true, audioFileName: options.audioFileName }),
   stop: () => stopVoiceCapture(),
   subscribe: (handlers) => subscribeVoiceCapture(handlers),
+};
+
+/**
+ * Playing a moment back. A separate native module from the recorder on purpose: recording
+ * is the load-bearing path, and nothing about hearing a recording again is allowed to
+ * reach into it.
+ */
+const audioPlayback: AudioPlaybackPort = {
+  play: (id, relativePath) => playAudio(id, relativePath),
+  stop: () => stopAudio(),
+  subscribe: (handlers) => subscribeAudioPlayback(handlers),
 };
 
 export default function RecordRoot() {
@@ -166,6 +183,7 @@ export default function RecordRoot() {
       // attempt, so there is nothing separate to request — and nothing separate that could
       // quietly become a stub while the surface waited on it.
       microphonePermission: () => micPermission,
+      audio: audioPlayback,
 
       icon,
       onPickIcon: chooseIcon,

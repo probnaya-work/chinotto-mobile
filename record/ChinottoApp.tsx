@@ -28,6 +28,7 @@ import { ForcedUpdate, WidgetPreview } from './ui/WidgetPreview';
 import { FONT_ASSETS } from './ui/type';
 import { SURFACE } from './ui/tokens';
 import { createBridge, type RecordBridge } from './bridge';
+import type { AudioPlaybackPort } from './playback';
 import { createRecordStore, type RecordStore } from './store';
 import { createVoiceCapture, type VoiceEngine } from './voice';
 import { readShare, type ShareIntake, type SharePayloadLike } from './share';
@@ -57,6 +58,8 @@ export type Services = {
   onVoiceOnOpenHandled: () => void;
   openSystemSettings: () => void;
   microphonePermission: () => 'granted' | 'ask' | 'denied';
+  /** Playing retained audio back. Omitted where the platform cannot, and then it is not offered. */
+  audio?: AudioPlaybackPort;
   /** Payloads from the share extension, or null when the app was not opened by one. */
   incomingShare: SharePayloadLike[] | null;
   onShareHandled: () => void;
@@ -291,6 +294,7 @@ export function ChinottoApp({ services }: { services: Services }) {
           permission: services.microphonePermission(),
           openSystemSettings: services.openSystemSettings,
         }}
+        audio={services.audio}
         sync={{ notice: sync.notice, onOpen: () => sync.setOpen(true) }}
         update={{
           soft: services.update.soft && !updateDismissed,

@@ -36,6 +36,7 @@ import { useRecord } from './useRecord';
 import { displayText, firstLine, type Material } from './model/material';
 import { dayLabel, fmtTime, monthLabel } from './model/time';
 import type { RecordBridge } from './bridge';
+import type { AudioPlaybackPort } from './playback';
 import type { RecordStore } from './store';
 
 export type RecordAppProps = {
@@ -52,6 +53,8 @@ export type RecordAppProps = {
     permission: 'granted' | 'ask' | 'denied';
     openSystemSettings: () => void;
   };
+  /** Playing a voice moment back. Absent on a platform that cannot, and then it is not offered. */
+  audio?: AudioPlaybackPort;
   sync: {
     notice: { text: string; urgent: boolean } | null;
     onOpen: () => void;
@@ -60,7 +63,7 @@ export type RecordAppProps = {
 };
 
 export function RecordApp(props: RecordAppProps) {
-  const record = useRecord(props.store, props.bridge);
+  const record = useRecord(props.store, props.bridge, undefined, props.audio);
   const reducedMotion = useReducedMotion();
   const keyboardInset = useKeyboardInset();
 
@@ -260,7 +263,7 @@ export function RecordApp(props: RecordAppProps) {
         heldIds={record.heldIds}
         lines={record.lines}
         onTapMoment={tapMoment}
-        onPlay={(m) => record.setPlayingId(record.playingId === m.id ? null : m.id)}
+        onPlay={(m) => void record.togglePlay(m)}
         onContinue={(m) => {
           record.setSelectedId(null);
           record.setFocusId(m.id);
@@ -374,7 +377,7 @@ export function RecordApp(props: RecordAppProps) {
           onHold={record.toggleHold}
           onRemove={record.remove}
           playingId={record.playingId}
-          onPlay={(m) => record.setPlayingId(record.playingId === m.id ? null : m.id)}
+          onPlay={(m) => void record.togglePlay(m)}
           traces={record.focusTraces}
           onOpenTrace={(m) => record.setFocusId(m.id)}
           onConfirmTrace={(m) => void record.judgeTrace(m, 'confirmed')}
