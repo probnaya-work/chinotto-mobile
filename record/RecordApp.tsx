@@ -31,6 +31,7 @@ import { RecordList } from './ui/RecordList';
 import { ReturnBlock } from './ui/ReturnBlock';
 import { YearsOverlay } from './ui/YearsOverlay';
 import { frame, ink, SURFACE } from './ui/tokens';
+import { hasFoundSettings, rememberFoundSettings } from './pullHint';
 import { type } from './ui/type';
 import { useRecord } from './useRecord';
 import { displayText, firstLine, type Material } from './model/material';
@@ -87,6 +88,18 @@ export function RecordApp(props: RecordAppProps) {
    * the first layout, so nothing moves at launch and nothing is covered afterwards.
    */
   const [edgeHeight, setEdgeHeight] = useState<number>(frame.bottom);
+
+  /** Shown until the pull has worked once. See `record/pullHint.ts`. */
+  const [showPullHint, setShowPullHint] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    void hasFoundSettings().then((found) => {
+      if (alive && !found) setShowPullHint(true);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // Reading again is cheap and being wrong is not: a moment that exists and is not drawn
   // reads as a capture that was lost. The first value is skipped — that is the initial load.
@@ -331,7 +344,15 @@ export function RecordApp(props: RecordAppProps) {
       ) : null}
 
       {/* pull down for the instrument's own register */}
-      <PullStrip onOpen={props.onOpenSettings} disabled={Boolean(record.focus)} />
+      <PullStrip
+        onOpen={() => {
+          setShowPullHint(false);
+          void rememberFoundSettings();
+          props.onOpenSettings();
+        }}
+        hint={showPullHint}
+        disabled={Boolean(record.focus)}
+      />
 
       <RecordList
         keyboardInset={keyboardInset}
@@ -511,11 +532,30 @@ export function RecordApp(props: RecordAppProps) {
  * The strip starts at 54pt rather than at 0 so it never competes with the system's own
  * pull-down, and it is the only chrome the record carries.
  */
-function PullStrip({ onOpen, disabled }: { onOpen: () => void; disabled: boolean }) {
+/**
+ * The grab strip at the top, and the one thing on screen that says it is there.
+ *
+ * It used to draw nothing until it was already being pulled, which made settings — and so
+ * sync, the account, the devices, everything behind it — unreachable for anybody who had
+ * not been told. The mark rests there quietly as the handle; the words stay beside it only
+ * until the pull has worked once.
+ */
+function PullStrip({
+  onOpen,
+  disabled,
+  hint,
+}: {
+  onOpen: () => void;
+  disabled: boolean;
+  /** Whether this person has yet to find settings. */
+  hint: boolean;
+}) {
   const [pull, setPull] = useState(0);
   const start = useRef(0);
 
   if (disabled) return null;
+
+  const pulling = pull > frame.pullReveal;
 
   return (
     <View
@@ -527,6 +567,7 @@ function PullStrip({ onOpen, disabled }: { onOpen: () => void; disabled: boolean
         height: frame.pullStripHeight,
         zIndex: 3,
       }}
+      testID="pull-strip"
       onStartShouldSetResponder={() => true}
       onMoveShouldSetResponder={() => true}
       onResponderGrant={(e) => {
@@ -544,27 +585,31 @@ function PullStrip({ onOpen, disabled }: { onOpen: () => void; disabled: boolean
       onResponderRelease={() => setPull(0)}
       onResponderTerminate={() => setPull(0)}
     >
-      {pull > frame.pullReveal ? (
-        <View
-          style={{
-            position: 'absolute',
-            left: 24,
-            right: 24,
-            top: 0,
-            height: Math.min(96, pull),
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 11,
-            opacity: Math.min(1, pull / 40),
-          }}
-          pointerEvents="none"
-        >
-          <Mark size={22} color={ink.meta} />
-          <Text style={type({ size: 14, width: 90, color: ink.meta })}>
+      <View
+        style={{
+          position: 'absolute',
+          left: 24,
+          right: 24,
+          top: 0,
+          height: pulling ? Math.min(96, pull) : frame.pullStripHeight,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 11,
+          // At rest the strip is a handle, not an announcement: it sits at the quietest ink
+          // the record has. Under the finger it comes up to the weight of everything else.
+          opacity: pulling ? Math.min(1, pull / 40) : 1,
+        }}
+        pointerEvents="none"
+      >
+        <Mark size={pulling ? 22 : 16} color={pulling ? ink.meta : ink.faint} />
+        {pulling || hint ? (
+          <Text
+            style={type({ size: 14, width: 90, color: pulling ? ink.meta : ink.faint })}
+          >
             {pull > frame.pullThreshold ? 'settings' : 'pull for settings'}
           </Text>
-        </View>
-      ) : null}
+        ) : null}
+      </View>
     </View>
   );
 }

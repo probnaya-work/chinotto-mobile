@@ -65,14 +65,22 @@ export const wash = {
  * `top` clears the status bar and the pull-for-settings strip; `bottom` clears the capture
  * edge. Both are the prototype's, measured on its own 460 × 900 frame.
  */
+const STATUS_BAR_HEIGHT = 54;
+const PULL_STRIP_HEIGHT = 34;
+
 export const frame = {
   side: 24,
-  top: 64,
+  /**
+   * Below the status bar **and** below the grab strip, which is what this was always meant
+   * to be — it was 64, four points short of even the status bar's own strip, so the record
+   * ran under the pull affordance and the standing bar and collided with both.
+   */
+  top: STATUS_BAR_HEIGHT + PULL_STRIP_HEIGHT,
   bottom: 112,
   /** The status bar strip the pull gesture lives under. */
-  statusBarHeight: 54,
+  statusBarHeight: STATUS_BAR_HEIGHT,
   /** The pull-for-settings grab strip. */
-  pullStripHeight: 34,
+  pullStripHeight: PULL_STRIP_HEIGHT,
   /** How far you must pull before settings opens. */
   pullThreshold: 92,
   /** The pull affordance is drawn past this. */
