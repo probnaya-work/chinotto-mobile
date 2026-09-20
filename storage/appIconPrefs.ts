@@ -1,23 +1,17 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import type { AppIconVariantId } from '../src/services/icons/iconVariants';
+import {
+  parseAppIconVariantId,
+  type AppIconVariantId,
+} from '../src/services/icons/iconVariants';
 
 const KEY_APP_ICON = '@chinotto/app_icon_variant_v1';
 
 export async function getStoredAppIconVariant(): Promise<AppIconVariantId | null> {
   try {
-    const raw = await AsyncStorage.getItem(KEY_APP_ICON);
-    if (
-      raw === 'default' ||
-      raw === 'light' ||
-      raw === 'violet' ||
-      raw === 'cyan' ||
-      raw === 'orange' ||
-      raw === 'gradient'
-    ) {
-      return raw;
-    }
-    return null;
+    // Parsing handles the retired palette: a stored colour that no longer exists resolves
+    // to the default icon rather than to nothing.
+    return parseAppIconVariantId(await AsyncStorage.getItem(KEY_APP_ICON));
   } catch {
     return null;
   }

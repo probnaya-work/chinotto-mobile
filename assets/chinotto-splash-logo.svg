@@ -1,12 +1,9 @@
-<!--
-  Native splash raster: MUST match `ChinottoLogo` geometry — viewBox 0 0 64, same ring + dots.
-  A tighter viewBox (e.g. 48×48 crop) made the mark scale larger in `contain` vs the RN logo.
-  Shell color = splash.backgroundColor.
--->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-  <circle cx="32" cy="32" r="22" stroke="#ffffff" stroke-width="2.5" fill="none"/>
-  <circle cx="32" cy="23" r="5" fill="#ffffff"/>
-  <circle cx="24" cy="34" r="4" fill="#ffffff"/>
-  <circle cx="40" cy="34" r="4" fill="#ffffff"/>
-  <circle cx="32" cy="41" r="3" fill="#ffffff"/>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+  <g transform="translate(0 0) scale(16)">
+    <circle cx="32" cy="32" r="28" stroke="#e6e6e3" stroke-width="3" fill="none"/>
+    <circle cx="32" cy="23" r="8" fill="#e6e6e3"/>
+    <circle cx="32" cy="38" r="4.5" fill="#e6e6e3"/>
+    <circle cx="32" cy="47.5" r="2.5" fill="#e6e6e3"/>
+  </g>
 </svg>
