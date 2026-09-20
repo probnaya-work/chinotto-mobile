@@ -101,8 +101,8 @@ writeSvg(
   'assets/chinotto-icon-monochrome.svg',
   transparentMarkSvg({ foreground: '#000000', scale: ADAPTIVE_MARK_SCALE })
 );
-// The native splash hands over to the launch lockup, which draws the same mark at the same
-// place, so the two must be the same drawing or the handover will visibly jump.
+// Kept as the mark on its own, for anywhere the identity is needed without a background.
+// It is NOT the native splash any more — see the splash section below for why.
 writeSvg('assets/chinotto-splash-logo.svg', transparentMarkSvg({ foreground: dark.foreground, scale: 1 }));
 
 /* ------------------------------------------------------------------- the rasters */
@@ -119,26 +119,64 @@ await png(
   1024
 );
 await png(readFileSync(join(root, 'assets/chinotto-icon.svg'), 'utf8'), 'assets/favicon.png', 48);
+// What `app.json` points `expo-splash-screen` at, so a prebuild would produce the same
+// empty splash the committed iOS asset already is.
 await png(
-  readFileSync(join(root, 'assets/chinotto-splash-logo.svg'), 'utf8'),
+  `<svg width="2048" height="2048" viewBox="0 0 2048 2048" fill="none" xmlns="http://www.w3.org/2000/svg"></svg>\n`,
   'assets/splash-icon.png',
   2048
 );
 
 /* ------------------------------------------------- the native splash, on iOS and Android */
 
-// The native splash is NOT `assets/splash-icon.png`. iOS reads a separate, committed copy in
-// `Images.xcassets/SplashScreenLogo.imageset`, which `expo-splash-screen` only rewrites
-// during a prebuild — and this repo commits its `ios/` directory, so a prebuild does not
-// happen. Regenerating only the asset left the app opening on the OLD mark for the whole
-// pre-JS frame, before the launch lockup could draw the new one.
+// The native splash draws NOTHING but the background, and that is the point.
 //
-// `imageWidth` in `app.json` is 120pt, so the three scales are 120 / 240 / 360.
+// It used to carry the mark, which meant the app opened on the finished lockup and then
+// played the lockup from the beginning: the mark appeared, vanished, and assembled itself
+// again. A splash that shows the last frame of an animation cannot hand over to its first.
+//
+// So the splash is the field the lockup arrives on. Its colour is the record's own surface,
+// which makes the handover invisible — there is no seam to see, because nothing changes at
+// it — and the identity is drawn once, in motion, by `record/ui/Launch.tsx`.
+//
+// The image is kept (transparent) rather than removed: `SplashScreen.storyboard` names it,
+// this repo commits `ios/`, and `expo-splash-screen` only rewrites that storyboard during a
+// prebuild that does not happen here. An asset the storyboard cannot find is a build error;
+// an asset with nothing in it is a background.
+// The field itself is the record's own surface, not a darker colour of its own. A splash
+// that is a different black than the app is a step you can see at the handover, which is
+// the seam this was all meant to remove.
+const splashBackground = dark.background;
+{
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(splashBackground.slice(i, i + 2), 16) / 255);
+  writeFileSync(
+    join(root, 'ios/Chinotto/Images.xcassets/SplashScreenBackground.colorset/Contents.json'),
+    `${JSON.stringify(
+      {
+        colors: [
+          {
+            color: {
+              components: { alpha: '1.000', blue: String(b), green: String(g), red: String(r) },
+              'color-space': 'srgb',
+            },
+            idiom: 'universal',
+          },
+        ],
+        info: { version: 1, author: 'expo' },
+      },
+      null,
+      2
+    )}\n`
+  );
+  console.log(`Wrote ios/.../SplashScreenBackground.colorset (${splashBackground})`);
+}
+
 const SPLASH_WIDTH = 120;
-const splashSvg = transparentMarkSvg({ foreground: dark.foreground, scale: 1 });
+const emptySplashSvg = `<svg width="${SPLASH_WIDTH}" height="${SPLASH_WIDTH}" viewBox="0 0 ${SPLASH_WIDTH} ${SPLASH_WIDTH}" fill="none" xmlns="http://www.w3.org/2000/svg"></svg>\n`;
+writeSvg('assets/splash-icon.svg', emptySplashSvg);
 for (const [suffix, scale] of [['', 1], ['@2x', 2], ['@3x', 3]]) {
   await png(
-    splashSvg,
+    emptySplashSvg,
     `ios/Chinotto/Images.xcassets/SplashScreenLogo.imageset/image${suffix}.png`,
     SPLASH_WIDTH * scale
   );

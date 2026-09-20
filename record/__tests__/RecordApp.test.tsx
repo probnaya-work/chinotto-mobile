@@ -200,6 +200,46 @@ describe('the record surface', () => {
     h.db.close();
   });
 
+  it('ends a recording that was let go while it was still opening', async () => {
+    const h = harness();
+    await migrate(h.db);
+
+    // Starting is not instant: the session, the engine, the file, and the first time round
+    // two permission prompts. A quick press is over long before any of it.
+    let release: (() => void) | null = null;
+    const opening = new Promise<boolean>((resolve) => {
+      release = () => resolve(true);
+    });
+    const voice = {
+      ...defaults.voice,
+      start: jest.fn(() => opening),
+      stop: jest.fn(async () => {}),
+    };
+    await mount(h, { voice });
+
+    const circle = screen.getByLabelText('hold to speak');
+    await act(async () => {
+      fireEvent(circle, 'pressIn');
+      fireEvent(circle, 'pressOut');
+      await Promise.resolve();
+    });
+
+    // The release has been spent on a recording that had not begun.
+    expect(voice.stop).toHaveBeenCalledTimes(1);
+
+    // Now the microphone opens.
+    await act(async () => {
+      release?.();
+      await opening;
+      await Promise.resolve();
+    });
+
+    // And it is ended again, as if the release had waited — rather than running on until
+    // something else was pressed.
+    expect(voice.stop).toHaveBeenCalledTimes(2);
+    h.db.close();
+  });
+
   it('says how to undo a refusal, and only then offers a way out', async () => {
     const h = harness();
     await migrate(h.db);

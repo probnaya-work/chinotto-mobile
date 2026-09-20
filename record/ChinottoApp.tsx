@@ -19,6 +19,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Linking, Platform, View } from 'react-native';
 import * as Font from 'expo-font';
+import * as SplashScreen from 'expo-splash-screen';
 
 import { RecordApp } from './RecordApp';
 import { Settings, settingsCopy, type SettingsPage } from './ui/Settings';
@@ -138,6 +139,40 @@ export function ChinottoApp({ services }: { services: Services }) {
       alive = false;
     };
   }, []);
+
+  /**
+   * The native splash comes down once the lockup is under it, and not before.
+   *
+   * `index.ts` holds it, because on its own it goes on the first JS frame — which is the
+   * record with no fonts and no lockup yet, a blank screen between the splash's mark and
+   * the animation of the same mark.
+   *
+   * `fontsReady` is the moment there is something to hand over to: it is what gates the
+   * lockup, and what the record's own type waits for. Two frames after it, the handover
+   * has been painted and the splash can go.
+   *
+   * The timeout is not a nicety. A splash that never leaves is worse than the seam it was
+   * covering, so if the fonts never settle it comes down anyway.
+   */
+  useEffect(() => {
+    let done = false;
+    const hide = () => {
+      if (done) return;
+      done = true;
+      void SplashScreen.hideAsync().catch(() => {});
+    };
+    const bailout = setTimeout(hide, 4000);
+    let second = 0;
+    const first = requestAnimationFrame(() => {
+      if (!fontsReady) return;
+      second = requestAnimationFrame(hide);
+    });
+    return () => {
+      clearTimeout(bailout);
+      cancelAnimationFrame(first);
+      if (second) cancelAnimationFrame(second);
+    };
+  }, [fontsReady]);
 
   /* --------------------------------------------------------------- the catch-up */
 

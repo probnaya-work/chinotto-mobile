@@ -129,7 +129,19 @@ export function RecordApp(props: RecordAppProps) {
 
   /* -------------------------------------------------------------------- voice */
 
+  /**
+   * Whether the circle is still under a finger.
+   *
+   * Starting is not instant — the session is configured, the engine is built, the file is
+   * opened, and the very first time iOS raises two permission prompts in the middle of it.
+   * A release that arrives before any of that finishes used to be spent on a recording that
+   * had not begun, and the one that began a moment later had nothing left to end it: it
+   * ran on until something else was pressed.
+   */
+  const holding = useRef(false);
+
   const startRecording = useCallback(async () => {
+    holding.current = true;
     // Holding the circle is not typing. The keyboard goes away so the recording has the
     // whole edge, which is what the veil and the level meter are drawn against.
     dismissKeyboard();
@@ -150,6 +162,13 @@ export function RecordApp(props: RecordAppProps) {
       setMicNotice(null);
     }
     await props.voice.start();
+    // Let go while it was still opening: end it now, as if the release had waited.
+    if (!holding.current) await props.voice.stop();
+  }, [props.voice]);
+
+  const stopRecording = useCallback(async () => {
+    holding.current = false;
+    await props.voice.stop();
   }, [props.voice]);
 
   /* ------------------------------------------------------------------ notices */
@@ -367,7 +386,7 @@ export function RecordApp(props: RecordAppProps) {
         onToggleMeaning={record.toggleMeaning}
         recording={props.voice.state}
         onStartRecording={startRecording}
-        onStopRecording={props.voice.stop}
+        onStopRecording={stopRecording}
         notices={notices}
         keyboardInset={keyboardInset}
       />
