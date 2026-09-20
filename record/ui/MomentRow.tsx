@@ -25,6 +25,7 @@ import {
   displayText,
   firstLine,
   hasNoWordsYet,
+  isBlank,
   isQuoteOnly,
   isVoice,
   paragraphCount,
@@ -161,7 +162,19 @@ export function MomentRow(props: MomentRowProps) {
   const textStyle = tierTextStyle(tier, { voice, borrowedWords: borrowed });
   const meta = compact ? null : metaFor(material, props.lineLength, props.lineStartedAt, now);
 
-  const body = (
+  // A recording whose reading does not exist yet, or failed. Saying which is the whole
+  // point: the audio is safe either way, and a blank row would imply the opposite.
+  const wordless = voice && isBlank(material.body);
+
+  const body = wordless ? (
+    <Text style={[textStyle, { fontStyle: 'normal', color: ink.meta }]}>
+      {material.transcriptState === 'failed'
+        ? material.audioMissing
+          ? 'couldn’t transcribe · the audio is not on this device'
+          : 'couldn’t transcribe · the audio is safe'
+        : 'listening back…'}
+    </Text>
+  ) : (
     <Marked
       parts={bodyParts(material, tier, props.highlight)}
       style={[
@@ -230,6 +243,12 @@ export function MomentRow(props: MomentRowProps) {
         </View>
 
         {meta ? <Text style={[metaStyle, { marginTop: 4 }]}>{meta}</Text> : null}
+
+        {voice && material.audioMissing && !isBlank(material.body) ? (
+          <Text style={[metaStyle, { marginTop: 4 }]}>
+            the audio is no longer on this device · these words remain
+          </Text>
+        ) : null}
 
         {props.justSaved ? (
           <Text style={[metaStyle, { marginTop: 6, lineHeight: 18 }]}>

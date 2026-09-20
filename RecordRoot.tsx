@@ -79,6 +79,28 @@ export default function RecordRoot() {
     void setCurrentAppIconVariantId(next);
   }, []);
 
+  /**
+   * Microphone state is only ever learned by trying.
+   *
+   * There is no API that reports the permission without asking for it, so settings says
+   * "not asked yet" until a recording actually succeeds or is refused — and then says what
+   * happened. It never claims to know an answer it has not been given. (Desktop reached the
+   * same rule independently; their decision 12.6.)
+   */
+  const [micPermission, setMicPermission] = useState<'granted' | 'ask' | 'denied'>('ask');
+  useEffect(
+    () =>
+      subscribeVoiceCapture({
+        onStateChange: (state) => {
+          if (state === 'listening') setMicPermission('granted');
+        },
+        onError: (code) => {
+          if (code === 'permission_denied') setMicPermission('denied');
+        },
+      }),
+    []
+  );
+
   /** The widget and the scheme both mean one thing: put the caret in the field. */
   const [voiceOnOpen, setVoiceOnOpen] = useState(false);
   useEffect(() => {
@@ -140,9 +162,9 @@ export default function RecordRoot() {
       },
       openSystemSettings: () => void Linking.openSettings(),
 
-      // Permission is reported by the native module the first time the circle is held; the
-      // app asks iOS rather than guessing, so this starts at `ask` and is corrected there.
-      microphonePermission: () => 'ask',
+      microphonePermission: () => micPermission,
+      // Asking IS holding the circle: iOS raises the prompt on the first attempt, so there
+      // is nothing separate to request.
       requestMicrophonePermission: () => {},
 
       icon,
@@ -195,7 +217,17 @@ export default function RecordRoot() {
     };
     // `shareSeen` is in the deps so the payload clears once it has been taken.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [db, sharePayloads, shareSeen, gate, dismissSoft, icon, chooseIcon, voiceOnOpen]);
+  }, [
+    db,
+    sharePayloads,
+    shareSeen,
+    gate,
+    dismissSoft,
+    icon,
+    chooseIcon,
+    voiceOnOpen,
+    micPermission,
+  ]);
 
   // The ink field, from the first frame, so there is never a white flash before the record.
   if (!services) return <View style={{ flex: 1, backgroundColor: SURFACE }} />;

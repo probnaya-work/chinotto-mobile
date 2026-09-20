@@ -37,9 +37,9 @@ Taken literally, the prototype adds up to 1.9 seconds to every open. That is exa
 recurring friction the golden rule exists to prevent.
 
 **DECIDED: cold start only, non-blocking.** The lockup plays on a genuine cold start and is
-skipped entirely on warm resume. The capture field is mounted, focusable and typeable
-underneath from the first frame, and the lockup dismisses the moment the Record is ready if
-that happens sooner. The identity moment survives; the tax does not.
+skipped entirely on warm resume. It is `pointerEvents="none"`, the capture field is mounted
+and focused underneath it from the first frame, and **any touch dismisses it at once**. The
+identity moment survives; the tax does not.
 
 ### 1.2 The record is unbounded, on a phone
 
@@ -68,8 +68,9 @@ because-clause, and `interval` is dropped because it has no reason to give.
 ### 1.5 `walk the states` must not ship
 
 The sync sheet carries a `prototype · walk the states` control that jumps between off / paid /
-on / offline / sign-in expired / two wordings. It is a prototype affordance. It is implemented
-as a dev-only surface behind the existing `dev/` gate and is absent from release builds.
+on / offline / sign-in expired / two wordings. It is a prototype affordance for walking a
+demo, and it is **not implemented at all** — not shipped, and not hidden behind a flag. The
+six states are reachable from real state, which is the only way they are worth testing.
 
 ### 1.6 Unresolved content the prototype draws
 
@@ -110,8 +111,9 @@ theme tables are not dropped** — they stay until the transition is over.
 
 Desktop has `export_record` and `back up now`. The mobile prototype's settings has seven
 sections and none of them is export. This branch does **not** treat that as a decision that
-the Record may not leave the phone. It is recorded as a pending surface (§0.30) and the
-material it would need — `archived_material`, retained audio, revisions — is all in place.
+the Record may not leave the phone. It is recorded as a pending surface
+(`docs/unspecified-decisions.md` §8.1) and the material it would need —
+`archived_material`, retained audio, `fragment_revisions` — is all in place.
 
 ---
 
@@ -170,6 +172,20 @@ This branch implements that on mobile:
 - audio never travels over the legacy sync contract, which cannot carry it;
 - when the file is looked for and is not there, `audio_missing` is set and the interface says
   the audio is gone rather than pretending it still has it.
+
+### 1.11 Retained audio: mobile re-encodes where desktop does not
+
+Both repositories independently arrived at the same voice model — the tap writes the file,
+the recogniser is a second consumer, the fragment is created from the recording, a failed
+transcript is a failed *reading*. The formats differ: desktop keeps the input's own format
+in a `.caf`, mobile encodes AAC into an `.m4a`.
+
+Desktop's reasoning — a canonical source should not already be a derivation — is about the
+model rather than the platform. Mobile diverges because eleven megabytes a minute is not
+something a phone can absorb without a retention policy, and there is no retention policy.
+
+**Flagged as the one open cross-repo semantic disagreement on this branch**, with the
+alternatives, in `docs/unspecified-decisions.md` §4.3.
 
 ## 5. Data model — what mobile had, and what it has now
 

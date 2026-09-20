@@ -62,7 +62,7 @@ computed and then flattened. The surface is identical; the tree is not.
 |---|---|---|---|---|
 | 4.1 | Audio is canonical; the transcript is derived | — | `record/voice.ts` | inherited (desktop schema) |
 | 4.2 | Audio is written before transcription is attempted | — | same | **decided** (product instruction) |
-| 4.3 | Container and codec | `.m4a`, AAC, at the input's own sample rate | `ios/Chinotto/VoiceCaptureModule.swift` | invented |
+| 4.3 | Container and codec | `.m4a`, AAC, at the input's own sample rate and channel count | `ios/Chinotto/VoiceCaptureModule.swift` | **divergence from desktop — see below** |
 | 4.4 | Audio paths are stored relative to the document directory | — | `record/files.ts` | invented |
 | 4.5 | Releasing under `0.8s` drops the recording silently, file and all | `0.8s` | `record/voice.ts` | from the prototype |
 | 4.6 | Retained audio is deleted only when a removal is finally published | — | `record/voice.ts` | invented |
@@ -71,6 +71,31 @@ computed and then flattened. The surface is identical; the tree is not.
 | 4.9 | A write failure mid-recording keeps what already reached disk and stops | — | `VoiceCaptureModule.swift` | invented |
 | 4.10 | Audio missing at settle time is recorded as `audio_missing` immediately | — | `record/voice.ts` | invented |
 | 4.11 | The machine transcript fills the body only while `correction_count == 0` | — | `record/store.ts` | **product rule** |
+| 4.12 | Microphone state is only ever learned by trying — never probed, never assumed | — | `RecordRoot.tsx` | inherited (desktop 12.6) |
+| 4.13 | A recording with no words says which — `listening back…` / `couldn't transcribe · the audio is safe` | — | `record/ui/MomentRow.tsx` | inherited (desktop, `FragmentRow`) |
+
+**4.3 is a deliberate divergence from desktop's 12.1, flagged rather than taken quietly.**
+
+Desktop keeps the input's own format in a `.caf`, reasoning that "resampling on the way in
+would mean the thing we kept is already a derivation". That reasoning is right, and it is
+about the durable model rather than about macOS — which is exactly why this is recorded
+here instead of being decided silently.
+
+Mobile re-encodes anyway, because of an arithmetic that desktop does not face. Uncompressed
+float32 at the iPhone's 48 kHz input is roughly 190 KB per second: eleven megabytes a
+minute, and 630 MB for the 55-minute recording the voice tests already exercise. A Mac can
+absorb that. A phone with no retention policy (4.7) cannot, and the failure mode is the
+worst one available — a full device, which costs capture itself.
+
+So mobile treats AAC as the canonical source, and the honest statement of the cost is that
+mobile's canonical audio *is* already a lossy derivation where desktop's is not. Both
+devices can still hear the moment back; only mobile's copy has been through a codec.
+
+**This is the one shared-semantic question on this branch where the two repositories do not
+agree, and it should be settled deliberately rather than by whoever writes the next commit.**
+The alternatives, if the divergence is unacceptable: keep the input format on mobile too and
+pair it with a retention policy, which makes 4.7 blocking rather than pending; or adopt a
+compressed canonical form on both sides.
 
 4.9 is the one that reads like an implementation detail and is not: a volume that fills
 mid-sentence should cost the rest of the sentence, not the whole recording. The file is
