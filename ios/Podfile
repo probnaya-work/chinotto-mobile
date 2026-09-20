@@ -88,6 +88,21 @@ target 'Chinotto' do
         end
       end
     end
+
+    # Xcode 27 refuses to build a target whose deployment target is below iOS 15.0, and
+    # several pods still declare 9.0-13.4 — usually on their generated resource-bundle
+    # targets rather than on the pod itself. Raise anything below the project's own floor;
+    # never lower anything that is already above it.
+    minimum = Gem::Version.new(podfile_properties['ios.deploymentTarget'] || '15.1')
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |config|
+        current = config.build_settings['IPHONEOS_DEPLOYMENT_TARGET']
+        next if current.nil? || current.to_s.empty?
+        next if Gem::Version.new(current.to_s) >= minimum
+
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = minimum.to_s
+      end
+    end
   end
 
 end
