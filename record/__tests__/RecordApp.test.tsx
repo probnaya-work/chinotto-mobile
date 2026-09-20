@@ -388,6 +388,44 @@ describe('the record surface', () => {
     h.db.close();
   });
 
+  it('keeps a "not this" for good, and stops guessing it', async () => {
+    const h = harness();
+    await migrate(h.db);
+    // Shared vocabulary, no shared phrase — which is what makes it a guess rather than a
+    // fact, and therefore something to be asked about.
+    await h.store.capture({ body: 'sorting is procrastination with a clear conscience' });
+    const mine = await h.store.capture({
+      body: 'conscience, procrastination, sorting: three words that never sit together',
+    });
+    await mount(h);
+
+    await act(async () => {
+      fireEvent.press(screen.getByText(/three words that never sit together/));
+      await Promise.resolve();
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByText(/three words that never sit together/));
+      await Promise.resolve();
+    });
+
+    // A guess says it is one, and asks.
+    await waitFor(() => expect(screen.getByText(/a guess ·/)).toBeTruthy());
+
+    await act(async () => {
+      fireEvent.press(screen.getByText('not this'));
+      await Promise.resolve();
+    });
+
+    // The verdict is canonical: it is written down, and it survives recomputation.
+    const judged = await h.db.getAllAsync<{ judgement: string }>(
+      'SELECT judgement FROM trace_judgements WHERE fragment_id = ?',
+      mine.id
+    );
+    expect(judged.map((r) => r.judgement)).toEqual(['rejected']);
+    await waitFor(() => expect(screen.queryByText(/a guess ·/)).toBeNull());
+    h.db.close();
+  });
+
   it('asks once before it acts: the first tap selects, the second opens', async () => {
     const h = harness();
     await migrate(h.db);

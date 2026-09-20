@@ -556,15 +556,26 @@ function TraceRow({
         })}
       />
       {guess ? (
-        <Text style={[type({ size: 14, width: 90, color: ink.meta }), { marginTop: 2 }]}>
-          <Text onPress={onYes} style={{ color: ink.verb }}>
-            yes
-          </Text>
-          {' · '}
-          <Text onPress={onNo} style={{ color: ink.verb }}>
-            not this
-          </Text>
-        </Text>
+        // A verdict on a guess is a decision somebody makes about their own record, and it
+        // is kept for good. Two words of 14pt type is not enough to hit — the body above
+        // opens the moment, so a near miss does something else entirely.
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+          <Pressable
+            onPress={onYes}
+            accessibilityRole="button"
+            hitSlop={{ top: 12, bottom: 12, left: 8, right: 6 }}
+          >
+            <Text style={type({ size: 14, width: 90, color: ink.verb })}>yes</Text>
+          </Pressable>
+          <Text style={type({ size: 14, width: 90, color: ink.meta })}>{' · '}</Text>
+          <Pressable
+            onPress={onNo}
+            accessibilityRole="button"
+            hitSlop={{ top: 12, bottom: 12, left: 6, right: 12 }}
+          >
+            <Text style={type({ size: 14, width: 90, color: ink.verb })}>not this</Text>
+          </Pressable>
+        </View>
       ) : null}
     </View>
   );

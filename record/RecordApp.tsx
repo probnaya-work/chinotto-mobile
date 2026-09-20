@@ -361,6 +361,11 @@ export function RecordApp(props: RecordAppProps) {
                 record.closeReturn('continued');
               }}
               onHold={() => {
+                // `let_go` is about the Return, not about the material: the Return has
+                // been dismissed, and the holding of what it brought back is recorded in
+                // `holds`, which is where holding lives. The outcome column has no `held`
+                // and should not grow one — both facts are already written down, in the
+                // two places that mean them.
                 void record.toggleHold(record.ret!.material);
                 record.closeReturn('let_go');
               }}
