@@ -189,10 +189,14 @@ for (const stale of ['Violet', 'Cyan', 'Orange', 'Gradient', 'Light']) {
   rmSync(join(xcassets, `${stale}AppIcon.appiconset`), { recursive: true, force: true });
 }
 
+// `dark` is the primary icon, so it is written as `AppIcon` and NOT also as a named
+// alternate — an extra set nothing can select would still be compiled into the bundle.
+// `light` is the only alternate, which is exactly what `iconVariants.ts` declares and what
+// `Info.plist` registers. The three must agree or `setAlternateIconName` fails at runtime.
 await writeIconSet(join(xcassets, 'AppIcon.appiconset'), squareIconSvg(dark));
-for (const variant of VARIANTS) {
-  const name = `${variant.id[0].toUpperCase()}${variant.id.slice(1)}AppIcon.appiconset`;
-  await writeIconSet(join(xcassets, name), squareIconSvg(variant));
-}
+rmSync(join(xcassets, 'DarkAppIcon.appiconset'), { recursive: true, force: true });
+
+const light = VARIANTS.find((v) => v.id === 'light');
+await writeIconSet(join(xcassets, 'LightAppIcon.appiconset'), squareIconSvg(light));
 
 console.log('Done.');
