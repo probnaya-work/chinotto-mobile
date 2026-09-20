@@ -45,7 +45,23 @@ import { parseWidgetDeepLink } from './widgets/parseWidgetDeepLink';
 import { isFirebaseSyncConfigured } from './sync/firebaseConfig';
 import { resolvePushEntryForSync } from './sync/pushEntryForSync';
 import { startBackgroundSync } from './sync/syncEngine';
-import { loadSubscriptionState } from './monetization/subscriptionState';
+import { signOut as firebaseSignOut } from 'firebase/auth';
+
+import {
+  getCachedHasSyncEntitlement,
+  loadSubscriptionState,
+} from './monetization/subscriptionState';
+import { isPaywallEnabled } from './monetization/paywallConfig';
+import { openSyncPurchaseFlow } from './monetization/syncPurchaseFlow';
+import { AppleUserCanceledError, enableAppleSyncWithFirebase } from './auth/enableAppleSync';
+import { loadCurrentChinottoOffering } from './src/services/purchases/offerings';
+import { restorePurchases } from './src/services/purchases/revenueCat';
+import { processSyncQueue } from './sync/syncEngine';
+import { flushSyncTombstoneOutbox } from './sync/tombstoneFlush';
+import { flushSyncUserThemeOutbox } from './sync/userThemeFlush';
+import { backfillLocalThemesToRemote } from './sync/themeSyncBackfill';
+import { mirrorChinottoSyncAccessToFirestore } from './sync/firestoreSyncAccessMirror';
+import type { SyncAccountPorts } from './record/useSyncAccount';
 import { bootstrapRevenueCat } from './src/services/purchases/initRevenueCat';
 import { getOrInitAuth } from './sync/firebaseAuth';
 import { isSyncAccessBlocked } from './monetization/syncAccessPolicy';
@@ -65,6 +81,60 @@ const APP_VERSION = getRuntimeAppVersion();
  */
 const deviceName = (): string =>
   (Constants.deviceName as string | undefined)?.trim() || 'this iphone';
+
+/**
+ * Turning sync on and off, as the shipping app does it.
+ *
+ * Module-level and stable, so nothing that holds a flow in progress is rebuilt underneath
+ * it. Each one is the production call it has always been — the sequence after signing in is
+ * the same sequence, in the same order, because it describes what the backend expects
+ * rather than what this surface prefers.
+ */
+const syncAccount: SyncAccountPorts = {
+  paywallEnabled: () => isPaywallEnabled(),
+  hasSyncAccess: () => getCachedHasSyncEntitlement(),
+
+  loadPlans: async () => {
+    const offering = await loadCurrentChinottoOffering();
+    // `null` means the offering could not be read at all, which is different from an
+    // offering that exists and sells nothing.
+    return offering.ok ? offering.packages : null;
+  },
+
+  purchase: (kind, preloaded) =>
+    openSyncPurchaseFlow({
+      packageKind: kind,
+      ...(preloaded.length > 0 ? { preloadedPackages: preloaded } : {}),
+    }),
+
+  restore: async () => {
+    const info = await restorePurchases();
+    // A null `info` means the store was never reached; an entitlement that is still absent
+    // after a successful call means there was genuinely nothing to restore.
+    return { hasAccess: getCachedHasSyncEntitlement(), reached: info != null };
+  },
+
+  signInWithApple: async () => {
+    try {
+      await enableAppleSyncWithFirebase();
+      return 'signed-in';
+    } catch (err) {
+      if (err instanceof AppleUserCanceledError) return 'cancelled';
+      throw err;
+    }
+  },
+
+  afterSignIn: async () => {
+    await processSyncQueue(resolvePushEntryForSync());
+    await flushSyncTombstoneOutbox();
+    await flushSyncUserThemeOutbox();
+    await backfillLocalThemesToRemote();
+    await mirrorChinottoSyncAccessToFirestore();
+  },
+
+  mirrorAccess: (options) => mirrorChinottoSyncAccessToFirestore(options),
+  signOut: () => firebaseSignOut(getOrInitAuth()),
+};
 
 /** The native module, behind the narrow interface `record/voice.ts` asks for. */
 const voiceEngine: VoiceEngine = {
@@ -223,6 +293,7 @@ export default function RecordRoot() {
       // quietly become a stub while the surface waited on it.
       microphonePermission: () => micPermission,
       subscriptionLoaded,
+      syncAccount,
       audio: audioPlayback,
 
       icon,

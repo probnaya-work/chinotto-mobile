@@ -66,6 +66,17 @@ function harness() {
     openSystemSettings: () => {},
     microphonePermission: () => permission,
     subscriptionLoaded: true,
+    syncAccount: {
+      paywallEnabled: () => false,
+      hasSyncAccess: () => false,
+      loadPlans: async () => [],
+      purchase: async () => ({ kind: 'cancelled' }),
+      restore: async () => ({ hasAccess: false, reached: true }),
+      signInWithApple: async () => 'cancelled',
+      afterSignIn: async () => {},
+      mirrorAccess: async () => {},
+      signOut: async () => {},
+    },
     incomingShare: null,
     onShareHandled: () => {},
     syncPorts: {

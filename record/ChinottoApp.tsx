@@ -34,6 +34,8 @@ import { createRecordStore, type RecordStore } from './store';
 import { createVoiceCapture, type VoiceEngine } from './voice';
 import { readShare, type ShareIntake, type SharePayloadLike } from './share';
 import { useSyncSurface, type SyncPorts } from './useSyncSurface';
+import { useSyncAccount, type SyncAccountPorts } from './useSyncAccount';
+import type { ChinottoPackageKind } from '../src/services/purchases/constants';
 import { shouldRunMobileFirestoreIngest } from '../sync/ingestGate';
 import { startMobileFirestoreIngest } from '../sync/firestoreIngest';
 import {
@@ -68,6 +70,8 @@ export type Services = {
   microphonePermission: () => 'granted' | 'ask' | 'denied';
   /** False until the entitlement has been read at all — which is not the same as unsubscribed. */
   subscriptionLoaded: boolean;
+  /** Turning sync on and off: the store, Apple, and the work that follows signing in. */
+  syncAccount: SyncAccountPorts;
   /** Playing retained audio back. Omitted where the platform cannot, and then it is not offered. */
   audio?: AudioPlaybackPort;
   /** Payloads from the share extension, or null when the app was not opened by one. */
@@ -160,6 +164,18 @@ export function ChinottoApp({ services }: { services: Services }) {
   );
 
   const sync = useSyncSurface(services.syncPorts, bridge);
+  const account = useSyncAccount(services.syncAccount, () => void sync.refresh());
+
+  /**
+   * Opening the sheet with sync off starts the flow; opening it when sync is on is just
+   * looking at it. Closing always puts the flow away, so a half-finished purchase is not
+   * waiting behind the sheet the next time it is opened.
+   */
+  const openSync = useCallback(() => {
+    sync.setOpen(true);
+    if (sync.state === 'off') void account.begin();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sync.state, sync.setOpen, account.begin]);
 
   /* --------------------------------------------------------------------- fonts */
 
@@ -424,7 +440,7 @@ export function ChinottoApp({ services }: { services: Services }) {
         }}
         audio={services.audio}
         changedAt={changedAt}
-        sync={{ notice: sync.notice, onOpen: () => sync.setOpen(true) }}
+        sync={{ notice: sync.notice, onOpen: openSync }}
         update={{
           soft: services.update.soft && !updateDismissed,
           onUpdate: () => {
@@ -444,7 +460,7 @@ export function ChinottoApp({ services }: { services: Services }) {
           setPage={(page) => setSurface({ kind: 'settings', page })}
           onClose={() => setSurface({ kind: 'record' })}
           onSeeWidget={() => setSurface({ kind: 'widget' })}
-          onOpenSync={() => sync.setOpen(true)}
+          onOpenSync={openSync}
           sync={sync}
           services={services}
           appearance={appearance}
@@ -472,27 +488,28 @@ export function ChinottoApp({ services }: { services: Services }) {
 
       {sync.open ? (
         <SyncSheet
-          state={sync.state}
+          state={account.phase === 'idle' ? sync.state : account.phase}
           offline={sync.offline}
           pending={sync.pending}
           onClose={() => {
             sync.setOpen(false);
             sync.cancelConfirm();
+            account.leave();
           }}
-          plans={[
-            { id: 'yearly', name: 'a year', price: '[price]', note: '[saving]' },
-            { id: 'monthly', name: 'a month', price: '[price]', note: '[trial]' },
-          ]}
-          chosenPlan="yearly"
-          onPickPlan={() => {}}
-          planCta="continue · [price] a year"
-          onContinueWithPlan={() => {}}
-          onRestore={() => {}}
-          errorMessage={null}
-          onContinueWithApple={() => {}}
+          plans={account.rows}
+          chosenPlan={account.chosen ?? ''}
+          onPickPlan={(id) => account.pickPlan(id as ChinottoPackageKind)}
+          planCta={account.cta}
+          onContinueWithPlan={() => void account.continueWithPlan()}
+          onRestore={() => void account.restore()}
+          errorMessage={
+            account.error ??
+            (account.plansUnavailable ? 'plans could not be read right now' : null)
+          }
+          onContinueWithApple={() => void account.continueWithApple()}
           connectingLine="signing in…"
           devices={sync.devices}
-          justEnabled={false}
+          justEnabled={account.justEnabled}
           linkCopyLabel={sync.copied ? 'copied' : 'copy the link'}
           onCopyLink={sync.markCopied}
           confirming={sync.confirming}
@@ -500,12 +517,15 @@ export function ChinottoApp({ services }: { services: Services }) {
           onAskRemoveDevice={sync.askRemoveDevice}
           onRemoveDevice={sync.cancelConfirm}
           onAskStop={sync.askStop}
-          onStop={sync.cancelConfirm}
+          onStop={() => {
+            sync.cancelConfirm();
+            void account.stop().then(() => sync.refresh());
+          }}
           onCancelConfirm={sync.cancelConfirm}
           conflict={sync.conflict}
           onKeepWording={(which) => void sync.keepWording(which, store.correct)}
           onSettleConflict={() => void sync.settleConflict(store.correct)}
-          onSignInAgain={() => {}}
+          onSignInAgain={() => void account.continueWithApple()}
           errorWhen={sync.errorWhen}
         />
       ) : null}
