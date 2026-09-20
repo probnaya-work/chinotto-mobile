@@ -29,7 +29,7 @@ import { motion } from './ui/tokens';
 import { thoughtLanded } from './feedback';
 import { NO_PLAYBACK, type AudioPlaybackPort } from './playback';
 import type { RecordBridge } from './bridge';
-import type { RecordStore } from './store';
+import { HoldLimitReached, MAX_HELD, type RecordStore } from './store';
 
 /** Do not press the same thing again within this. */
 const RETURN_COOLDOWN_MS = 7 * MS_DAY;
@@ -364,10 +364,27 @@ export function useRecord(
 
   /* ------------------------------------------------------------- hold / correct */
 
+  /**
+   * `keep present` is bounded and refuses rather than evicting — the shelf has no ordering,
+   * so choosing what to drop would be the product choosing for somebody.
+   *
+   * Refusing is right; refusing in silence is not. The sixth press used to throw into a
+   * floating promise and do nothing at all, which reads as a broken button rather than as a
+   * full shelf.
+   */
+  const [holdRefused, setHoldRefused] = useState(false);
+
   const toggleHold = useCallback(
     async (m: Material) => {
-      if (heldIds.has(m.id)) await store.release(m.id);
-      else await store.hold(m.id);
+      try {
+        if (heldIds.has(m.id)) await store.release(m.id);
+        else await store.hold(m.id);
+      } catch (err) {
+        if (!(err instanceof HoldLimitReached)) throw err;
+        setHoldRefused(true);
+        setTimeout(() => setHoldRefused(false), 5000);
+        return;
+      }
       setSelectedId(null);
       await reload();
     },
@@ -592,6 +609,8 @@ export function useRecord(
     bringBack,
 
     toggleHold,
+    holdRefused,
+    maxHeld: MAX_HELD,
     judgeTrace,
 
     ret,

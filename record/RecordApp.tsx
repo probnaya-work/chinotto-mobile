@@ -227,6 +227,12 @@ export function RecordApp(props: RecordAppProps) {
           : undefined,
     });
   }
+  if (record.holdRefused) {
+    notices.push({
+      kind: 'held',
+      text: `already keeping ${record.maxHeld} present · let one go first`,
+    });
+  }
   if (record.pendingRemoval) {
     notices.push({
       kind: 'undo',

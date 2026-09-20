@@ -36,6 +36,7 @@ const FIELD_PADDING_Y = 14;
 
 export type EdgeNotice =
   | { kind: 'mic'; text: string; action?: string; onAction?: () => void }
+  | { kind: 'held'; text: string }
   | { kind: 'undo'; text: string; secondsLeft: number; onUndo: () => void }
   | { kind: 'sync'; text: string; urgent: boolean; onOpen: () => void }
   | { kind: 'update'; onUpdate: () => void; onLater: () => void };
@@ -436,6 +437,10 @@ function Notice({ notice }: { notice: EdgeNotice }) {
           {` · ${notice.secondsLeft}s`}
         </Text>
       );
+    case 'held':
+      // Nothing to press. The shelf is full and letting something go is the answer, which
+      // is done where the held things are, not here.
+      return <Text style={[base, { color: ink.far }]}>{notice.text}</Text>;
     case 'sync':
       return (
         <Text

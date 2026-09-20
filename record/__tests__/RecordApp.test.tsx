@@ -426,6 +426,34 @@ describe('the record surface', () => {
     h.db.close();
   });
 
+  it('says the shelf is full rather than doing nothing', async () => {
+    const h = harness();
+    await migrate(h.db);
+    // Five is the limit, and it refuses rather than evicting — there is no ordering on the
+    // shelf, so choosing what to drop would be the product choosing for somebody.
+    for (let i = 0; i < 5; i += 1) {
+      const m = await h.store.capture({ body: `kept ${i}` });
+      await h.store.hold(m.id);
+    }
+    const sixth = await h.store.capture({ body: 'one too many' });
+    await mount(h);
+
+    await act(async () => {
+      fireEvent.press(screen.getByText('one too many'));
+      await Promise.resolve();
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByText('hold'));
+      await Promise.resolve();
+    });
+
+    // The press used to throw into a floating promise and do nothing at all, which reads
+    // as a broken button rather than as a full shelf.
+    await waitFor(() => expect(screen.getByText(/already keeping 5 present/)).toBeTruthy());
+    expect(await h.store.heldIds()).not.toContain(sixth.id);
+    h.db.close();
+  });
+
   it('asks once before it acts: the first tap selects, the second opens', async () => {
     const h = harness();
     await migrate(h.db);
