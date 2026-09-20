@@ -23,6 +23,7 @@ import {
 } from 'react-native';
 
 import { Edge, useReducedMotion, type EdgeNotice } from './ui/Edge';
+import { dismissKeyboard, useKeyboardInset } from './ui/useKeyboardInset';
 import { Focus } from './ui/Focus';
 import { Launch, launchHoldFor } from './ui/Launch';
 import { Mark } from './ui/Mark';
@@ -62,6 +63,7 @@ export type RecordAppProps = {
 export function RecordApp(props: RecordAppProps) {
   const record = useRecord(props.store, props.bridge);
   const reducedMotion = useReducedMotion();
+  const keyboardInset = useKeyboardInset();
 
   const inputRef = useRef<TextInputType>(null);
   const loadedAt = useRef(Date.now()).current;
@@ -110,6 +112,9 @@ export function RecordApp(props: RecordAppProps) {
   /* -------------------------------------------------------------------- voice */
 
   const startRecording = useCallback(async () => {
+    // Holding the circle is not typing. The keyboard goes away so the recording has the
+    // whole edge, which is what the veil and the level meter are drawn against.
+    dismissKeyboard();
     if (props.voice.permission === 'denied') {
       setMicNotice('denied');
       // It clears itself. A permission notice that had to be dismissed would be a dialog.
@@ -330,6 +335,7 @@ export function RecordApp(props: RecordAppProps) {
         onStartRecording={startRecording}
         onStopRecording={props.voice.stop}
         notices={notices}
+        keyboardInset={keyboardInset}
       />
 
       {record.focus ? (

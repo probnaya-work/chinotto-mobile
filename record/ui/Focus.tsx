@@ -25,6 +25,7 @@ import {
 } from 'react-native';
 
 import { Marked } from './Marked';
+import { useKeyboardInset } from './useKeyboardInset';
 import { ink, motion, rule, SURFACE } from './tokens';
 import { face, type } from './type';
 import { foldLine, lineHeading, type LineEntry } from '../model/lines';
@@ -82,6 +83,9 @@ export type FocusProps = {
 
 export function Focus(props: FocusProps) {
   const slide = useRef(new Animated.Value(0)).current;
+  // Continue and correction sit on the keyboard for the same reason the edge does: they are
+  // the bottom of this surface, not something floating over it.
+  const keyboardInset = useKeyboardInset();
   useEffect(() => {
     Animated.timing(slide, {
       toValue: 1,
@@ -126,10 +130,11 @@ export function Focus(props: FocusProps) {
         </Text>
       </View>
 
-      <ScrollView
-        style={{ flex: 1 }}
+      <Animated.ScrollView
+        style={{ flex: 1, marginBottom: keyboardInset }}
         contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 26, paddingBottom: 140 }}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
       >
         <View style={{ position: 'relative', paddingLeft: 18, gap: 22 }}>
           {isLine ? (
@@ -204,14 +209,14 @@ export function Focus(props: FocusProps) {
             ))}
           </View>
         ) : null}
-      </ScrollView>
+      </Animated.ScrollView>
 
-      <View
+      <Animated.View
         style={{
           position: 'absolute',
           left: 0,
           right: 0,
-          bottom: 0,
+          bottom: keyboardInset,
           paddingHorizontal: 24,
           paddingTop: 12,
           paddingBottom: 44,
@@ -292,7 +297,7 @@ export function Focus(props: FocusProps) {
             </Pressable>
           </View>
         )}
-      </View>
+      </Animated.View>
     </Animated.View>
   );
 }

@@ -62,6 +62,14 @@ export type EdgeProps = {
   onStopRecording: () => void;
 
   notices: EdgeNotice[];
+
+  /**
+   * How far the keyboard has raised the bottom of the usable surface.
+   *
+   * The edge sits on top of it rather than behind it. This is the same edge either way —
+   * it has simply been given a different floor.
+   */
+  keyboardInset: Animated.Value;
 };
 
 export function Edge(props: EdgeProps) {
@@ -74,14 +82,20 @@ export function Edge(props: EdgeProps) {
     <>
       {recording ? <SpeakingVeil recording={props.recording!} /> : null}
 
-      <View
+      <Animated.View
         style={{
           position: 'absolute',
           left: 0,
           right: 0,
-          bottom: 0,
+          bottom: props.keyboardInset,
           paddingTop: edge.paddingTop,
-          paddingBottom: edge.paddingBottom,
+          // The home-indicator gutter is the keyboard's job once the keyboard is there, so
+          // the edge stops reserving it and sits directly on the keyboard instead.
+          paddingBottom: props.keyboardInset.interpolate({
+            inputRange: [0, 1],
+            outputRange: [edge.paddingBottom, edge.paddingBottom - 1],
+            extrapolate: 'clamp',
+          }),
           paddingHorizontal: 24,
           backgroundColor: SURFACE,
           zIndex: 2,
@@ -217,7 +231,7 @@ export function Edge(props: EdgeProps) {
             </>
           )}
         </View>
-      </View>
+      </Animated.View>
     </>
   );
 }

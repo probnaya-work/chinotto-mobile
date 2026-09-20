@@ -12,7 +12,14 @@
  */
 
 import React, { useCallback } from 'react';
-import { FlatList, Pressable, Text, View, type ListRenderItemInfo } from 'react-native';
+import {
+  Animated,
+  FlatList,
+  Pressable,
+  Text,
+  View,
+  type ListRenderItemInfo,
+} from 'react-native';
 
 import { HeldRow, MomentRow } from './MomentRow';
 import { bandLabel, frame, ink, rule } from './tokens';
@@ -50,6 +57,17 @@ export type RecordListProps = {
 
   renderReturn: () => React.ReactElement | null;
   renderFindEmpty: () => React.ReactElement | null;
+
+  /**
+   * How far the keyboard has raised the floor. The record's viewport contracts by exactly
+   * this much — it does not scroll, slide or get covered.
+   *
+   * Because the list is inverted, index 0 stays pinned to the bottom of whatever viewport
+   * it is given. Contracting the viewport therefore keeps the newest material against the
+   * edge and leaves the scroll offset untouched, so there is nothing to restore afterwards
+   * and nothing jumps.
+   */
+  keyboardInset: Animated.Value;
 };
 
 export function RecordList(props: RecordListProps) {
@@ -158,30 +176,37 @@ export function RecordList(props: RecordListProps) {
   );
 
   return (
-    <FlatList
-      inverted
-      data={props.rows}
-      renderItem={renderItem}
-      keyExtractor={keyOf}
+    // The viewport. Its floor rises with the keyboard; the list inside simply fills it, so
+    // the list itself never learns about keyboards and its scroll offset is never touched.
+    <Animated.View
       style={{
         position: 'absolute',
         left: frame.side,
         right: frame.side,
         top: frame.top,
-        bottom: frame.bottom,
+        bottom: Animated.add(props.keyboardInset, new Animated.Value(frame.bottom)),
       }}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-      keyboardDismissMode="none"
-      // Tuned so a chunk is always measured before it can be seen. The record is arranged by
-      // distance and standing re-measures from where you stand, so it cannot be paged — the
-      // whole thing is in the list and only the window is mounted.
-      initialNumToRender={24}
-      maxToRenderPerBatch={24}
-      windowSize={11}
-      updateCellsBatchingPeriod={40}
-      removeClippedSubviews
-    />
+    >
+      <FlatList
+        inverted
+        data={props.rows}
+        renderItem={renderItem}
+        keyExtractor={keyOf}
+        style={{ flex: 1 }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        // Dragging down through the record puts the keyboard away, tracking the finger.
+        keyboardDismissMode="interactive"
+        // Tuned so a chunk is always measured before it can be seen. The record is arranged
+        // by distance and standing re-measures from where you stand, so it cannot be paged —
+        // the whole thing is in the list and only the window is mounted.
+        initialNumToRender={24}
+        maxToRenderPerBatch={24}
+        windowSize={11}
+        updateCellsBatchingPeriod={40}
+        removeClippedSubviews
+      />
+    </Animated.View>
   );
 }
 
