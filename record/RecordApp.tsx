@@ -72,6 +72,8 @@ export function RecordApp(props: RecordAppProps) {
 
   const [launchVisible, setLaunchVisible] = useState(props.coldStart);
   const [launchLeaving, setLaunchLeaving] = useState(false);
+  /** Once per mount, whatever the prop does afterwards. */
+  const launchPlayed = useRef(props.coldStart);
   const [micNotice, setMicNotice] = useState<'ask' | 'denied' | null>(null);
 
   /* ------------------------------------------------------------------- launch */
@@ -83,8 +85,22 @@ export function RecordApp(props: RecordAppProps) {
     });
   }, []);
 
+  /**
+   * The lockup waits for the fonts, so `coldStart` arrives false and turns true a moment
+   * later — it is `coldStart && fontsReady`, and the record is drawn before either. Reading
+   * it only as initial state meant the lockup never played at all on a real launch: by the
+   * time it was true, nothing was looking. It is latched here instead, once per mount.
+   */
+  useEffect(() => {
+    if (!props.coldStart || launchPlayed.current) return;
+    launchPlayed.current = true;
+    setLaunchVisible(true);
+  }, [props.coldStart]);
+
   useEffect(() => {
     if (!launchVisible) return;
+    // Counted from when the app was opened, not from when the lockup appeared: the point is
+    // to bound how long it is until the record is there, not to add to it.
     const hold = launchHoldFor(loadedAt, Date.now(), reducedMotion);
     const id = setTimeout(dismissLaunch, hold);
     return () => clearTimeout(id);

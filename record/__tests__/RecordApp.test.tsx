@@ -488,6 +488,47 @@ describe('the record surface', () => {
     h.db.close();
   });
 
+  it('still plays the lockup when the fonts arrive after the record does', async () => {
+    const h = harness();
+    await migrate(h.db);
+
+    // What actually happens on a launch: `coldStart` is `coldStart && fontsReady`, and the
+    // record is drawn before the fonts are in. It arrives false and turns true a moment
+    // later — which is exactly when nothing was looking, so the lockup never played.
+    const view = render(
+      <RecordApp store={h.store} bridge={h.bridge} {...defaults} coldStart={false} />
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.queryByText('chinotto')).toBeNull();
+
+    await act(async () => {
+      view.rerender(<RecordApp store={h.store} bridge={h.bridge} {...defaults} coldStart />);
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText('chinotto')).toBeTruthy();
+    expect(screen.getByLabelText('capture')).toBeTruthy();
+
+    await act(async () => {
+      jest.advanceTimersByTime(1900 + 520 + 50);
+    });
+    await waitFor(() => expect(screen.queryByText('chinotto')).toBeNull());
+
+    // And it is once per launch: a later flip of the prop does not replay it.
+    await act(async () => {
+      view.rerender(
+        <RecordApp store={h.store} bridge={h.bridge} {...defaults} coldStart={false} />
+      );
+      view.rerender(<RecordApp store={h.store} bridge={h.bridge} {...defaults} coldStart />);
+      await Promise.resolve();
+    });
+    expect(screen.queryByText('chinotto')).toBeNull();
+    view.unmount();
+    h.db.close();
+  });
+
   it('does not play the lockup on a warm resume', async () => {
     const h = harness();
     await migrate(h.db);
