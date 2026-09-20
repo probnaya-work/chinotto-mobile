@@ -20,13 +20,15 @@ pnpm ios
 pnpm android
 ```
 
-## Test
+## Verify
 
 ```bash
+pnpm typecheck
 pnpm test
 ```
 
-Jest covers storage, sync helpers, and key UI flows.
+`typecheck` is `tsc --noEmit`. Jest covers storage, sync helpers, and key UI flows. Both are what CI
+runs on every push and pull request (`.github/workflows/ci.yml`).
 
 ## Build
 
@@ -36,4 +38,4 @@ When bumping marketing version or build number for store submission, update `app
 
 ## Contributing
 
-- Product scope and agent contract: [`AGENTS.md`](../AGENTS.md)
+- Product scope, commit convention, and agent contract: [`AGENTS.md`](../AGENTS.md)

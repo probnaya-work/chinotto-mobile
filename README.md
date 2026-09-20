@@ -1,3 +1,8 @@
+PROBNAYA / CHINOTTO
+INSTRUMENT
+
+Independent Computational Laboratory
+
 <p align="center">
   <img src="docs/logo.svg" width="80" alt="Chinotto" />
 </p>
@@ -52,5 +57,5 @@ New versions ship through the App Store. The app may prompt when a newer version
 
 ## Related
 
-- [Chinotto desktop](https://github.com/AleksandrMalinin/chinotto) — primary thinking surface
+- [Chinotto desktop](https://github.com/probnaya-work/chinotto) — primary thinking surface
 - [Chinotto web](https://github.com/AleksandrMalinin/chinotto-web) — web companion / info site

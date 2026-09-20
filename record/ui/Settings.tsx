@@ -284,6 +284,10 @@ function Root(props: SettingsProps) {
         <Text style={type({ size: 12, width: 90, color: ink.meta })}>
           {`${props.version} · ${props.updateLine}`}
         </Text>
+        {/* Secondary maker's mark. PROBNAYA is the laboratory; Chinotto keeps its own identity. */}
+        <Text style={type({ size: 12, width: 90, color: ink.meta })}>
+          PROBNAYA · Independent Computational Laboratory
+        </Text>
       </Section>
     </ScrollView>
   );

@@ -1,5 +1,27 @@
 # Chinotto Mobile — AGENTS.md
 
+Chinotto is an instrument of PROBNAYA, an independent computational laboratory. PROBNAYA is the
+maker and the repository owner; Chinotto keeps its own product identity, and laboratory-wide
+repository conventions are recorded in `probnaya-work/.github` (`PROBNAYA.md`).
+
+**`docs/internal/` is maintainer-local and is not published** (see `.gitignore`). A clone of this
+repository does not contain it. References to `docs/internal/...` below are for the maintainer's
+working copy; everything an outside contributor needs is in this file and in published `docs/`.
+
+## Commit convention
+
+`type(scope): imperative subject`, optional body. Types: `feat` | `fix` | `refactor` | `perf` |
+`chore` | `docs` | `style` | `test` (`ci` is not used here — use `chore`). One logical change per
+commit; if the subject needs “and”, split it. Imperative and present tense, lowercase after the
+colon, no trailing period, ~72 chars. No vague subjects (“fix bug”, “update stuff”) and no filler
+(“WIP”, “quick”, “small”, “hopefully”). Scope only when it locates the change (`record`, `sync`,
+`settings`, `ios`). The desktop repository states the same convention, so history reads the same
+way across both.
+
+**`app.json` → `owner: "bogart-labs"` is a live external identifier, not stale branding.** It is the
+Expo/EAS account that owns this project; renaming it to match the GitHub organization breaks EAS
+builds. Leave it until the Expo account itself is renamed.
+
 ## Product Context
 
 Chinotto is a minimal thinking tool.
@@ -17,9 +39,9 @@ Mobile app role:
 - Input is the primary UI
 - Thinking happens on desktop
 
-**Platform priority (this repo):** **iOS first** — ship-quality UX and sync (Sign in with Apple) target iPhone; **Android parity is deferred**. **Windows and Linux** desktop apps are **planned later** (desktop lives outside this repo). Product source of truth: `docs/internal/product/product-spec.md`. External overview: `docs/internal/product/product-brief.md`.
+**Platform priority (this repo):** **iOS first** — ship-quality UX and sync (Sign in with Apple) target iPhone; **Android parity is deferred**. **Windows and Linux** desktop apps are **planned later** (desktop lives outside this repo). Product scope is governed by this file and by `docs/architecture.md`; decisions the design did not specify are recorded in `docs/unspecified-decisions.md`.
 
-**Sync documentation:** **Wire contract** — `docs/internal/sync/sync.md` (this repo). **Desktop** implementation and ops — Chinotto repo `docs/internal/sync.md` (https://github.com/AleksandrMalinin/chinotto/blob/main/docs/internal/sync.md). **Ship alignment** — `docs/internal/sync/sync-release-checklist.md`, mirrored in `chinotto-app` (update both when criteria change). Log mobile implementation tweaks in `docs/internal/sync/sync.md` § Changelog.
+**Sync documentation:** **Wire contract** — `docs/internal/sync/sync.md` (this repo). **Desktop** implementation and ops — `docs/internal/sync.md` in the `probnaya-work/chinotto` repository. **Ship alignment** — `docs/internal/sync/sync-release-checklist.md`, mirrored in `chinotto-app` (update both when criteria change). Log mobile implementation tweaks in `docs/internal/sync/sync.md` § Changelog.
 
 Golden rule:
 > If a feature slows down capturing a thought → do not implement it.
@@ -266,7 +288,7 @@ Before implementing:
 If a feature requires a specific SDK version:
 → explicitly mention it
 
-**iOS App Store / TestFlight version + build:** this repo commits **`ios/`**. Bumping **`app.json` alone does not update `CFBundleShortVersionString`** in `ios/Chinotto/Info.plist`. Follow **`docs/internal/release/ios-app-store-version-bump.md`** (and Cursor skill **`ios-version-app-store-release`**) whenever you change marketing version or build number for store submission.
+**iOS App Store / TestFlight version + build:** this repo commits **`ios/`**. Bumping **`app.json` alone does not update `CFBundleShortVersionString`** in `ios/Chinotto/Info.plist`. Follow **`.cursor/skills/ios-version-app-store-release/SKILL.md`** whenever you change marketing version or build number for store submission.
 
 ---
 

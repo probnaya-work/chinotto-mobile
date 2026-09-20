@@ -70,6 +70,12 @@ docs/internal/
 # .vscode/
 # .idea/
 
+# Local Claude Code runtime state (dev server config, per-machine).
+.claude/
+
+# PR drafting notes (local-only)
+.github/pull_request_body*.md
+
 # ---
 # What we commit: source, assets, app.json, pnpm-lock.yaml, docs, scripts, ios/.
 # What stays local: node_modules, .expo, android/ prebuild output (if untracked), env files, logs, coverage,
