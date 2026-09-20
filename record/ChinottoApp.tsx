@@ -94,11 +94,24 @@ export function ChinottoApp({ services }: { services: Services }) {
   const [recording, setRecording] = useState<{ seconds: number; transcript: string } | null>(null);
   const recordingStartedAt = useRef(0);
 
+  /**
+   * Bumped whenever anything in the record changes, so the surface can read it again.
+   *
+   * Typed capture reloads itself, because it is the surface that did it. Nothing else is:
+   * a voice capture settles in `record/voice.ts`, a share lands in the intake, and both
+   * used to write a moment the record went on not showing until the app was restarted.
+   * `onChanged` is the one place every write already passes through.
+   */
+  const [changedAt, setChangedAt] = useState(0);
+
   const store: RecordStore = useMemo(
     () =>
       createRecordStore(services.db, {
         newId: services.newId,
-        onChanged: (id) => void bridge.mirrorFragment(id),
+        onChanged: (id) => {
+          void bridge.mirrorFragment(id);
+          setChangedAt((n) => n + 1);
+        },
       }),
     // `bridge` is created below and referenced lazily inside the callback, which is safe
     // because `onChanged` cannot fire before the first write.
@@ -330,6 +343,7 @@ export function ChinottoApp({ services }: { services: Services }) {
           openSystemSettings: services.openSystemSettings,
         }}
         audio={services.audio}
+        changedAt={changedAt}
         sync={{ notice: sync.notice, onOpen: () => sync.setOpen(true) }}
         update={{
           soft: services.update.soft && !updateDismissed,

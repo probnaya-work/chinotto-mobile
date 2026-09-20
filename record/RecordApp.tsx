@@ -55,6 +55,11 @@ export type RecordAppProps = {
   };
   /** Playing a voice moment back. Absent on a platform that cannot, and then it is not offered. */
   audio?: AudioPlaybackPort;
+  /**
+   * Bumped by anything that writes to the record from outside this surface — a voice
+   * capture settling, a share landing. The record reads itself again when it moves.
+   */
+  changedAt?: number;
   sync: {
     notice: { text: string; urgent: boolean } | null;
     onOpen: () => void;
@@ -66,6 +71,15 @@ export function RecordApp(props: RecordAppProps) {
   const record = useRecord(props.store, props.bridge, undefined, props.audio);
   const reducedMotion = useReducedMotion();
   const keyboardInset = useKeyboardInset();
+
+  // Reading again is cheap and being wrong is not: a moment that exists and is not drawn
+  // reads as a capture that was lost. The first value is skipped — that is the initial load.
+  const changedAt = props.changedAt ?? 0;
+  useEffect(() => {
+    if (changedAt > 0) void record.reload();
+    // `record.reload` is stable for a given store; depending on it would reload on nothing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [changedAt]);
 
   const inputRef = useRef<TextInputType>(null);
   const loadedAt = useRef(Date.now()).current;

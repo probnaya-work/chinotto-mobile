@@ -257,6 +257,33 @@ describe('the record surface', () => {
     h.db.close();
   });
 
+  it('shows a moment that something else wrote, without being restarted', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const view = await mount(h);
+
+    // A voice capture settles in `record/voice.ts`; a share lands in the intake. Neither is
+    // this surface, and neither used to make it read the record again — the moment existed
+    // and went on not being drawn.
+    await h.store.capture({
+      body: '',
+      method: 'voice',
+      voice: { audioPath: 'chinotto/audio/f1.m4a', durationMs: 4000 },
+    });
+
+    expect(screen.queryByLabelText(/^play /)).toBeNull();
+
+    await act(async () => {
+      view.rerender(
+        <RecordApp store={h.store} bridge={h.bridge} {...defaults} changedAt={1} />
+      );
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(screen.getByLabelText(/^play /)).toBeTruthy());
+    h.db.close();
+  });
+
   it('asks once before it acts: the first tap selects, the second opens', async () => {
     const h = harness();
     await migrate(h.db);
