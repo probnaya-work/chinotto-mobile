@@ -181,8 +181,13 @@ export function RecordList(props: RecordListProps) {
     <Animated.View
       style={{
         position: 'absolute',
-        left: frame.side,
-        right: frame.side,
+        // Full width, with the gutter as content padding rather than as the viewport's
+        // edge. A scroll view clips to its bounds, so a selected row's wash — which is
+        // meant to bleed past the words and read as a band of the surface — was being cut
+        // off exactly at the text, leaving a rectangle with the words jammed against it.
+        // Inside the padding it has somewhere to bleed into.
+        left: 0,
+        right: 0,
         top: frame.top,
         bottom: Animated.add(props.keyboardInset, new Animated.Value(frame.bottom)),
       }}
@@ -193,6 +198,7 @@ export function RecordList(props: RecordListProps) {
         renderItem={renderItem}
         keyExtractor={keyOf}
         style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: frame.side }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         // Dragging down through the record puts the keyboard away, tracking the finger.

@@ -34,6 +34,13 @@ export type LaunchProps = {
 
 const EASE = Easing.bezier(...motion.bezier);
 
+/** The ring closes around the dots once they have arrived. */
+const RING = { delay: 1020, duration: 900 } as const;
+/** The word is the last thing to arrive, and the lockup is not finished until it has. */
+const WORD = { delay: 1500, duration: 800 } as const;
+/** A beat to see the whole thing before the record takes over. */
+const LOCKUP_BEAT = 500;
+
 /** Where each dot comes from, and where it scatters back to. */
 const DOT_ORIGINS = [
   { x: -9, y: 30, scale: 0.35, delay: 120, duration: 620 },
@@ -67,15 +74,15 @@ export function Launch({ leaving, onFinished, reducedMotion }: LaunchProps) {
       ),
       Animated.timing(ring, {
         toValue: 1,
-        duration: 900,
-        delay: 1020,
+        duration: RING.duration,
+        delay: RING.delay,
         easing: EASE,
         useNativeDriver: true,
       }),
       Animated.timing(word, {
         toValue: 1,
-        duration: 800,
-        delay: 1500,
+        duration: WORD.duration,
+        delay: WORD.delay,
         easing: EASE,
         useNativeDriver: true,
       }),
@@ -237,7 +244,13 @@ function Dot({ index }: { index: number }) {
  * The prototype's own prop default is 1.9s, and the hold is reduced by however long the app
  * has already spent loading — so a slow start never *adds* to the wait, it eats into it.
  */
+/** When the lockup has finished assembling itself, and how long it then rests. */
+export const LAUNCH_HOLD = WORD.delay + WORD.duration + LOCKUP_BEAT;
+
 export function launchHoldFor(loadedAtMs: number, now: number, reducedMotion: boolean): number {
-  const full = reducedMotion ? motion.launchReducedHold : 1900;
+  // Derived rather than chosen: the hold used to be 1900, which began dismissing the lockup
+  // while the word was still 83% of the way in — it was cut off mid-sentence every time.
+  // Now it is however long the last thing takes to arrive, plus a beat to see it whole.
+  const full = reducedMotion ? motion.launchReducedHold : LAUNCH_HOLD;
   return Math.max(0, full - (now - loadedAtMs));
 }

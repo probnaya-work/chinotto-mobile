@@ -16,6 +16,7 @@ import { migrate } from '../migrate';
 import { createBridge } from '../bridge';
 import { createRecordStore } from '../store';
 import { RecordApp } from '../RecordApp';
+import { LAUNCH_HOLD } from '../ui/Launch';
 
 const T0 = new Date('2026-09-19T17:10:00.000Z').getTime();
 
@@ -481,7 +482,7 @@ describe('the record surface', () => {
     expect(screen.getByLabelText('capture')).toBeTruthy();
 
     await act(async () => {
-      jest.advanceTimersByTime(1900 + 520 + 50);
+      jest.advanceTimersByTime(LAUNCH_HOLD + 520 + 50);
     });
     await waitFor(() => expect(screen.queryByText('chinotto')).toBeNull());
     view.unmount();
@@ -512,7 +513,7 @@ describe('the record surface', () => {
     expect(screen.getByLabelText('capture')).toBeTruthy();
 
     await act(async () => {
-      jest.advanceTimersByTime(1900 + 520 + 50);
+      jest.advanceTimersByTime(LAUNCH_HOLD + 520 + 50);
     });
     await waitFor(() => expect(screen.queryByText('chinotto')).toBeNull());
 
