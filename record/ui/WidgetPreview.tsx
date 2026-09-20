@@ -13,7 +13,7 @@ import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { Mark } from './Mark';
-import { ink, rule, SURFACE } from './tokens';
+import { agency, ink, rule, SURFACE } from './tokens';
 import { face, type } from './type';
 
 export type WidgetPreviewProps = {
@@ -176,7 +176,7 @@ export function ForcedUpdate({
         style={{
           height: 56,
           paddingHorizontal: 36,
-          backgroundColor: ink.ink,
+          backgroundColor: agency.ink,
           alignItems: 'center',
           justifyContent: 'center',
           marginTop: 8,

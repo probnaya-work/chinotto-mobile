@@ -36,7 +36,7 @@
     "android": {
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "backgroundColor": "#0a0a0e",
+        "backgroundColor": "#141416",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
@@ -133,7 +133,7 @@
         "expo-splash-screen",
         {
           "image": "./assets/splash-icon.png",
-          "backgroundColor": "#0a0a0e",
+          "backgroundColor": "#141416",
           "resizeMode": "contain",
           "imageWidth": 120
         }

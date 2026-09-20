@@ -10,7 +10,7 @@
 import React from 'react';
 import { Text, type TextProps, type TextStyle } from 'react-native';
 
-import { wash } from './tokens';
+import { evidence, wash } from './tokens';
 import type { TextPart } from '../model/words';
 
 export type MarkedProps = TextProps & {
@@ -18,11 +18,14 @@ export type MarkedProps = TextProps & {
   style?: TextStyle | TextStyle[];
   /** The quieter wash used inside a trace row. */
   quiet?: boolean;
-  /** Matched text steps up to full ink, whatever the surrounding tier is set in. */
+  /**
+   * Matched text lifts ABOVE material, whatever tier surrounds it — that is what makes a
+   * highlight raise readability rather than merely tint the words.
+   */
   matchColor?: string;
 };
 
-export function Marked({ parts, style, quiet, matchColor = '#e6e6e3', ...rest }: MarkedProps) {
+export function Marked({ parts, style, quiet, matchColor = evidence.ink, ...rest }: MarkedProps) {
   return (
     <Text style={style} {...rest}>
       {parts.map((part, i) =>

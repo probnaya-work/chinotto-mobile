@@ -27,7 +27,7 @@ import {
   type TextInputProps,
 } from 'react-native';
 
-import { edge, ink, motion, RECORDING_BAR_SECONDS, SURFACE } from './tokens';
+import { agency, edge, ink, motion, LIVE, RECORDING_BAR_SECONDS, SURFACE } from './tokens';
 import { face, type } from './type';
 import { fmtDur } from '../model/time';
 
@@ -197,7 +197,7 @@ export function Edge(props: EdgeProps) {
                   <Text style={type({ size: 12, width: 90, color: ink.meta })} numberOfLines={1}>
                     {props.findSummary.split(' · ')[0]}
                     {' · '}
-                    <Text style={{ color: ink.verb }}>
+                    <Text style={{ color: agency.ink, fontFamily: face(90, { weight: agency.weight }) }}>
                       {props.findSummary.split(' · ')[1]}
                     </Text>
                   </Text>
@@ -212,13 +212,13 @@ export function Edge(props: EdgeProps) {
                   style={{
                     width: edge.sendSize,
                     height: edge.sendSize,
-                    backgroundColor: ink.ink,
+                    backgroundColor: agency.ink,
                     alignItems: 'center',
                     justifyContent: 'center',
                     marginBottom: 8,
                   }}
                 >
-                  <Text style={{ fontFamily: face(100), fontSize: 20, color: SURFACE }}>↑</Text>
+                  <Text style={{ fontFamily: face(100), fontSize: 20, color: agency.ground }}>↑</Text>
                 </Pressable>
               ) : null}
             </>
@@ -244,7 +244,7 @@ export function Edge(props: EdgeProps) {
                       width: edge.micRecordingSize,
                       height: edge.micRecordingSize,
                       borderRadius: edge.micRecordingSize / 2,
-                      backgroundColor: ink.ink,
+                      backgroundColor: LIVE,
                       alignItems: 'center',
                       justifyContent: 'center',
                     }
@@ -253,7 +253,7 @@ export function Edge(props: EdgeProps) {
                       height: edge.micSize,
                       borderRadius: edge.micSize / 2,
                       borderWidth: 1.5,
-                      borderColor: ink.ink,
+                      borderColor: agency.ink,
                       alignItems: 'center',
                       justifyContent: 'center',
                       marginBottom: 4,
@@ -264,7 +264,7 @@ export function Edge(props: EdgeProps) {
                 style={
                   recording
                     ? { width: 14, height: 14, borderRadius: 7, backgroundColor: SURFACE }
-                    : { width: 12, height: 12, borderRadius: 6, backgroundColor: ink.ink }
+                    : { width: 12, height: 12, borderRadius: 6, backgroundColor: agency.ink }
                 }
               />
             </Pressable>
@@ -422,7 +422,7 @@ function SpeakingBars() {
           style={{
             width: 3,
             height: 36,
-            backgroundColor: ink.ink,
+            backgroundColor: LIVE,
             transform: [{ scaleY: v }],
           }}
         />
@@ -441,7 +441,10 @@ function Notice({ notice }: { notice: EdgeNotice }) {
           {notice.action ? (
             <>
               {' '}
-              <Text onPress={notice.onAction} style={{ color: ink.ink }}>
+              <Text
+                onPress={notice.onAction}
+                style={{ color: agency.ink, fontFamily: face(90, { weight: agency.weight }) }}
+              >
                 {notice.action}
               </Text>
             </>
@@ -450,9 +453,9 @@ function Notice({ notice }: { notice: EdgeNotice }) {
       );
     case 'undo':
       return (
-        <Text style={[base, { color: ink.verb }]}>
+        <Text style={[base, { color: ink.quoted }]}>
           {`removed “${notice.text}” · `}
-          <Text onPress={notice.onUndo} style={{ color: ink.ink }}>
+          <Text onPress={notice.onUndo} style={{ color: agency.ink, fontFamily: face(90, { weight: agency.weight }) }}>
             bring back
           </Text>
           {` · ${notice.secondsLeft}s`}
@@ -466,7 +469,10 @@ function Notice({ notice }: { notice: EdgeNotice }) {
       return (
         <Text
           onPress={notice.onOpen}
-          style={[base, { color: notice.urgent ? ink.ink : ink.far }]}
+          style={[
+            base,
+            notice.urgent ? { color: agency.ink, fontFamily: face(90, { weight: agency.weight }) } : { color: ink.far },
+          ]}
         >
           {notice.text}
         </Text>
@@ -475,7 +481,7 @@ function Notice({ notice }: { notice: EdgeNotice }) {
       return (
         <Text style={[base, { color: ink.meta }]}>
           {`chinotto ${notice.version} is in the app store · `}
-          <Text onPress={notice.onUpdate} style={{ color: ink.verb }}>
+          <Text onPress={notice.onUpdate} style={{ color: agency.ink, fontFamily: face(90, { weight: agency.weight }) }}>
             update
           </Text>
           {' · '}

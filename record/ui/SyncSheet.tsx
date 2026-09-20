@@ -16,7 +16,7 @@
 import React from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
-import { ink, rule, SURFACE } from './tokens';
+import { agency, ink, rule, LIVE, SURFACE } from './tokens';
 import { face, type } from './type';
 
 export type SyncState =
@@ -188,7 +188,7 @@ function Plan(props: SyncSheetProps) {
               paddingVertical: 8,
               paddingHorizontal: 16,
               borderWidth: 1,
-              borderColor: props.chosenPlan === plan.id ? ink.ink : rule.line,
+              borderColor: props.chosenPlan === plan.id ? agency.ink : rule.line,
             }}
           >
             <View
@@ -197,7 +197,7 @@ function Plan(props: SyncSheetProps) {
                 height: 8,
                 borderWidth: 1,
                 borderColor: ink.meta,
-                backgroundColor: props.chosenPlan === plan.id ? ink.ink : 'transparent',
+                backgroundColor: props.chosenPlan === plan.id ? agency.ink : 'transparent',
               }}
             />
             <Text style={type({ size: 16, width: 94, color: ink.ink })}>{plan.name}</Text>
@@ -303,7 +303,7 @@ function On(props: SyncSheetProps & { pendingLine: string }) {
           {'on your mac, open chinotto › settings › sync and point it here, or go to '}
           <Text style={{ color: ink.ink }}>getchinotto.app/sync</Text>
           {' · '}
-          <Text onPress={props.onCopyLink} style={{ color: ink.ink }}>
+          <Text onPress={props.onCopyLink} style={{ color: agency.ink, fontFamily: face(90, { weight: agency.weight }) }}>
             {props.linkCopyLabel}
           </Text>
         </Text>
@@ -323,13 +323,19 @@ function On(props: SyncSheetProps & { pendingLine: string }) {
         </Text>
         {props.devices.map((device) => (
           <View key={device.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <View style={{ width: 6, height: 6, backgroundColor: ink.meta }} />
+            <View
+              style={{
+                width: 6,
+                height: 6,
+                backgroundColor: device.isThisDevice ? LIVE : ink.meta,
+              }}
+            />
             <Text style={type({ size: 16, width: 94, color: ink.near })}>{device.name}</Text>
             <Text style={quiet}>{device.lastSeen}</Text>
             {!device.isThisDevice ? (
               <Text
                 onPress={() => props.onAskRemoveDevice(device.id)}
-                style={[quiet, { marginLeft: 'auto', color: ink.verb }]}
+                style={[quiet, { marginLeft: 'auto', color: agency.quiet, fontFamily: face(90, { weight: agency.weight }) }]}
               >
                 remove
               </Text>
@@ -343,11 +349,11 @@ function On(props: SyncSheetProps & { pendingLine: string }) {
         {props.confirming === 'device' ? (
           <Text style={type({ size: 14, width: 90, lineHeight: 1.4, color: ink.far })}>
             {`remove ${props.confirmingDeviceName ?? 'it'} from this record? what’s already on it stays; it just stops receiving. `}
-            <Text onPress={props.onRemoveDevice} style={{ color: ink.ink }}>
+            <Text onPress={props.onRemoveDevice} style={{ color: agency.quiet, fontFamily: face(90, { weight: agency.weight }) }}>
               remove
             </Text>
             {' · '}
-            <Text onPress={props.onCancelConfirm} style={{ color: ink.verb }}>
+            <Text onPress={props.onCancelConfirm} style={{ color: agency.ink, fontFamily: face(90, { weight: agency.weight }) }}>
               keep
             </Text>
           </Text>
@@ -355,10 +361,10 @@ function On(props: SyncSheetProps & { pendingLine: string }) {
       </View>
 
       <View style={{ flexDirection: 'row', gap: 18, paddingTop: 8 }}>
-        <Text onPress={props.onAskStop} style={[quiet, linkPad]}>
+        <Text onPress={props.onAskStop} style={[quiet, linkPad, { color: agency.quiet, fontFamily: face(90, { weight: agency.weight }) }]}>
           stop syncing on this phone
         </Text>
-        <Text onPress={props.onClose} style={[quiet, linkPad, { marginLeft: 'auto', color: ink.ink }]}>
+        <Text onPress={props.onClose} style={[quiet, linkPad, { marginLeft: 'auto', color: agency.ink, fontFamily: face(90, { weight: agency.weight }) }]}>
           done
         </Text>
       </View>
@@ -366,11 +372,11 @@ function On(props: SyncSheetProps & { pendingLine: string }) {
       {props.confirming === 'stop' ? (
         <Text style={type({ size: 14, width: 90, lineHeight: 1.4, color: ink.far })}>
           {'stop syncing on this phone? the record stays here in full — it just stops travelling. '}
-          <Text onPress={props.onStop} style={{ color: ink.ink }}>
+          <Text onPress={props.onStop} style={{ color: agency.quiet, fontFamily: face(90, { weight: agency.weight }) }}>
             stop
           </Text>
           {' · '}
-          <Text onPress={props.onCancelConfirm} style={{ color: ink.verb }}>
+          <Text onPress={props.onCancelConfirm} style={{ color: agency.ink, fontFamily: face(90, { weight: agency.weight }) }}>
             keep syncing
           </Text>
         </Text>
@@ -432,7 +438,7 @@ function Conflict(props: SyncSheetProps & { conflict: WordingConflict }) {
             gap: 5,
             paddingLeft: 14,
             borderLeftWidth: 2,
-            borderLeftColor: props.conflict.shows === side.id ? ink.ink : rule.line,
+            borderLeftColor: props.conflict.shows === side.id ? agency.ink : rule.line,
           }}
         >
           <Text style={type({ size: 12, width: 90, color: ink.meta })}>{side.head}</Text>
@@ -444,7 +450,7 @@ function Conflict(props: SyncSheetProps & { conflict: WordingConflict }) {
           ) : (
             <Text
               onPress={() => props.onKeepWording(side.id)}
-              style={[quiet, { color: ink.verb }]}
+              style={[quiet, { color: agency.ink, fontFamily: face(90, { weight: agency.weight }) }]}
             >
               show this one instead
             </Text>
@@ -453,7 +459,7 @@ function Conflict(props: SyncSheetProps & { conflict: WordingConflict }) {
       ))}
 
       <Text style={type({ size: 14, width: 90, lineHeight: 1.4, color: ink.far })}>
-        <Text onPress={props.onSettleConflict} style={{ color: ink.ink }}>
+        <Text onPress={props.onSettleConflict} style={{ color: agency.ink, fontFamily: face(90, { weight: agency.weight }) }}>
           that’s settled
         </Text>
         {' · the other stays under the moment as earlier wording.'}
@@ -469,12 +475,20 @@ function Filled({ label, onPress }: { label: string; onPress: () => void }) {
       accessibilityRole="button"
       style={{
         height: 56,
-        backgroundColor: ink.ink,
+        backgroundColor: agency.ink,
         alignItems: 'center',
         justifyContent: 'center',
       }}
     >
-      <Text style={{ fontFamily: face(92), fontSize: 16, color: SURFACE }}>{label}</Text>
+      <Text
+        style={{
+          fontFamily: face(92, { weight: agency.weight }),
+          fontSize: 16,
+          color: agency.ground,
+        }}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 }

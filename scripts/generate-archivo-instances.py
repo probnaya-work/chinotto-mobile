@@ -48,6 +48,11 @@ INSTANCES = [
     (400, 80, False, "D2 material"),
     (400, 76, False, "D3 and D4 material"),
     (500, 96, False, "the launch wordmark"),
+    # Agency. The colour system marks a verb with lightness AND weight, and on the phone the
+    # weight has to be a family — see `record/ui/type.ts`.
+    (540, 90, False, "verbs: the edge's notices, settings, sync, traces, held"),
+    (540, 92, False, "verbs: a moment's own row in focus, the bordered buttons"),
+    (540, 94, False, "verbs inside settings' own body copy"),
     # Voice is set in italic at every tier it can appear in.
     (400, 100, True, "D0 voice, focus voice, the live transcript"),
     (400, 94, True, "a line's other voice moments"),

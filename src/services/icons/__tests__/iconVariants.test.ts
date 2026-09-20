@@ -14,7 +14,7 @@ describe('iconVariants', () => {
 
   it('draws them on the record’s own field, and its reverse', () => {
     expect(getAppIconVariant('dark')).toMatchObject({
-      foreground: '#e6e6e3',
+      foreground: '#d4d3ce',
       iosBackground: '#141416',
       nativeName: null,
     });

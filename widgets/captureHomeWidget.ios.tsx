@@ -17,7 +17,7 @@ import type { WidgetEnvironment } from 'expo-widgets';
 import { CHINOTTO_WIDGET_CAPTURE_URL } from './chinottoWidgetConstants';
 
 /** Same base as app shell / splash so the widget reads as Chinotto, not default iOS white. */
-const WIDGET_SURFACE = '#0a0a0e';
+const WIDGET_SURFACE = '#141416';
 
 function CaptureHomeWidget(_props: Record<string, never>, _env: WidgetEnvironment) {
   'widget';
@@ -30,10 +30,10 @@ function CaptureHomeWidget(_props: Record<string, never>, _env: WidgetEnvironmen
         background(WIDGET_SURFACE, shapes.roundedRectangle({ cornerRadius: 16, roundedCornerStyle: 'continuous' })),
       ]}
     >
-      <Text modifiers={[font({ size: 14, weight: 'semibold' }), foregroundStyle('#e8e8ec')]}>
+      <Text modifiers={[font({ size: 14, weight: 'semibold' }), foregroundStyle('#d4d3ce')]}>
         Chinotto
       </Text>
-      <Text modifiers={[font({ size: 13, weight: 'regular' }), foregroundStyle('#9898a4')]}>
+      <Text modifiers={[font({ size: 13, weight: 'regular' }), foregroundStyle('#8f8e89')]}>
         Capture
       </Text>
     </VStack>

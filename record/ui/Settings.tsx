@@ -18,7 +18,7 @@ import React from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { Mark } from './Mark';
-import { ink, rule, SURFACE } from './tokens';
+import { agency, ink, rule, SURFACE } from './tokens';
 import { face, type } from './type';
 
 export type IconChoice = 'dark' | 'light';
@@ -139,7 +139,7 @@ function Root(props: SettingsProps) {
       <Section label="sync">
         <Text style={body}>
           {`${props.syncLine} `}
-          <Text onPress={props.onOpenSync} style={{ color: ink.ink }}>
+          <Text onPress={props.onOpenSync} style={{ color: agency.ink, fontFamily: face(94, { weight: agency.weight }) }}>
             {`${props.syncVerb} ›`}
           </Text>
         </Text>
@@ -169,7 +169,7 @@ function Root(props: SettingsProps) {
         <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
           {(
             [
-              ['dark', '#141416', '#e6e6e3', '#2a2a2e'],
+              ['dark', '#141416', '#d4d3ce', '#2a2a2e'],
               ['light', '#f2f1ec', '#1b1b1d', '#c9c9c6'],
             ] as const
           ).map(([id, background, foreground, border]) => (
@@ -224,14 +224,14 @@ function Root(props: SettingsProps) {
         </Text>
         <Text style={body}>
           {'home widget · capture, and the last thing you left. '}
-          <Text onPress={props.onSeeWidget} style={{ color: ink.ink }}>
+          <Text onPress={props.onSeeWidget} style={{ color: agency.ink, fontFamily: face(94, { weight: agency.weight }) }}>
             see it
           </Text>
         </Text>
         <Text style={type({ size: 14, width: 90, lineHeight: 1.4, color: ink.far })}>
           {`microphone · ${props.micLine} `}
           {props.micDenied ? (
-            <Text onPress={props.onOpenSystemSettings} style={{ color: ink.ink }}>
+            <Text onPress={props.onOpenSystemSettings} style={{ color: agency.ink, fontFamily: face(90, { weight: agency.weight }) }}>
               open settings ›
             </Text>
           ) : null}
@@ -246,11 +246,11 @@ function Root(props: SettingsProps) {
           {'anonymous usage · '}
           <Text style={{ color: ink.near }}>{props.analyticsOn ? 'on' : 'off'}</Text>
           {' · '}
-          <Text onPress={props.onToggleAnalytics} style={{ color: ink.ink }}>
+          <Text onPress={props.onToggleAnalytics} style={{ color: agency.ink, fontFamily: face(90, { weight: agency.weight }) }}>
             {props.analyticsOn ? 'turn off' : 'turn on'}
           </Text>
           {' · '}
-          <Text onPress={props.onTogglePrivacy} style={{ color: ink.verb }}>
+          <Text onPress={props.onTogglePrivacy} style={{ color: agency.ink, fontFamily: face(90, { weight: agency.weight }) }}>
             {props.privacyOpen ? 'hide' : 'what is sent?'}
           </Text>
         </Text>
@@ -267,7 +267,7 @@ function Root(props: SettingsProps) {
       {props.hasAccount ? (
         <Section label="account" gap={10}>
           <Text style={body}>apple id · the only thing sync knows about you.</Text>
-          <Text onPress={props.onOpenDelete} style={[body, { color: ink.ink }]}>
+          <Text onPress={props.onOpenDelete} style={[body, { color: agency.quiet, fontFamily: face(94, { weight: agency.weight }) }]}>
             delete the cloud account ›
           </Text>
         </Section>
@@ -278,7 +278,7 @@ function Root(props: SettingsProps) {
           <Mark size={26} color={ink.ink} />
           <Text style={type({ size: 18, width: 96, weight: 500, color: ink.ink })}>chinotto</Text>
         </View>
-        <Text onPress={props.onOpenManifesto} style={[body, { color: ink.ink }]}>
+        <Text onPress={props.onOpenManifesto} style={[body, { color: agency.ink, fontFamily: face(94, { weight: agency.weight }) }]}>
           why chinotto ›
         </Text>
         <Text style={type({ size: 12, width: 90, color: ink.meta })}>
@@ -372,7 +372,7 @@ function DeleteAccount(props: SettingsProps) {
         </Text>
       ) : null}
       {props.deleteError ? (
-        <Text style={type({ size: 14, width: 90, lineHeight: 1.4, color: ink.ink })}>
+        <Text style={type({ size: 14, width: 90, lineHeight: 1.4, color: ink.far })}>
           {props.deleteError}
         </Text>
       ) : null}
@@ -387,9 +387,9 @@ function DeleteAccount(props: SettingsProps) {
             height: 56,
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: props.deleteArmed ? ink.ink : 'transparent',
+            backgroundColor: 'transparent',
             borderWidth: 1,
-            borderColor: props.deleteArmed ? ink.ink : ink.faint,
+            borderColor: props.deleteArmed ? agency.quiet : ink.faint,
           }}
         >
           <Text
@@ -418,7 +418,9 @@ function DeleteAccount(props: SettingsProps) {
             justifyContent: 'center',
           }}
         >
-          <Text style={{ fontFamily: face(92), fontSize: 16, color: ink.verb }}>keep it</Text>
+          <Text style={{ fontFamily: face(92, { weight: agency.weight }), fontSize: 16, color: agency.ink }}>
+            keep it
+          </Text>
         </Pressable>
       </View>
     </ScrollView>

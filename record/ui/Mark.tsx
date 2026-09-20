@@ -61,7 +61,7 @@ export type MarkProps = {
   strokeWidth?: number;
 };
 
-export function Mark({ size, color = '#e6e6e3', rung, strokeWidth }: MarkProps) {
+export function Mark({ size, color = '#d4d3ce', rung, strokeWidth }: MarkProps) {
   const which = rung ?? rungFor(size);
   const spec = RUNGS[which];
   return (

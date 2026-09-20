@@ -15,7 +15,16 @@ import type { TextStyle } from 'react-native';
 
 /** Every width the prototype draws, and nothing else. */
 export type Width = 76 | 80 | 88 | 90 | 92 | 94 | 96 | 100;
-export type Weight = 400 | 500;
+/**
+ * 540 is agency.
+ *
+ * On the web the colour system sets `font-weight: 540` directly. React Native cannot: its
+ * `fontWeight` only takes hundreds, and with the axis resolved ahead of time the weight is
+ * carried by the FAMILY, not by a style property. So a verb asks for `weight: 540` here and
+ * gets `Archivo-540-<width>` — never `fontWeight`, which would silently round to 500 and
+ * lose half of what marks a verb.
+ */
+export type Weight = 400 | 500 | 540;
 
 type FaceKey = `${Weight}-${Width}${'' | '-Italic'}`;
 
@@ -36,6 +45,10 @@ export const FACES: Partial<Record<FaceKey, string>> = {
   '400-80': 'Archivo-400-80',
   '400-76': 'Archivo-400-76',
   '500-96': 'Archivo-500-96',
+  // Agency, at the two widths the product draws verbs at.
+  '540-90': 'Archivo-540-90',
+  '540-92': 'Archivo-540-92',
+  '540-94': 'Archivo-540-94',
   '400-100-Italic': 'Archivo-400-100-Italic',
   '400-94-Italic': 'Archivo-400-94-Italic',
   '400-88-Italic': 'Archivo-400-88-Italic',
@@ -54,6 +67,9 @@ export const FONT_ASSETS: Record<string, number> = {
   'Archivo-400-80': require('../../assets/fonts/Archivo-400-80.ttf'),
   'Archivo-400-76': require('../../assets/fonts/Archivo-400-76.ttf'),
   'Archivo-500-96': require('../../assets/fonts/Archivo-500-96.ttf'),
+  'Archivo-540-90': require('../../assets/fonts/Archivo-540-90.ttf'),
+  'Archivo-540-92': require('../../assets/fonts/Archivo-540-92.ttf'),
+  'Archivo-540-94': require('../../assets/fonts/Archivo-540-94.ttf'),
   'Archivo-400-100-Italic': require('../../assets/fonts/Archivo-400-100-Italic.ttf'),
   'Archivo-400-94-Italic': require('../../assets/fonts/Archivo-400-94-Italic.ttf'),
   'Archivo-400-88-Italic': require('../../assets/fonts/Archivo-400-88-Italic.ttf'),

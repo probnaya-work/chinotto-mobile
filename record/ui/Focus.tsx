@@ -27,7 +27,7 @@ import {
 import { Marked } from './Marked';
 import { useKeyboardInset } from './useKeyboardInset';
 import { VoiceChip, type VoiceChipSpec } from './VoiceChip';
-import { ink, motion, rule, SURFACE } from './tokens';
+import { agency, evidence, ink, motion, rule, SURFACE } from './tokens';
 import { face, type } from './type';
 import { foldLine, lineHeading, type LineEntry } from '../model/lines';
 import {
@@ -176,7 +176,7 @@ export function Focus(props: FocusProps) {
                 />
                 <Text style={type({ size: 12, width: 90, color: ink.meta })}>
                   {`${entry.label} · `}
-                  <Text onPress={props.onUnfold} style={{ color: ink.verb }}>
+                  <Text onPress={props.onUnfold} style={{ color: agency.ink, fontFamily: face(90, { weight: agency.weight }) }}>
                     unfold
                   </Text>
                 </Text>
@@ -266,13 +266,13 @@ export function Focus(props: FocusProps) {
               style={{
                 width: 48,
                 height: 48,
-                backgroundColor: ink.ink,
+                backgroundColor: agency.ink,
                 alignItems: 'center',
                 justifyContent: 'center',
                 marginBottom: 6,
               }}
             >
-              <Text style={{ fontFamily: face(100), fontSize: 20, color: SURFACE }}>↑</Text>
+              <Text style={{ fontFamily: face(100), fontSize: 20, color: agency.ground }}>↑</Text>
             </Pressable>
           </View>
         ) : (
@@ -283,12 +283,20 @@ export function Focus(props: FocusProps) {
               style={{
                 flex: 1,
                 height: 56,
-                backgroundColor: ink.ink,
+                backgroundColor: agency.ink,
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <Text style={{ fontFamily: face(92), fontSize: 17, color: SURFACE }}>continue</Text>
+              <Text
+                style={{
+                  fontFamily: face(92, { weight: agency.weight }),
+                  fontSize: 17,
+                  color: agency.ground,
+                }}
+              >
+                continue
+              </Text>
             </Pressable>
             <Pressable
               onPress={() => props.onHold(props.focus)}
@@ -302,7 +310,13 @@ export function Focus(props: FocusProps) {
                 justifyContent: 'center',
               }}
             >
-              <Text style={{ fontFamily: face(92), fontSize: 16, color: ink.ink }}>
+              <Text
+                style={{
+                  fontFamily: face(92, { weight: agency.weight }),
+                  fontSize: 16,
+                  color: agency.ink,
+                }}
+              >
                 {props.heldIds.has(props.focus.id) ? 'release' : 'hold'}
               </Text>
             </Pressable>
@@ -384,7 +398,10 @@ function Moment({
             </Text>
             <Text
               onPress={props.onSaveEdit}
-              style={[type({ size: 12, width: 90, color: ink.ink }), { marginLeft: 'auto' }]}
+              style={[
+                type({ size: 12, width: 90, color: agency.ink, weight: agency.weight }),
+                { marginLeft: 'auto' },
+              ]}
             >
               save
             </Text>
@@ -485,13 +502,13 @@ function Moment({
             <View style={{ flexDirection: 'row', gap: 16, marginTop: 10 }}>
               <Text
                 onPress={() => props.onCorrect(m)}
-                style={type({ size: 14, width: 92, color: ink.verb })}
+                style={type({ size: 14, width: 92, color: agency.ink, weight: agency.weight })}
               >
                 correct
               </Text>
               <Text
                 onPress={() => props.onHold(m)}
-                style={type({ size: 14, width: 92, color: ink.verb })}
+                style={type({ size: 14, width: 92, color: agency.ink, weight: agency.weight })}
               >
                 {props.heldIds.has(m.id) ? 'release' : 'hold'}
               </Text>
@@ -541,7 +558,13 @@ function TraceRow({
     : displayText(trace.material).split('\n')[0].slice(0, 90);
 
   return (
-    <View>
+    <View
+      style={{
+        borderLeftWidth: 2,
+        borderLeftColor: guess ? evidence.railInferred : evidence.rail,
+        paddingLeft: 14,
+      }}
+    >
       <Text style={type({ size: 14, width: 90, color: ink.meta })}>{`${kindLabel} · ${when}`}</Text>
       <Marked
         parts={parts(text, trace.phrase ? [trace.phrase] : [])}
@@ -565,7 +588,9 @@ function TraceRow({
             accessibilityRole="button"
             hitSlop={{ top: 12, bottom: 12, left: 8, right: 6 }}
           >
-            <Text style={type({ size: 14, width: 90, color: ink.verb })}>yes</Text>
+            <Text style={type({ size: 14, width: 90, color: agency.ink, weight: agency.weight })}>
+              yes
+            </Text>
           </Pressable>
           <Text style={type({ size: 14, width: 90, color: ink.meta })}>{' · '}</Text>
           <Pressable
@@ -573,7 +598,9 @@ function TraceRow({
             accessibilityRole="button"
             hitSlop={{ top: 12, bottom: 12, left: 6, right: 12 }}
           >
-            <Text style={type({ size: 14, width: 90, color: ink.verb })}>not this</Text>
+            <Text style={type({ size: 14, width: 90, color: agency.ink, weight: agency.weight })}>
+              not this
+            </Text>
           </Pressable>
         </View>
       ) : null}

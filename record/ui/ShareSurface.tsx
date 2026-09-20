@@ -16,7 +16,7 @@ import React from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { Mark } from './Mark';
-import { ink, rule, SURFACE } from './tokens';
+import { agency, ink, rule, SURFACE } from './tokens';
 import { face, type } from './type';
 
 export type ShareSurfaceProps = {
@@ -110,12 +110,20 @@ export function ShareSurface(props: ShareSurfaceProps) {
             style={{
               flex: 1,
               height: 56,
-              backgroundColor: ink.ink,
+              backgroundColor: agency.ink,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Text style={{ fontFamily: face(92), fontSize: 16, color: SURFACE }}>leave it</Text>
+            <Text
+              style={{
+                fontFamily: face(92, { weight: agency.weight }),
+                fontSize: 16,
+                color: agency.ground,
+              }}
+            >
+              leave it
+            </Text>
           </Pressable>
           <Pressable
             onPress={props.onNotNow}
@@ -129,7 +137,9 @@ export function ShareSurface(props: ShareSurfaceProps) {
               justifyContent: 'center',
             }}
           >
-            <Text style={{ fontFamily: face(92), fontSize: 15, color: ink.verb }}>not now</Text>
+            <Text style={{ fontFamily: face(92, { weight: agency.weight }), fontSize: 15, color: agency.ink }}>
+              not now
+            </Text>
           </Pressable>
         </View>
       </View>

@@ -15,7 +15,7 @@
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { ink, rule } from './tokens';
+import { agency, ink, rule } from './tokens';
 import { face } from './type';
 import { fmtDur } from '../model/time';
 
@@ -42,7 +42,7 @@ export function VoiceChip({
   /** Absent at a distance: the chip states the duration but does not play. */
   onPlay?: () => void;
 }) {
-  const color = missing ? ink.meta : ink.verb;
+  const color = missing ? ink.meta : agency.ink;
   // Cap height rather than a full em, so the mark sits with the digits instead of over them.
   const mark = Math.round(spec.fontSize * 0.62);
 
@@ -53,7 +53,7 @@ export function VoiceChip({
         alignItems: 'center',
         gap: Math.round(spec.fontSize * 0.4),
         borderWidth: 1,
-        borderColor: rule.line,
+        borderColor: missing ? rule.chipInert : rule.chip,
         paddingTop: spec.paddingTop,
         paddingBottom: spec.paddingBottom,
         paddingLeft: spec.paddingLeft,

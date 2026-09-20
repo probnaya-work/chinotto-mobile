@@ -20,7 +20,7 @@ import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, Pressable, Text, View } from 'react-native';
 
 import { Marked } from './Marked';
-import { ink, motion } from './tokens';
+import { agency, ink, motion } from './tokens';
 import { type } from './type';
 import { becauseSentence, type RecordReturn } from '../model/returns';
 import { displayText, type Material } from '../model/material';
@@ -97,7 +97,7 @@ export function ReturnBlock({
           top: 12,
           bottom: 12,
           width: 2,
-          backgroundColor: ink.ink,
+          backgroundColor: agency.quiet,
         }}
       />
 

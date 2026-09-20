@@ -41,7 +41,7 @@ export const APP_ICON_VARIANTS: AppIconVariant[] = [
     name: 'dark',
     // The default icon, so no alternate is set for it.
     nativeName: null,
-    foreground: '#e6e6e3',
+    foreground: '#d4d3ce',
     iosBackground: '#141416',
     androidBackground: '#141416',
   },

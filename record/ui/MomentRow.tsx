@@ -19,7 +19,7 @@ import { Pressable, Text, View } from 'react-native';
 import { Marked } from './Marked';
 import { bandGap, tierClamp, tierTextStyle, voiceChip } from './tiers';
 import { VoiceChip } from './VoiceChip';
-import { ink, rule, wash } from './tokens';
+import { agency, ink, rule, wash } from './tokens';
 import { face, type } from './type';
 import type { Tier } from '../model/bands';
 import {
@@ -217,9 +217,9 @@ export function MomentRow(props: MomentRowProps) {
             {props.continuationOffer ? (
               <Text>
                 {' · continues '}
-                <Text style={{ color: ink.verb }}>{`“${props.continuationOffer.text}”`}</Text>
+                <Text style={{ color: ink.quoted }}>{`“${props.continuationOffer.text}”`}</Text>
                 {'? '}
-                <Text onPress={props.onAcceptContinuation} style={{ color: ink.ink }}>
+                <Text onPress={props.onAcceptContinuation} style={{ color: agency.ink, fontFamily: face(90, { weight: agency.weight }) }}>
                   yes
                 </Text>
                 {' · '}
@@ -267,16 +267,16 @@ function Verb({
         height: 44,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: filled ? ink.ink : 'transparent',
+        backgroundColor: filled ? agency.ink : 'transparent',
         borderWidth: filled ? 0 : 1,
         borderColor: ink.faint,
       }}
     >
       <Text
         style={{
-          fontFamily: face(92),
+          fontFamily: face(92, { weight: agency.weight }),
           fontSize: 15,
-          color: filled ? '#141416' : quiet ? ink.meta : ink.ink,
+          color: filled ? agency.ground : quiet ? ink.meta : agency.ink,
         }}
       >
         {label}
@@ -318,7 +318,7 @@ export function HeldRow({
       </Text>
       <Text style={[type({ size: 11, width: 90, color: ink.meta }), { marginTop: 2 }]}>
         {`held · from ${dayLabel} · `}
-        <Text onPress={onRelease} style={{ color: ink.verb }}>
+        <Text onPress={onRelease} style={{ color: agency.quiet, fontFamily: face(90, { weight: agency.weight }) }}>
           release
         </Text>
       </Text>
