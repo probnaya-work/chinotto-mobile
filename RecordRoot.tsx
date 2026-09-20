@@ -356,6 +356,9 @@ export default function RecordRoot() {
         soft: gate?.kind === 'soft',
         forced: gate?.kind === 'forced',
         version: APP_VERSION,
+        // What the store has, from remote config. `version` above is what is running;
+        // the two are never the same number when an update is being offered.
+        availableVersion: gate?.latestVersion ?? null,
       },
       onDismissSoftUpdate: dismissSoft,
       openStore: () => {

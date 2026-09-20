@@ -29,7 +29,7 @@ const defaults = {
     openSystemSettings: jest.fn(),
   },
   sync: { notice: null, onOpen: jest.fn() },
-  update: { soft: false, onUpdate: jest.fn(), onLater: jest.fn() },
+  update: { soft: false, availableVersion: null, onUpdate: jest.fn(), onLater: jest.fn() },
 };
 
 /** The viewport's floor, as a number of points above the bottom of the screen. */

@@ -59,7 +59,14 @@ export type Services = {
   newId: () => string;
   deviceName: () => string;
   /** From `resolveUpdateGate`. */
-  update: { soft: boolean; forced: boolean; version: string };
+  update: {
+    soft: boolean;
+    forced: boolean;
+    /** The running app version. */
+    version: string;
+    /** The version the store has, or null when no update is on offer. */
+    availableVersion: string | null;
+  };
   onDismissSoftUpdate: () => void;
   openStore: () => void;
 
@@ -476,7 +483,12 @@ export function ChinottoApp({ services }: { services: Services }) {
   /* --------------------------------------------------------------------- gate */
 
   if (services.update.forced) {
-    return <ForcedUpdate version={services.update.version} onUpdate={services.openStore} />;
+    return (
+      <ForcedUpdate
+        version={services.update.availableVersion ?? services.update.version}
+        onUpdate={services.openStore}
+      />
+    );
   }
 
   const coldStart = useRef(AppState.currentState !== 'background').current;
@@ -505,6 +517,7 @@ export function ChinottoApp({ services }: { services: Services }) {
         sync={{ notice: sync.notice, onOpen: openSync }}
         update={{
           soft: services.update.soft && !updateDismissed,
+          availableVersion: services.update.availableVersion,
           onUpdate: () => {
             setUpdateDismissed(true);
             services.openStore();
@@ -687,8 +700,8 @@ function SettingsSurface(props: {
       onOpenManifesto={() => props.setPage('manifesto')}
       version={props.services.update.version}
       updateLine={
-        props.services.update.soft
-          ? `${props.services.update.version} is in the app store`
+        props.services.update.soft && props.services.update.availableVersion
+          ? `${props.services.update.availableVersion} is in the app store`
           : 'up to date'
       }
       deleteArmed={props.deleteArmed}

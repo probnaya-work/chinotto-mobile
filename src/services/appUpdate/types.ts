@@ -21,10 +21,14 @@ export type UpdateGate =
       title: string;
       message: string;
       storeUrl: string | null;
+      /** {@link UpdateConfig.latestVersion}: the version the store has, never the running one. */
+      latestVersion: string;
     }
   | {
       kind: 'soft';
       title: string;
       message: string;
       storeUrl: string | null;
+      /** {@link UpdateConfig.latestVersion}: the version the store has, never the running one. */
+      latestVersion: string;
     };

@@ -39,7 +39,7 @@ export type EdgeNotice =
   | { kind: 'held'; text: string }
   | { kind: 'undo'; text: string; secondsLeft: number; onUndo: () => void }
   | { kind: 'sync'; text: string; urgent: boolean; onOpen: () => void }
-  | { kind: 'update'; onUpdate: () => void; onLater: () => void };
+  | { kind: 'update'; version: string; onUpdate: () => void; onLater: () => void };
 
 export type EdgeProps = {
   input: string;
@@ -474,7 +474,7 @@ function Notice({ notice }: { notice: EdgeNotice }) {
     case 'update':
       return (
         <Text style={[base, { color: ink.meta }]}>
-          {'chinotto 2.0.1 is in the app store · '}
+          {`chinotto ${notice.version} is in the app store · `}
           <Text onPress={notice.onUpdate} style={{ color: ink.verb }}>
             update
           </Text>

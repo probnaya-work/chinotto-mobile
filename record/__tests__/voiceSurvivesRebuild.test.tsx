@@ -56,7 +56,7 @@ function harness() {
     voiceEngine: engine,
     newId,
     deviceName: () => 'this iphone',
-    update: { soft: false, forced: false, version: '2.0.0' },
+    update: { soft: false, forced: false, version: '2.0.0', availableVersion: null },
     onDismissSoftUpdate: () => {},
     openStore: () => {},
     icon: 'dark',

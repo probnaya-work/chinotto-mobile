@@ -73,7 +73,13 @@ export type RecordAppProps = {
     notice: { text: string; urgent: boolean } | null;
     onOpen: () => void;
   };
-  update: { soft: boolean; onUpdate: () => void; onLater: () => void };
+  update: {
+    soft: boolean;
+    /** The version the store has; null when it is not known. */
+    availableVersion: string | null;
+    onUpdate: () => void;
+    onLater: () => void;
+  };
 };
 
 export function RecordApp(props: RecordAppProps) {
@@ -270,9 +276,12 @@ export function RecordApp(props: RecordAppProps) {
       onOpen: props.sync.onOpen,
     });
   }
-  if (props.update.soft) {
+  // No version, no notice: the line names a version, and naming the wrong one is worse
+  // than staying quiet.
+  if (props.update.soft && props.update.availableVersion) {
     notices.push({
       kind: 'update',
+      version: props.update.availableVersion,
       onUpdate: props.update.onUpdate,
       onLater: props.update.onLater,
     });

@@ -48,6 +48,7 @@ export function resolveUpdateGate(currentVersion: string, config: UpdateConfig):
       title: titleForced,
       message: messageForced,
       storeUrl: null,
+      latestVersion: latest,
     };
   }
 
@@ -56,6 +57,7 @@ export function resolveUpdateGate(currentVersion: string, config: UpdateConfig):
     title: titleSoft,
     message: messageSoft,
     storeUrl: null,
+    latestVersion: latest,
   };
 }
 
