@@ -302,8 +302,20 @@ export default function RecordRoot() {
   // resolution failed or returned nothing.
   const sharePayloads =
     resolvedSharedPayloads?.length ? resolvedSharedPayloads : sharedPayloads;
+  /**
+   * Whether the share currently in hand has already been taken.
+   *
+   * It has to be reset, and used not to be: once true it stayed true for the life of the
+   * process, so the *second* thing shared into a running Chinotto was dropped without a
+   * word. The reset is the payloads going empty, which is what `clearSharedPayloads` does
+   * after one is taken — so the next arrival is a new arrival.
+   */
   const handledShare = useRef(false);
   const [shareSeen, setShareSeen] = useState(0);
+
+  useEffect(() => {
+    if (!sharePayloads || sharePayloads.length === 0) handledShare.current = false;
+  }, [sharePayloads]);
 
   useEffect(() => {
     let alive = true;
