@@ -38,7 +38,7 @@ both: the identity moment is real, and typing is never waiting on it.
 |---|---|---|---|---|
 | 2.1 | The record is unbounded, as drawn; only the mounted window is bounded | — | `record/ui/` | inherited (desktop 0.1) |
 | 2.2 | Bands are flattened to rows before virtualization, so band labels are list items | — | same | invented |
-| 2.3 | How much of the record is held in memory at once | `50_000` fragments | `record/recordApi.ts` | inherited (desktop 0.2) |
+| 2.3 | How much of the record is held in memory at once | `50_000` fragments | `record/store.ts` | inherited (desktop 0.2) |
 
 2.2 is mobile's substitute for desktop's `Windowed.tsx`. Nested band containers cannot be
 virtualized by an inverted list without measuring every band, so the band structure is
@@ -92,9 +92,9 @@ is exactly the kind of thing that must be asked rather than assumed.
 
 | # | Decision | Value | Where | Status |
 |---|---|---|---|---|
-| 5.1 | Undo window | `8s` | `record/removal.ts` | from the prototype |
-| 5.2 | Removal is soft locally and the publish is deferred for the whole window | — | same | **decided** (data integrity) |
-| 5.3 | A removal whose window elapsed while the app was closed publishes on next boot | — | same | invented |
+| 5.1 | Undo window | `8s` | `record/store.ts` | from the prototype |
+| 5.2 | Removal is soft locally and the publish is deferred for the whole window | — | `record/store.ts`, `record/bridge.ts` | **decided** (data integrity) |
+| 5.3 | A removal whose window elapsed while the app was closed publishes on next boot | — | `record/RecordApp.tsx` | invented |
 | 5.4 | A remote tombstone soft-removes here rather than destroying | — | `record/bridge.ts` | inherited (desktop 5c.3) |
 
 5.3 is the case the prototype cannot show, because a prototype is never killed mid-timer.
@@ -108,7 +108,7 @@ is exactly the kind of thing that must be asked rather than assumed.
 | 6.3 | An incoming text change on a known id is a conflict, not a revision | — | same | inherited (desktop 0.20) |
 | 6.4 | Until asked, the record shows the local wording | — | same | inherited (desktop 0.21) |
 | 6.5 | Fragments mirrored out carry `capture_origin` unchanged; the wire cannot express it | — | same | inherited (desktop 5c.1) |
-| 6.6 | A typed URL becomes an encounter when the body contains exactly one | — | `record/encounters.ts` | inherited (desktop 5c.6) |
+| 6.6 | A typed URL becomes an encounter when the body contains exactly one | — | `record/urlKey.ts` | inherited (desktop 5c.6) |
 | 6.7 | Carrying the earlier wording on the wire is **not** done unilaterally | — | — | **pending** |
 
 6.7 is the one place where both repositories are blocked on the same additive change. Desktop
