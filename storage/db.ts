@@ -1,55 +1,39 @@
 import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 
+import { migrate, type MigrationReport } from '../record/migrate';
+import { archiveThemesIfNeeded } from '../record/themeArchive';
+import { writeRecordText } from '../record/files';
 import { ensureThemeSchema } from './themeSchema';
 
 let initPromise: Promise<SQLiteDatabase> | null = null;
+let lastReport: MigrationReport | null = null;
 
 /**
- * Opens the DB, ensures schema, and resolves once ready.
- * Call from app startup so the first capture pays minimal cold cost.
+ * Opens the DB, brings the schema to the version this build expects, and resolves once
+ * ready. Call from app startup so the first capture pays minimal cold cost.
+ *
+ * The v1 schema is no longer written here: `record/migrate.ts` owns it as step 1 of the
+ * ladder, so the boot path and the migration cannot drift apart. The v1 tables themselves
+ * are unchanged and are not dropped — the deployed Firestore contract still speaks them,
+ * and reverting this build must keep working.
+ *
+ * `ensureThemeSchema` stays for the same reason: themes are retired from the product in this
+ * release, but their tables and their sync path remain until the desktop/mobile transition
+ * is over. What people wrote is copied into `archived_material` first (see `themeArchive`).
  */
 export function initDatabase(): Promise<SQLiteDatabase> {
   initPromise ??= (async () => {
     const db = await openDatabaseAsync('chinotto.db');
-    await db.execAsync(
-      `CREATE TABLE IF NOT EXISTS entries (
-        id TEXT PRIMARY KEY NOT NULL,
-        text TEXT NOT NULL,
-        created_at TEXT NOT NULL
-      );
-      CREATE TABLE IF NOT EXISTS sync_queue (
-        id TEXT PRIMARY KEY NOT NULL,
-        payload TEXT NOT NULL,
-        status TEXT NOT NULL CHECK (status IN ('pending', 'synced'))
-      );
-      CREATE TABLE IF NOT EXISTS sync_tombstone_outbox (
-        entry_id TEXT PRIMARY KEY NOT NULL,
-        enqueued_at TEXT NOT NULL
-      );
-      CREATE TABLE IF NOT EXISTS firestore_ingest_suppressed_ids (
-        id TEXT PRIMARY KEY NOT NULL,
-        suppressed_at TEXT NOT NULL
-      );
-      CREATE TABLE IF NOT EXISTS firestore_ingest_suppressed_theme_ids (
-        id TEXT PRIMARY KEY NOT NULL,
-        suppressed_at TEXT NOT NULL
-      );
-      CREATE TABLE IF NOT EXISTS sync_user_theme_outbox (
-        theme_id TEXT PRIMARY KEY NOT NULL,
-        op TEXT NOT NULL CHECK (op IN ('upsert', 'tombstone')),
-        label TEXT,
-        sort_order INTEGER,
-        enqueued_at TEXT NOT NULL
-      );
-      CREATE TABLE IF NOT EXISTS entry_engagement (
-        entry_id TEXT PRIMARY KEY NOT NULL,
-        open_count INTEGER NOT NULL DEFAULT 0,
-        edit_count INTEGER NOT NULL DEFAULT 0,
-        last_opened_at TEXT,
-        last_edited_at TEXT
-      );`
-    );
+    lastReport = await migrate(db);
     await ensureThemeSchema(db);
+
+    // Deliberately not awaited: the archive is bounded by how many themes someone made, and
+    // capture must never wait on it. If it fails, `themes.archive` stays owed and the next
+    // boot tries again — the material is already durable in `archived_material` by then.
+    void archiveThemesIfNeeded(db, { writeFile: writeRecordText }).catch(() => {
+      /* retried next boot */
+    });
+
     return db;
   })();
   return initPromise;
@@ -58,4 +42,9 @@ export function initDatabase(): Promise<SQLiteDatabase> {
 /** Same initialization as initDatabase; use from repositories. */
 export function getDatabase(): Promise<SQLiteDatabase> {
   return initDatabase();
+}
+
+/** What the last migration did, for the dev surface and for support. Null before boot. */
+export function lastMigrationReport(): MigrationReport | null {
+  return lastReport;
 }

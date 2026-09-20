@@ -1,3 +1,4 @@
+import { isThisDeviceRevoked } from '../sync/deviceRevocation';
 import { isPaywallEnabled } from './paywallConfig';
 import { getCachedHasSyncEntitlement, isSubscriptionHydrated } from './subscriptionState';
 
@@ -15,8 +16,18 @@ export function hasSyncAccess(): boolean {
   return getCachedHasSyncEntitlement();
 }
 
-/** When true, outbound/inbound Firestore sync must not run. */
+/**
+ * When true, outbound/inbound Firestore sync must not run.
+ *
+ * Two reasons, and they are different: the subscription does not currently allow sync, or
+ * **this device** has been removed from the record somewhere else. The second is not about
+ * entitlement at all, which is why it is checked whether or not there is a paywall — a
+ * removed device stays removed in a build that charges for nothing.
+ */
 export function isSyncAccessBlocked(): boolean {
+  if (isThisDeviceRevoked()) {
+    return true;
+  }
   return isPaywallEnabled() && !hasSyncAccess();
 }
 
@@ -28,8 +39,10 @@ export function getSyncAccessPolicyDebug(): {
   subscriptionHydrated: boolean;
   hasEntitlement: boolean;
   hasSyncAccess: boolean;
+  thisDeviceRevoked: boolean;
 } {
   return {
+    thisDeviceRevoked: isThisDeviceRevoked(),
     paywallEnabled: isPaywallEnabled(),
     subscriptionHydrated: isSubscriptionHydrated(),
     hasEntitlement: getCachedHasSyncEntitlement(),

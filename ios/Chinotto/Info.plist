@@ -16,28 +16,6 @@
     <dict>
       <key>CFBundleAlternateIcons</key>
       <dict>
-        <key>CyanAppIcon</key>
-        <dict>
-          <key>CFBundleIconName</key>
-          <string>CyanAppIcon</string>
-          <key>CFBundleIconFiles</key>
-          <array>
-            <string>CyanAppIcon</string>
-          </array>
-          <key>UIPrerenderedIcon</key>
-          <false/>
-        </dict>
-        <key>GradientAppIcon</key>
-        <dict>
-          <key>CFBundleIconName</key>
-          <string>GradientAppIcon</string>
-          <key>CFBundleIconFiles</key>
-          <array>
-            <string>GradientAppIcon</string>
-          </array>
-          <key>UIPrerenderedIcon</key>
-          <false/>
-        </dict>
         <key>LightAppIcon</key>
         <dict>
           <key>CFBundleIconName</key>
@@ -45,28 +23,6 @@
           <key>CFBundleIconFiles</key>
           <array>
             <string>LightAppIcon</string>
-          </array>
-          <key>UIPrerenderedIcon</key>
-          <false/>
-        </dict>
-        <key>OrangeAppIcon</key>
-        <dict>
-          <key>CFBundleIconName</key>
-          <string>OrangeAppIcon</string>
-          <key>CFBundleIconFiles</key>
-          <array>
-            <string>OrangeAppIcon</string>
-          </array>
-          <key>UIPrerenderedIcon</key>
-          <false/>
-        </dict>
-        <key>VioletAppIcon</key>
-        <dict>
-          <key>CFBundleIconName</key>
-          <string>VioletAppIcon</string>
-          <key>CFBundleIconFiles</key>
-          <array>
-            <string>VioletAppIcon</string>
           </array>
           <key>UIPrerenderedIcon</key>
           <false/>

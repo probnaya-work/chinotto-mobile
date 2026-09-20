@@ -134,6 +134,38 @@ Avoid:
 - Over-engineered layers
 - Complex state management (no Redux unless truly needed)
 
+### Where things live (`feat/chinotto-next-mobile` onward)
+
+`index.ts` → `RecordRoot.tsx` → `record/`. There is no navigator: the Record is one surface
+with an edge at the bottom, and focus, the years, settings, sync, the share sheet and the
+update gate are overlays on it.
+
+| | |
+|---|---|
+| `record/schema.ts`, `migrate.ts` | the durable model and the `PRAGMA user_version` ladder |
+| `record/store.ts` | every write, and where the invariants are enforced |
+| `record/bridge.ts` | the temporary boundary to legacy `entries` — **meant to be deleted** |
+| `record/model/` | banding, words, traces, returns, lines, anchors, find. No SQL, no React |
+| `record/ui/` | the surface, and `tokens.ts` / `type.ts` / `tiers.ts` |
+| `record/__testsupport__/prototype/` | the design prototype's own model code, vendored |
+
+Two rules that are not style preferences:
+
+1. **`record/model/` is pure.** Banding and matching are functions over `Material[]`, which
+   is what lets `prototypeParity.test.ts` diff them against the prototype's own JavaScript
+   over its 2 000-fragment corpus. Do not reach into the database from there.
+2. **The bridge degrades, never fabricates.** It sends the parts of a fragment that fit into
+   `{id, text, created_at}` and leaves the rest behind. It does not invent a capture method,
+   flatten a Continue into the moment it continues, or turn an incoming text change into a
+   revision. See `docs/handoff-diff.md` §6.
+
+The v1 tables (`entries`, `user_themes`, `entry_themes`, the sync outboxes) and every
+`sync/` module that speaks to them are **kept on purpose** while desktop and mobile still
+meet over the legacy contract. Do not drop them.
+
+Decisions the design did not specify are recorded in `docs/unspecified-decisions.md` rather
+than made silently. Add to it rather than inheriting a value as if it were designed.
+
 ---
 
 ## UX Constraints
