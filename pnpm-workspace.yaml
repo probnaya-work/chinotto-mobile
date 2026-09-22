@@ -1,3 +1,2 @@
 patchedDependencies:
-  '@react-native-firebase/analytics@24.0.0': patches/@react-native-firebase__analytics@24.0.0.patch
   expo-widgets@55.0.7: patches/expo-widgets@55.0.7.patch

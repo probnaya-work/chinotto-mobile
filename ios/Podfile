@@ -21,7 +21,7 @@ platform :ios, podfile_properties['ios.deploymentTarget'] || '15.1'
 prepare_react_native_project!
 
 # Matches expo-build-properties ios.useFrameworks = static. Without this, RNFB pods default to
-# static_framework = false and Clang can mis-resolve RCTBridgeModule across RNFBApp / RNFBAnalytics.
+# static_framework = false and Clang can mis-resolve RCTBridgeModule across RNFBApp / RNFBRemoteConfig.
 # https://rnfirebase.io/#altering-cocoapods-to-use-frameworks
 $RNFirebaseAsStaticFramework = true
 
