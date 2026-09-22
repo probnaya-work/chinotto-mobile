@@ -75,10 +75,20 @@ ${markSvg({ size, foreground, scale })}
 `;
 }
 
-async function png(svg, outRelative, size) {
+/**
+ * `sharp(...).png()` always encodes an alpha channel, even when every pixel is fully opaque.
+ * App Store Connect rejects a marketing/app icon that carries one at all, so any icon drawn
+ * on an opaque background (`squareIconSvg`, not `transparentMarkSvg`) must pass its
+ * `background` here — `.flatten()` composites onto it and drops the alpha channel. Icons that
+ * are meant to stay transparent (Android's adaptive foreground/monochrome layers, the splash)
+ * omit it.
+ */
+async function png(svg, outRelative, size, { background } = {}) {
   const out = join(root, outRelative);
   mkdirSync(dirname(out), { recursive: true });
-  await sharp(Buffer.from(svg)).resize(size, size).png().toFile(out);
+  let image = sharp(Buffer.from(svg)).resize(size, size);
+  if (background) image = image.flatten({ background });
+  await image.png().toFile(out);
   console.log(`Wrote ${outRelative} (${size}×${size})`);
 }
 
@@ -107,7 +117,9 @@ writeSvg('assets/chinotto-splash-logo.svg', transparentMarkSvg({ foreground: dar
 
 /* ------------------------------------------------------------------- the rasters */
 
-await png(readFileSync(join(root, 'assets/chinotto-icon.svg'), 'utf8'), 'assets/icon.png', 1024);
+await png(readFileSync(join(root, 'assets/chinotto-icon.svg'), 'utf8'), 'assets/icon.png', 1024, {
+  background: dark.background,
+});
 await png(
   readFileSync(join(root, 'assets/chinotto-icon-foreground.svg'), 'utf8'),
   'assets/android-icon-foreground.png',
@@ -118,7 +130,9 @@ await png(
   'assets/android-icon-monochrome.png',
   1024
 );
-await png(readFileSync(join(root, 'assets/chinotto-icon.svg'), 'utf8'), 'assets/favicon.png', 48);
+await png(readFileSync(join(root, 'assets/chinotto-icon.svg'), 'utf8'), 'assets/favicon.png', 48, {
+  background: dark.background,
+});
 // What `app.json` points `expo-splash-screen` at, so a prebuild would produce the same
 // empty splash the committed iOS asset already is.
 await png(
@@ -191,7 +205,7 @@ rmSync(appIconsDir, { recursive: true, force: true });
 
 for (const variant of VARIANTS) {
   const svg = squareIconSvg(variant);
-  await png(svg, `assets/app-icons/${variant.id}/ios.png`, 1024);
+  await png(svg, `assets/app-icons/${variant.id}/ios.png`, 1024, { background: variant.background });
   await png(
     transparentMarkSvg({ foreground: variant.foreground, scale: ADAPTIVE_MARK_SCALE }),
     `assets/app-icons/${variant.id}/android-foreground.png`,
@@ -217,10 +231,12 @@ const ICON_SLOTS = [
 
 const xcassets = join(root, 'ios', 'Chinotto', 'Images.xcassets');
 
-async function writeIconSet(setDir, svg) {
+async function writeIconSet(setDir, svg, background) {
   mkdirSync(setDir, { recursive: true });
   for (const slot of ICON_SLOTS) {
-    await sharp(Buffer.from(svg)).resize(slot.size, slot.size).png().toFile(join(setDir, slot.filename));
+    let image = sharp(Buffer.from(svg)).resize(slot.size, slot.size);
+    if (background) image = image.flatten({ background });
+    await image.png().toFile(join(setDir, slot.filename));
   }
   writeFileSync(
     join(setDir, 'Contents.json'),
@@ -255,10 +271,10 @@ rmSync(join(xcassets, 'AppIcon.appiconset', 'App-Icon-1024x1024@1x.png'), { forc
 // alternate — an extra set nothing can select would still be compiled into the bundle.
 // `light` is the only alternate, which is exactly what `iconVariants.ts` declares and what
 // `Info.plist` registers. The three must agree or `setAlternateIconName` fails at runtime.
-await writeIconSet(join(xcassets, 'AppIcon.appiconset'), squareIconSvg(dark));
+await writeIconSet(join(xcassets, 'AppIcon.appiconset'), squareIconSvg(dark), dark.background);
 rmSync(join(xcassets, 'DarkAppIcon.appiconset'), { recursive: true, force: true });
 
 const light = VARIANTS.find((v) => v.id === 'light');
-await writeIconSet(join(xcassets, 'LightAppIcon.appiconset'), squareIconSvg(light));
+await writeIconSet(join(xcassets, 'LightAppIcon.appiconset'), squareIconSvg(light), light.background);
 
 console.log('Done.');
