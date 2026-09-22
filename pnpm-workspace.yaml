@@ -1,2 +1,12 @@
 patchedDependencies:
   expo-widgets@55.0.7: patches/expo-widgets@55.0.7.patch
+
+# @react-native-firebase/remote-config peer-depends on @react-native-firebase/analytics (no
+# `optional: true` in its peerDependenciesMeta), but its podspec depends only on RNFBApp and
+# Firebase/RemoteConfig — analytics is not part of remote-config's native build graph (see
+# fix(sync): remove the unused Firebase Analytics dependency). Left at pnpm's default, a plain
+# `pnpm install` silently reinstalls the removed package to satisfy that peer declaration.
+# `peerDependencyRules.ignoreMissing` only suppresses the warning — pnpm still resolves and
+# links the peer into remote-config's own node_modules if it's resolvable, so it doesn't work
+# here. Disabling auto-install-peers repository-wide is what actually keeps it out.
+autoInstallPeers: false
