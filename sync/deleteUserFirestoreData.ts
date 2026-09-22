@@ -43,12 +43,14 @@ async function deleteSubcollection(db: Firestore, collPath: string[]): Promise<v
 }
 
 /**
- * Deletes `users/{uid}/entries/*`, `users/{uid}/user_themes/*`, then `users/{uid}`.
- * Idempotent: missing docs are skipped when traversing snapshots.
+ * Deletes `users/{uid}/entries/*`, `users/{uid}/user_themes/*`, `users/{uid}/devices/*`
+ * (see `firestoreDevices.ts` — device rows carry a user-chosen device name), then
+ * `users/{uid}`. Idempotent: missing docs are skipped when traversing snapshots.
  */
 export async function deleteAllFirestoreDataForUid(uid: string): Promise<void> {
   const db = getOrInitFirestore();
   await deleteSubcollection(db, ['users', uid, 'entries']);
   await deleteSubcollection(db, ['users', uid, 'user_themes']);
+  await deleteSubcollection(db, ['users', uid, 'devices']);
   await deleteDoc(doc(db, 'users', uid));
 }
