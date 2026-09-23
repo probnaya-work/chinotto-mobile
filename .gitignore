@@ -36,6 +36,10 @@ expo-env.d.ts
 *.mobileprovision
 *.pem
 
+# Android Firebase config — supplied per machine, never committed. Without it Android still
+# prebuilds, with no native Firebase (see `plugins/withFirebaseAppIosOnly.js`).
+/google-services.json
+
 # Metro
 .metro-health-check*
 

@@ -10,6 +10,17 @@ const {
   parseEnableSyncPaywall,
 } = require('./scripts/easRevenueCatEnvGuard.cjs');
 
+const fs = require('fs');
+
+/**
+ * Whether the Android Firebase file `app.json` names is actually present.
+ * @param {{ android?: { googleServicesFile?: string } }} expo
+ */
+function hasAndroidGoogleServicesFile(expo) {
+  const file = expo.android?.googleServicesFile;
+  return file != null && fs.existsSync(path.resolve(__dirname, file));
+}
+
 /** @type {import('expo/config').ConfigContext} */
 module.exports = () => {
   assertEasPaywallHasProductionRevenueCatIosKey();
@@ -18,17 +29,31 @@ module.exports = () => {
 
   const includeExperimentalIosHomeWidget = process.env.EXPO_PUBLIC_EXPERIMENTAL_IOS_HOME_WIDGET === '1';
 
-  const plugins = expo.plugins.filter((entry) => {
-    const id = Array.isArray(entry) ? entry[0] : entry;
-    if (id === 'expo-widgets' && !includeExperimentalIosHomeWidget) {
-      return false;
-    }
-    return true;
-  });
+  // `google-services.json` is per-machine and never committed. Without it, Android prebuilds
+  // with no native Firebase app rather than not at all — see `plugins/withFirebaseAppIosOnly.js`.
+  const androidFirebaseConfigured = hasAndroidGoogleServicesFile(expo);
+
+  const plugins = expo.plugins
+    .filter((entry) => {
+      const id = Array.isArray(entry) ? entry[0] : entry;
+      if (id === 'expo-widgets' && !includeExperimentalIosHomeWidget) {
+        return false;
+      }
+      return true;
+    })
+    .map((entry) =>
+      entry === '@react-native-firebase/app' && !androidFirebaseConfigured
+        ? './plugins/withFirebaseAppIosOnly.js'
+        : entry
+    );
+
+  const { googleServicesFile: _unused, ...androidWithoutFirebase } = expo.android;
+  const android = androidFirebaseConfigured ? expo.android : androidWithoutFirebase;
 
   return {
     expo: {
       ...expo,
+      android,
       plugins,
       extra: {
         ...(expo.extra ?? {}),
