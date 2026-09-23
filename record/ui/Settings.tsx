@@ -15,9 +15,10 @@
  */
 
 import React from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { Mark } from './Mark';
+import { capabilitiesFor, type PlatformCapabilities } from '../platform';
 import { agency, ink, rule, SURFACE } from './tokens';
 import { face, type } from './type';
 
@@ -53,7 +54,8 @@ export type SettingsProps = {
   onOpenManifesto: () => void;
 
   version: string;
-  updateLine: string;
+  /** Null where no update check runs; then only the version is shown. */
+  updateLine: string | null;
 
   deleteArmed: boolean;
   onDeleteStep: () => void;
@@ -61,6 +63,9 @@ export type SettingsProps = {
   deleteBusy: boolean;
   /** What went wrong, in a sentence. Null when nothing has. */
   deleteError: string | null;
+
+  /** What this phone can do. Defaults to the platform's own answer. */
+  capabilities?: PlatformCapabilities;
 };
 
 const body = type({ size: 16, width: 94, lineHeight: 1.4, color: ink.near });
@@ -73,12 +78,13 @@ const sectionLabel = {
 };
 
 export function Settings(props: SettingsProps) {
+  const can = props.capabilities ?? capabilitiesFor(Platform.OS);
   const head =
     props.page === 'manifesto'
       ? 'why chinotto'
       : props.page === 'delete'
         ? 'account'
-        : 'this iphone';
+        : `this ${can.deviceNoun}`;
 
   return (
     <View
@@ -122,28 +128,36 @@ export function Settings(props: SettingsProps) {
         </View>
       </View>
 
-      {props.page === 'root' ? <Root {...props} /> : null}
+      {props.page === 'root' ? <Root {...props} capabilities={can} /> : null}
       {props.page === 'manifesto' ? <Manifesto /> : null}
       {props.page === 'delete' ? <DeleteAccount {...props} /> : null}
     </View>
   );
 }
 
-function Root(props: SettingsProps) {
+function Root(props: SettingsProps & { capabilities: PlatformCapabilities }) {
+  const can = props.capabilities;
   return (
     <ScrollView
       style={{ flex: 1 }}
       contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 30, paddingBottom: 60, gap: 32 }}
       showsVerticalScrollIndicator={false}
     >
-      <Section label="sync">
-        <Text style={body}>
-          {`${props.syncLine} `}
-          <Text onPress={props.onOpenSync} style={{ color: agency.ink, fontFamily: face(94, { weight: agency.weight }) }}>
-            {`${props.syncVerb} ›`}
+      {/*
+        Only where sync can be set up. Elsewhere — Android, until its sign-in and entitlement
+        are decided (unspecified-decisions §10) — there is no sync section at all, rather than
+        one explaining its own absence.
+      */}
+      {can.syncSetup ? (
+        <Section label="sync">
+          <Text style={body}>
+            {`${props.syncLine} `}
+            <Text onPress={props.onOpenSync} style={{ color: agency.ink, fontFamily: face(94, { weight: agency.weight }) }}>
+              {`${props.syncVerb} ›`}
+            </Text>
           </Text>
-        </Text>
-      </Section>
+        </Section>
+      ) : null}
 
       {/*
         One appearance, because there is one.
@@ -165,6 +179,7 @@ function Root(props: SettingsProps) {
         </Text>
       </Section>
 
+      {can.iconChoice ? (
       <Section label="home screen icon" gap={10}>
         <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
           {(
@@ -216,26 +231,30 @@ function Root(props: SettingsProps) {
           </Text>
         </View>
       </Section>
+      ) : null}
 
       <Section label="from elsewhere" gap={10}>
         <Text style={body}>
-          share sheet · send a page, a selection or a photo to chinotto from any app. it lands
-          dated now.
+          {`share sheet · send ${can.shareKinds} to chinotto from any app. it lands dated now.`}
         </Text>
-        <Text style={body}>
-          {'home widget · capture, and the last thing you left. '}
-          <Text onPress={props.onSeeWidget} style={{ color: agency.ink, fontFamily: face(94, { weight: agency.weight }) }}>
-            see it
-          </Text>
-        </Text>
-        <Text style={type({ size: 14, width: 90, lineHeight: 1.4, color: ink.far })}>
-          {`microphone · ${props.micLine} `}
-          {props.micDenied ? (
-            <Text onPress={props.onOpenSystemSettings} style={{ color: agency.ink, fontFamily: face(90, { weight: agency.weight }) }}>
-              open settings ›
+        {can.homeWidget ? (
+          <Text style={body}>
+            {'home widget · capture, and the last thing you left. '}
+            <Text onPress={props.onSeeWidget} style={{ color: agency.ink, fontFamily: face(94, { weight: agency.weight }) }}>
+              see it
             </Text>
-          ) : null}
-        </Text>
+          </Text>
+        ) : null}
+        {can.voice ? (
+          <Text style={type({ size: 14, width: 90, lineHeight: 1.4, color: ink.far })}>
+            {`microphone · ${props.micLine} `}
+            {props.micDenied ? (
+              <Text onPress={props.onOpenSystemSettings} style={{ color: agency.ink, fontFamily: face(90, { weight: agency.weight }) }}>
+                open settings ›
+              </Text>
+            ) : null}
+          </Text>
+        ) : null}
       </Section>
 
       <Section label="privacy" gap={10}>
@@ -282,7 +301,7 @@ function Root(props: SettingsProps) {
           why chinotto ›
         </Text>
         <Text style={type({ size: 12, width: 90, color: ink.meta })}>
-          {`${props.version} · ${props.updateLine}`}
+          {props.updateLine === null ? props.version : `${props.version} · ${props.updateLine}`}
         </Text>
         {/* Secondary maker's mark. PROBNAYA is the laboratory; Chinotto keeps its own identity. */}
         <Text style={type({ size: 12, width: 90, color: ink.meta })}>

@@ -23,6 +23,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { ChinottoApp, type Services } from './record/ChinottoApp';
 import { ensureThisDevice, HEARTBEAT_MS, isRevoked, type ThisDevice } from './record/devices';
 import { SURFACE } from './record/ui/tokens';
+import { capabilitiesFor } from './record/platform';
 import type { VoiceEngine } from './record/voice';
 import {
   startVoiceCapture,
@@ -84,6 +85,9 @@ import type { RecordDb } from './record/db';
 
 const APP_VERSION = getRuntimeAppVersion();
 
+/** What this phone can do; fixed for the life of the process. */
+const CAPABILITIES = capabilitiesFor(Platform.OS);
+
 /**
  * What this device calls itself, for the device list.
  *
@@ -92,7 +96,7 @@ const APP_VERSION = getRuntimeAppVersion();
  * an invented name.
  */
 const deviceName = (): string =>
-  (Constants.deviceName as string | undefined)?.trim() || 'this iphone';
+  (Constants.deviceName as string | undefined)?.trim() || `this ${CAPABILITIES.deviceNoun}`;
 
 /**
  * Turning sync on and off, as the shipping app does it.
@@ -196,7 +200,8 @@ export default function RecordRoot() {
 
   // The real gate, from remote config. `forced` is the one blocking surface the product
   // has, and it is not something to guess at: until this says otherwise, nothing is claimed.
-  const { gate, dismissSoft } = useAppUpdateCheck({ enabled: true });
+  // Off where no live store listing exists to send anybody to — see `record/platform.ts`.
+  const { gate, dismissSoft } = useAppUpdateCheck({ enabled: CAPABILITIES.updateGate });
 
   const [icon, setIcon] = useState<'dark' | 'light'>('dark');
   useEffect(() => {
@@ -375,7 +380,9 @@ export default function RecordRoot() {
       syncAccount,
       deleteAccount: deleteCloudAccount,
       revokeDevice: revokeCloudDevice,
-      audio: audioPlayback,
+      // Only where playback exists — `RecordApp` does not offer what is absent.
+      audio: CAPABILITIES.playback ? audioPlayback : undefined,
+      capabilities: CAPABILITIES,
 
       icon,
       onPickIcon: chooseIcon,

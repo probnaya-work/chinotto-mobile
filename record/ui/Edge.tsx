@@ -62,6 +62,11 @@ export type EdgeProps = {
   onToggleMeaning: () => void;
 
   recording: { seconds: number; transcript: string } | null;
+  /**
+   * Whether this phone can listen at all. Where it cannot, the circle is not drawn: a circle
+   * that never records is a promise the edge cannot keep. Defaults to true.
+   */
+  voice?: boolean;
   onStartRecording: () => void;
   onStopRecording: () => void;
 
@@ -92,7 +97,7 @@ export function Edge(props: EdgeProps) {
   const recording = props.recording !== null;
   const showCaret = !props.input && !props.focused && !props.anchored && !recording;
   const showSend = Boolean(props.input) && !props.input.startsWith('/') && !props.anchored;
-  const showMic = !props.input && !props.anchored;
+  const showMic = props.voice !== false && !props.input && !props.anchored;
 
   return (
     <>

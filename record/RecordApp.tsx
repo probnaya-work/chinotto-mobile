@@ -14,6 +14,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AppState,
+  Platform,
   Pressable,
   StatusBar,
   Text,
@@ -34,6 +35,7 @@ import { frame, ink, SURFACE } from './ui/tokens';
 import { hasFoundSettings, rememberFoundSettings } from './pullHint';
 import { type } from './ui/type';
 import { useRecord } from './useRecord';
+import { capabilitiesFor, type PlatformCapabilities } from './platform';
 import { displayText, firstLine, type Material } from './model/material';
 import { dayLabel, fmtTime, monthLabel } from './model/time';
 import type { RecordBridge } from './bridge';
@@ -80,10 +82,14 @@ export type RecordAppProps = {
     onUpdate: () => void;
     onLater: () => void;
   };
+  /** What this phone can do. Defaults to the platform's own answer. */
+  capabilities?: PlatformCapabilities;
 };
 
 export function RecordApp(props: RecordAppProps) {
   const record = useRecord(props.store, props.bridge, undefined, props.audio);
+  const capabilities = props.capabilities ?? capabilitiesFor(Platform.OS);
+
   const reducedMotion = useReducedMotion();
   const keyboardInset = useKeyboardInset();
 
@@ -222,6 +228,8 @@ export function RecordApp(props: RecordAppProps) {
   useEffect(() => {
     if (!props.voiceOnOpen) return;
     props.onVoiceOnOpenHandled?.();
+    // A link asking for listening, on a phone that cannot listen, opens the edge for typing.
+    if (!capabilities.voice) return;
     const id = setTimeout(() => void startRecording(true), 320);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -365,6 +373,7 @@ export function RecordApp(props: RecordAppProps) {
 
       <RecordList
         keyboardInset={keyboardInset}
+        voice={capabilities.voice}
         edgeHeight={edgeHeight}
         rows={record.rows}
         now={record.now}
@@ -469,6 +478,7 @@ export function RecordApp(props: RecordAppProps) {
         findSummary={record.findSummaryText}
         onToggleMeaning={record.toggleMeaning}
         recording={props.voice.state}
+        voice={capabilities.voice}
         onStartRecording={() => void startRecording()}
         onStopRecording={stopRecording}
         notices={notices}
