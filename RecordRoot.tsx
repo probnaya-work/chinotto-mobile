@@ -23,6 +23,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { ChinottoApp, type Services } from './record/ChinottoApp';
 import { ensureThisDevice, HEARTBEAT_MS, isRevoked, type ThisDevice } from './record/devices';
 import { SURFACE } from './record/ui/tokens';
+import { SystemFrame } from './record/ui/systemInsets';
 import { capabilitiesFor } from './record/platform';
 import type { VoiceEngine } from './record/voice';
 import {
@@ -464,5 +465,9 @@ export default function RecordRoot() {
   // The ink field, from the first frame, so there is never a white flash before the record.
   if (!services) return <View style={{ flex: 1, backgroundColor: SURFACE }} />;
 
-  return <ChinottoApp services={services} />;
+  return (
+    <SystemFrame>
+      <ChinottoApp services={services} />
+    </SystemFrame>
+  );
 }
