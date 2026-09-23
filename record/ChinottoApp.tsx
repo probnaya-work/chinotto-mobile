@@ -17,7 +17,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Linking, Platform, View } from 'react-native';
+import { AppState, BackHandler, Linking, Platform, View } from 'react-native';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 
@@ -50,6 +50,7 @@ import { refreshWidgetThoughtsFromLocalDb } from '../widgets/widgetThoughtsBridg
 import { firstLine, type Material } from './model/material';
 import { dayLabel, fmtTime, monthLabel } from './model/time';
 import { urlKey } from './urlKey';
+import { appBackStep } from './back';
 import { capabilitiesFor, type PlatformCapabilities } from './platform';
 import type { RecordDb } from './db';
 
@@ -486,6 +487,53 @@ export function ChinottoApp({ services }: { services: Services }) {
     return () => sub.remove();
   }, []);
 
+  /* --------------------------------------------------------------------- back */
+
+  /**
+   * Android's back gesture puts away whatever is in front, one layer at a time: this app's
+   * overlays first, then the record's own. See `back.ts`. With nothing in front it is not
+   * consumed, and the system leaves the app as it always does.
+   *
+   * Read through a ref so the one listener always sees the current state, rather than being
+   * re-registered — and so re-ordered — on every change.
+   */
+  const recordBack = useRef<(() => boolean) | null>(null);
+  const onBack = useRef<() => boolean>(() => false);
+  onBack.current = () => {
+    const step = appBackStep({
+      syncOpen: sync.open,
+      share: share !== null,
+      surface: surface.kind,
+      settingsPage: surface.kind === 'settings' ? surface.page : null,
+    });
+    switch (step) {
+      case 'close-sync':
+        sync.setOpen(false);
+        sync.cancelConfirm();
+        account.leave();
+        return true;
+      case 'close-share':
+        setShare(null);
+        return true;
+      case 'close-widget':
+        setSurface({ kind: 'settings', page: 'root' });
+        return true;
+      case 'settings-root':
+        setSurface({ kind: 'settings', page: 'root' });
+        setDeleteArmed(false);
+        return true;
+      case 'close-settings':
+        setSurface({ kind: 'record' });
+        return true;
+      default:
+        return recordBack.current?.() ?? false;
+    }
+  };
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => onBack.current());
+    return () => sub.remove();
+  }, []);
+
   /* --------------------------------------------------------------------- gate */
 
   if (services.update.forced) {
@@ -521,6 +569,7 @@ export function ChinottoApp({ services }: { services: Services }) {
         }}
         changedAt={changedAt}
         capabilities={capabilities}
+        backRef={recordBack}
         sync={{ notice: sync.notice, onOpen: openSync }}
         update={{
           soft: services.update.soft && !updateDismissed,

@@ -35,6 +35,7 @@ import { frame, ink, SURFACE } from './ui/tokens';
 import { hasFoundSettings, rememberFoundSettings } from './pullHint';
 import { type } from './ui/type';
 import { useRecord } from './useRecord';
+import { recordBackStep } from './back';
 import { capabilitiesFor, type PlatformCapabilities } from './platform';
 import { displayText, firstLine, type Material } from './model/material';
 import { dayLabel, fmtTime, monthLabel } from './model/time';
@@ -84,12 +85,51 @@ export type RecordAppProps = {
   };
   /** What this phone can do. Defaults to the platform's own answer. */
   capabilities?: PlatformCapabilities;
+  /**
+   * Where the app's back handler reaches the record's own layers. Set on every render to a
+   * function that puts away the top-most one and says whether there was one. See `back.ts`.
+   */
+  backRef?: React.MutableRefObject<(() => boolean) | null>;
 };
 
 export function RecordApp(props: RecordAppProps) {
   const record = useRecord(props.store, props.bridge, undefined, props.audio);
   const capabilities = props.capabilities ?? capabilitiesFor(Platform.OS);
 
+  if (props.backRef) {
+    props.backRef.current = () => {
+      const step = recordBackStep({
+        yearsOpen: record.yearsOpen,
+        focusOpen: Boolean(record.focus),
+        correcting: record.editingId !== null,
+        continuing: record.continuing,
+        anchored: Boolean(record.anchor),
+        selected: record.selectedId !== null,
+      });
+      switch (step) {
+        case 'close-years':
+          record.setYearsOpen(false);
+          return true;
+        case 'cancel-correction':
+          record.cancelCorrection();
+          return true;
+        case 'stop-continue':
+          record.stopContinue();
+          return true;
+        case 'close-focus':
+          record.setFocusId(null);
+          return true;
+        case 'clear-anchor':
+          record.clearAnchor();
+          return true;
+        case 'clear-selection':
+          record.setSelectedId(null);
+          return true;
+        default:
+          return false;
+      }
+    };
+  }
   const reducedMotion = useReducedMotion();
   const keyboardInset = useKeyboardInset();
 
