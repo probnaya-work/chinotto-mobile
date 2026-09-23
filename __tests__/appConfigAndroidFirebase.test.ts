@@ -74,3 +74,16 @@ describe('android firebase configuration', () => {
     expect(ignore).toMatch(/^\/?google-services\.json$/m);
   });
 });
+
+describe('android permissions', () => {
+  it('blocks the ones the template adds and the app never uses', () => {
+    expect(appJson.android.blockedPermissions).toEqual(
+      expect.arrayContaining([
+        'android.permission.SYSTEM_ALERT_WINDOW',
+        'android.permission.WRITE_SETTINGS',
+        'android.permission.READ_EXTERNAL_STORAGE',
+        'android.permission.WRITE_EXTERNAL_STORAGE',
+      ])
+    );
+  });
+});
