@@ -14,8 +14,9 @@
  */
 
 import React from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 
+import { PRIVACY_POLICY_URL, TERMS_OF_USE_URL } from '../../monetization/legalLinks';
 import { agency, ink, rule, LIVE, SURFACE } from './tokens';
 import { face, type } from './type';
 
@@ -217,8 +218,20 @@ function Plan(props: SyncSheetProps) {
         <Text onPress={props.onRestore} style={[quiet, linkPad]}>
           restore a purchase
         </Text>
-        <Text style={quiet}>terms</Text>
-        <Text style={quiet}>privacy</Text>
+        <Text
+          onPress={() => void Linking.openURL(TERMS_OF_USE_URL)}
+          accessibilityRole="link"
+          style={[quiet, linkPad]}
+        >
+          terms
+        </Text>
+        <Text
+          onPress={() => void Linking.openURL(PRIVACY_POLICY_URL)}
+          accessibilityRole="link"
+          style={[quiet, linkPad]}
+        >
+          privacy
+        </Text>
         <Text onPress={props.onClose} style={[quiet, linkPad, { marginLeft: 'auto' }]}>
           not now
         </Text>
