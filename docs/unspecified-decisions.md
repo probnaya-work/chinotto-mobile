@@ -223,3 +223,65 @@ Recorded so neither repository drifts by accident.
 | `capture_origin` adds `widget`, `share` | adds `tray` | each platform's own sources; the column is free text on both sides |
 | Audio retained on the phone | audio retained on the Mac | same rule, and neither crosses the wire |
 | No export surface yet | `export_record` + backup | **pending**, not decided (8.1) |
+
+---
+
+## 10. Android
+
+**Opened with `feat/android-foundation` (24 sep 2026).** Android was deferred by `AGENTS.md`
+and the prototype is an iPhone prototype, so nothing in either source says what Android
+should do. What follows is what this branch chose to make the record run there, local-first,
+without redesigning anything — and what it deliberately left undecided.
+
+| # | Decision | Value | Where | Status |
+|---|---|---|---|---|
+| 10.1 | What Android can and cannot offer is one table, asked by the surface | `capabilitiesFor(Platform.OS)`; iOS answers are exactly what the shipping app assumed | `record/platform.ts` | invented |
+| 10.2 | An iOS-only feature is **hidden** on Android, not explained | no sync section, no microphone or widget row, no icon picker; the gaps live here, not in the UI | `record/ui/Settings.tsx` | **decided** |
+| 10.3 | The hold-to-speak circle is not drawn on Android, and the empty record does not promise it | `type anything. it lands here, and stays.` | `record/ui/Edge.tsx`, `RecordList.tsx` | invented |
+| 10.4 | Back puts away one layer at a time, top-most first, and never writes | sync · share · widget · settings page · settings · years · correction · continuation · focus · standing · selection · then the system | `record/back.ts` | invented |
+| 10.5 | The record is framed clear of the system bars by only what exceeds the design's allowance | 54 at the top, 34 at the bottom; a 48dp button bar lifts it 14 | `record/ui/systemInsets.tsx` | invented |
+| 10.6 | The keyboard inset adds back the navigation bar React Native leaves out, less the frame's lift | `ime − systemBars` is what RN reports on API 30+ | `useKeyboardInset.ts` | inferred from RN's `ReactRootView` |
+| 10.7 | Android prebuilds with no native Firebase when `google-services.json` is absent | only Remote Config is native, and a failed fetch already means "no gate" | `app.config.js`, `plugins/withFirebaseAppIosOnly.js` | invented |
+| 10.8 | Four template permissions are blocked | `SYSTEM_ALERT_WINDOW`, `WRITE_SETTINGS`, external storage read/write | `app.json` | invented |
+| 10.9 | The device is called `this phone` where the platform will not name it | `Constants.deviceName` first, as on iOS | `RecordRoot.tsx` | invented |
+| 10.10 | No update surface on Android — no notice, no forced screen, no `up to date` — until a live Play Store listing exists | `updateGate: false`; settings shows the version alone | `record/platform.ts`, `RecordRoot.tsx` | **decided** |
+
+10.2 keeps the surface minimal: an Android settings page that lists what Android lacks would be
+an internal compatibility checklist shown to the person. The gaps are recorded below instead.
+Nothing core is removed by it — capture, the record, Find, standing, Focus, correction,
+continuation, holding, removal and undo are all unchanged.
+
+10.10: every update surface names a store and offers to open it. There is no Play listing, and
+an `update` that goes nowhere — or a URL invented to fill the gap — is worse than silence. Turn
+it on only once the listing is public and its URL is in Remote Config's `androidStoreUrl`.
+
+10.5 leaves the whole geometry the prototype's. Re-deriving every surface's padding for
+Android would have been a second design; framing the whole record by the excess keeps one.
+
+### What is not on Android yet
+
+| | Why | What it would take |
+|---|---|---|
+| Voice capture and playback | `VoiceCaptureModule` and `AudioPlaybackModule` are Swift | An Android module that records to the same `chinotto/audio/<id>` path and drafts a transcript. `SpeechRecognizer` cannot share the microphone with a recorder before API 33, so "audio is canonical, transcript derived" needs a design decision on older Android |
+| Home widget | `expo-widgets` is iOS-only | A Glance or `AppWidgetProvider` widget and a bridge equivalent to `WidgetThoughtsBridge` |
+| Alternate app icon | `AppIconModule` is Swift | Activity aliases — or nothing, since Android themes the monochrome layer itself |
+| Dark system UI in light mode | `userInterfaceStyle` needs `expo-system-ui`, which also adds a native iOS module | Android-only night-mode plugin, or accept the system's contrast scrim behind a three-button bar |
+| Update notice and forced update | no live Play Store listing | the listing, then `updateGate: true` (10.10) |
+| Sync | not missing code — see below | the decisions below |
+
+### Sync on Android — pending, and not this branch's to decide
+
+The sync engine is platform-neutral (Firebase JS SDK, the SQLite outbox, the bridge), and on
+Android it stays exactly as inert as on an iPhone that never signed in: capture queues, nothing
+sends. What cannot be built without a ruling:
+
+1. **Identity.** Android has no Sign in with Apple. The branch `feat/google-auth-account-linking`
+   (5401ce2) has Google sign-in and Apple↔Google linking against the v1 UI; its credential and
+   linking functions are portable, but wiring them decides how an existing Apple user's data
+   reaches Android — sign in with Apple on Android via the web, link Google to the existing
+   `uid`, or keep separate accounts. Existing Apple `uid`s must not change whichever is chosen.
+2. **The Mac.** Desktop signs in with Apple only. An Android user on Google reaches a Mac only
+   if the Mac adds Google or the user links Apple on Android — a Mac change either way.
+3. **Entitlement.** On iOS the sync sheet runs the paywall before sign-in. Whether Android
+   sells Chinotto Pro through Google Play, whether a purchase in one store unlocks the other,
+   and whether the paywall precedes sign-in on Android, are undecided.
