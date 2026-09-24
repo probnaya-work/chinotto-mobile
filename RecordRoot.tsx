@@ -25,9 +25,11 @@ import { ensureThisDevice, HEARTBEAT_MS, isRevoked, type ThisDevice } from './re
 import { SURFACE } from './record/ui/tokens';
 import type { VoiceEngine } from './record/voice';
 import {
+  localRecognitionStatus,
   startVoiceCapture,
   stopVoiceCapture,
   subscribeVoiceCapture,
+  transcribeVoiceFile,
 } from './src/features/voiceCapture/NativeVoiceCapture';
 import type { AudioPlaybackPort } from './record/playback';
 import {
@@ -178,6 +180,8 @@ const voiceEngine: VoiceEngine = {
   start: (options) => startVoiceCapture({ continuous: true, audioFileName: options.audioFileName }),
   stop: () => stopVoiceCapture(),
   subscribe: (handlers) => subscribeVoiceCapture(handlers),
+  localStatus: () => localRecognitionStatus(),
+  transcribeFile: (relativePath) => transcribeVoiceFile(relativePath),
 };
 
 /**

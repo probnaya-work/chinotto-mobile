@@ -25,6 +25,7 @@ import {
   RECORD_SCHEMA_SQL,
 } from './schema';
 import { setUserVersion, tableExists, userVersion, type RecordDb } from './db';
+import { relabelUnconfirmedTranscripts } from './transcripts';
 
 /** Schema version this build expects. Bump when adding a step below. */
 export const TARGET_VERSION = 5;
@@ -169,6 +170,13 @@ export async function migrate(db: RecordDb): Promise<MigrationReport> {
       await setMeta(db, 'fts.available', available ? '1' : '0');
     });
   }
+
+  // Data, not schema, so it is not a step: a build that has run it must still be openable
+  // by one that has not. See `relabelUnconfirmedTranscripts`.
+  await relabelUnconfirmedTranscripts(db, {
+    get: (key) => getMeta(db, key),
+    set: (key, value) => setMeta(db, key, value),
+  });
 
   report.ftsAvailable = (await getMeta(db, 'fts.available')) === '1';
   report.to = await userVersion(db);

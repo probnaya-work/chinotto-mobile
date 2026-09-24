@@ -15,15 +15,31 @@
  * drops silently: a circle pressed and released is not a thought, and asking about it would
  * be worse than losing it.
  *
+ * Recognition runs on this iPhone or not at all (see `VoiceCaptureModule.swift`). The native
+ * side says which happened, and a transcript is labelled `ios-on-device` only when it did.
+ * A recording made without a local recogniser keeps its audio and waits, retryable, for
+ * `record/transcripts.ts`.
+ *
  * Everything the platform provides is injected, so this can be exercised without a device.
  */
 
 import { audioPathFor, deleteRecordFile, ensureAudioDirectory, recordFileExists } from './files';
+import {
+  ON_DEVICE_MODEL,
+  TRANSCRIPT_DENIED,
+  TRANSCRIPT_NOTHING_HEARD,
+  TRANSCRIPT_UNAVAILABLE,
+  type FileResult,
+  type LocalStatus,
+} from './transcripts';
 import { motion } from './ui/tokens';
 import type { Material } from './model/material';
 import type { RecordStore } from './store';
 
 export type RetainedAudio = { path: string; durationMs: number };
+
+/** What the native side says recognition did. `null` when it did not say. */
+export type VoiceRecognition = 'on_device' | 'unavailable' | 'denied' | 'failed';
 
 /** The native surface this needs, and nothing more. */
 export type VoiceEngine = {
@@ -36,10 +52,15 @@ export type VoiceEngine = {
       text: string,
       reason: string,
       audio: RetainedAudio | null,
-      audioFailure?: string
+      audioFailure?: string,
+      recognition?: VoiceRecognition | null
     ) => void;
     onError?: (code: string, message?: string) => void;
   }): () => void;
+  /** Whether a retained recording could be read back locally now. Never prompts. */
+  localStatus?: () => Promise<LocalStatus>;
+  /** Reads a retained recording back as words, on the device only. Never prompts. */
+  transcribeFile?: (relativePath: string) => Promise<FileResult>;
 };
 
 export type VoiceDeps = {
@@ -100,7 +121,8 @@ export function createVoiceCapture(deps: VoiceDeps) {
   async function settle(
     text: string,
     audio: RetainedAudio | null,
-    audioFailure?: string
+    audioFailure?: string,
+    recognition: VoiceRecognition | null = null
   ): Promise<VoiceOutcome> {
     const id = pendingId;
     const path = pendingPath;
@@ -136,12 +158,28 @@ export function createVoiceCapture(deps: VoiceDeps) {
       voice: audio ? { audioPath: audio.path, durationMs: audio.durationMs } : null,
     });
 
+    // Words only ever come from a local recogniser, but the label is not inferred from
+    // that: it is applied when the native side said so, and left off when it did not.
+    const local = recognition === 'on_device' || recognition === 'failed';
     if (spoken) {
-      await deps.store.setTranscript(id, { state: 'ok', text: spoken, model: 'ios-on-device' });
+      await deps.store.setTranscript(id, {
+        state: 'ok',
+        text: spoken,
+        ...(local ? { model: ON_DEVICE_MODEL } : {}),
+      });
+    } else if (recognition === 'unavailable' || recognition === 'denied') {
+      // No recogniser ran. Left without a model, which is what keeps it retryable.
+      await deps.store.setTranscript(id, {
+        state: 'failed',
+        failure: recognition === 'denied' ? TRANSCRIPT_DENIED : TRANSCRIPT_UNAVAILABLE,
+      });
     } else {
       await deps.store.setTranscript(id, {
         state: 'failed',
-        failure: audioFailure ?? 'nothing was recognised',
+        failure: audioFailure ?? TRANSCRIPT_NOTHING_HEARD,
+        // A local recogniser listened to all of it and heard nothing: an answer, not a
+        // failure to ask. A recogniser that broke partway is left retryable.
+        ...(recognition === 'on_device' ? { model: ON_DEVICE_MODEL } : {}),
       });
     }
 

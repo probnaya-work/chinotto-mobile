@@ -559,7 +559,11 @@ export function createRecordStore(db: RecordDb, options: StoreOptions = {}) {
     fragmentId: string,
     result:
       | { state: 'ok'; text: string; model?: string }
-      | { state: 'failed'; failure: string }
+      /**
+       * `model` on a failure records that a recogniser actually ran — see
+       * `record/transcripts.ts`, which never retries a recording one already has.
+       */
+      | { state: 'failed'; failure: string; model?: string }
   ): Promise<void> {
     await db.withTransactionAsync(async () => {
       if (result.state === 'ok') {
@@ -583,8 +587,10 @@ export function createRecordStore(db: RecordDb, options: StoreOptions = {}) {
         );
       } else {
         await db.runAsync(
-          `UPDATE voice_transcripts SET state = 'failed', failure = ?, transcribed_at = ? WHERE fragment_id = ?`,
+          `UPDATE voice_transcripts SET state = 'failed', failure = ?, model = ?, transcribed_at = ?
+            WHERE fragment_id = ?`,
           result.failure,
+          result.model ?? null,
           iso(now()),
           fragmentId
         );
