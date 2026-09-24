@@ -17,6 +17,18 @@ import UIKit
 ///   * if the recogniser never starts, or dies halfway, the recording is unaffected and is
 ///     still reported. A transcription failure must never lose what somebody said.
 ///
+/// **Recognition happens on this iPhone or not at all.** Apple's recogniser sends audio to
+/// Apple's servers unless a request both *requires* on-device recognition and is made on a
+/// recogniser that *supports* it — the flag alone is ignored where support is missing. So
+/// every recognition task in this file is created by `onDeviceTask`, which refuses to create
+/// one unless both are true, and a request only exists once its task does: without a local
+/// recogniser no buffer is ever handed to Speech, and the recording simply has no words yet.
+/// `__tests__/voiceOnDeviceOnly.test.ts` reads this file to keep it that way.
+///
+/// The microphone and speech recognition are separate permissions and are treated as such.
+/// Without the microphone nothing can be recorded; without speech recognition — denied,
+/// restricted, or unsupported for the language — the recording is made anyway.
+///
 /// Default `continuous` mode: listen until manual stop (max ~5 min).
 @objc(VoiceCaptureModule)
 final class VoiceCaptureModule: RCTEventEmitter {
@@ -42,6 +54,12 @@ final class VoiceCaptureModule: RCTEventEmitter {
   private var request: SFSpeechAudioBufferRecognitionRequest?
   private var task: SFSpeechRecognitionTask?
   private var recognizer: SFSpeechRecognizer?
+  /// What happened to recognition in this session, reported with the final event:
+  /// `on_device` · `unavailable` · `denied` · `failed`. See `Recognition`.
+  private var recognition = Recognition.unavailable
+
+  /// A retained recording being read back as words (`transcribeFile`). One at a time.
+  private var fileTask: SFSpeechRecognitionTask?
 
   private var maxTimer: DispatchSourceTimer?
   private var didEmitFinal = false
@@ -123,17 +141,31 @@ final class VoiceCaptureModule: RCTEventEmitter {
         return
       }
 
-      self.requestPermissions { permissionError in
-        if let permissionError {
-          let message = permissionError.localizedDescription
+      // The microphone is the only permission a recording needs. Speech recognition is
+      // asked for afterwards, and only decides whether this recording also gets words.
+      self.requestMicrophone { granted in
+        guard granted else {
+          let message = "Microphone access is not authorized."
           DispatchQueue.main.async {
-            reject("E_VOICE_PERMISSION", message, permissionError)
+            reject("E_VOICE_PERMISSION", message, nil)
             self.emitError(code: "permission_denied", message: message)
           }
           return
         }
 
-        self.startSession(options: options, resolve: resolve, reject: reject)
+        let localeIdentifier = options?["locale"] as? String
+        let locale = localeIdentifier.map { Locale(identifier: $0) } ?? Locale.current
+        self.resolveRecognizer(locale: locale, mayAsk: true) { speechRec, status in
+          self.workQueue.async {
+            self.startSession(
+              options: options,
+              recognizer: speechRec,
+              recognition: status,
+              resolve: resolve,
+              reject: reject
+            )
+          }
+        }
       }
     }
   }
@@ -144,56 +176,216 @@ final class VoiceCaptureModule: RCTEventEmitter {
     }
   }
 
-  // MARK: - Permissions
+  /// Reads a retained recording back as words, on this iPhone only.
+  ///
+  /// Resolves `{ status, text? }`, never rejects for a recognition outcome:
+  /// `ok` · `no_speech` · `unavailable` · `denied` · `failed` · `busy` · `missing`.
+  /// Never asks for a permission — a retry happens in the background, and a prompt is only
+  /// ever raised by somebody holding the circle.
+  @objc(transcribeFile:resolver:rejecter:)
+  func transcribeFile(
+    _ relativePath: NSString,
+    resolver resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    workQueue.async { [weak self] in
+      guard let self else { return }
+      let answer: (String, String?) -> Void = { status, text in
+        var body: [String: Any] = ["status": status]
+        if let text { body["text"] = text }
+        DispatchQueue.main.async { resolve(body) }
+      }
 
-  private func requestPermissions(completion: @escaping (Error?) -> Void) {
-    SFSpeechRecognizer.requestAuthorization { status in
-      guard status == .authorized else {
-        completion(
-          NSError(
-            domain: "VoiceCapture",
-            code: 1,
-            userInfo: [NSLocalizedDescriptionKey: "Speech recognition is not authorized."]
-          )
-        )
+      // A live recording owns the recogniser and the audio session; a retry can wait.
+      if self.isListening || self.fileTask != nil {
+        answer("busy", nil)
+        return
+      }
+      guard let url = self.retainedAudioURL(relativePath as String) else {
+        answer("missing", nil)
         return
       }
 
-      if #available(iOS 17.0, *) {
-        AVAudioApplication.requestRecordPermission { granted in
-          completion(
-            granted
-              ? nil
-              : NSError(
-                  domain: "VoiceCapture",
-                  code: 2,
-                  userInfo: [NSLocalizedDescriptionKey: "Microphone access is not authorized."]
-                )
-          )
-        }
-      } else {
-        AVAudioSession.sharedInstance().requestRecordPermission { granted in
-          completion(
-            granted
-              ? nil
-              : NSError(
-                  domain: "VoiceCapture",
-                  code: 2,
-                  userInfo: [NSLocalizedDescriptionKey: "Microphone access is not authorized."]
-                )
-          )
+      self.resolveRecognizer(locale: Locale.current, mayAsk: false) { speechRec, status in
+        self.workQueue.async {
+          guard let speechRec, status == .onDevice else {
+            answer(status == .denied ? "denied" : "unavailable", nil)
+            return
+          }
+          if self.isListening || self.fileTask != nil {
+            answer("busy", nil)
+            return
+          }
+
+          let fileRequest = SFSpeechURLRecognitionRequest(url: url)
+          fileRequest.shouldReportPartialResults = false
+
+          var settled = false
+          let settle: (String, String?) -> Void = { status, text in
+            // Called on `workQueue` only.
+            guard !settled else { return }
+            settled = true
+            self.fileTask?.cancel()
+            self.fileTask = nil
+            answer(status, text)
+          }
+
+          let task = Self.onDeviceTask(recognizer: speechRec, request: fileRequest) { result, error in
+            self.workQueue.async {
+              if let result, result.isFinal {
+                let text = result.bestTranscription.formattedString
+                  .trimmingCharacters(in: .whitespacesAndNewlines)
+                settle(text.isEmpty ? "no_speech" : "ok", text.isEmpty ? nil : text)
+                return
+              }
+              if let error {
+                let ns = error as NSError
+                // 1110: no speech detected in the audio. A real answer, not a failure.
+                if ns.domain == "kAFAssistantErrorDomain", ns.code == 1110 {
+                  settle("no_speech", nil)
+                } else {
+                  settle("failed", nil)
+                }
+              }
+            }
+          }
+          guard let task else {
+            answer("unavailable", nil)
+            return
+          }
+          self.fileTask = task
+
+          // A recogniser that never answers must not hold the next retry hostage.
+          self.workQueue.asyncAfter(deadline: .now() + 120) {
+            if self.fileTask === task { settle("failed", nil) }
+          }
         }
       }
     }
+  }
+
+  /// Whether this iPhone can read speech back as words locally right now, for the current
+  /// language. Asks nothing: `not_determined` means nobody has held the circle yet.
+  @objc(localRecognitionStatus:rejecter:)
+  func localRecognitionStatus(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    if SFSpeechRecognizer.authorizationStatus() == .notDetermined {
+      resolve("not_determined")
+      return
+    }
+    resolveRecognizer(locale: Locale.current, mayAsk: false) { _, status in
+      DispatchQueue.main.async {
+        switch status {
+        case .onDevice: resolve("available")
+        case .denied: resolve("denied")
+        default: resolve("unavailable")
+        }
+      }
+    }
+  }
+
+  // MARK: - Permissions
+
+  private func requestMicrophone(completion: @escaping (Bool) -> Void) {
+    if #available(iOS 17.0, *) {
+      AVAudioApplication.requestRecordPermission { granted in completion(granted) }
+    } else {
+      AVAudioSession.sharedInstance().requestRecordPermission { granted in completion(granted) }
+    }
+  }
+
+  /// What recognition can be done for `locale`, on this iPhone.
+  ///
+  /// Hands back a recogniser only when speech recognition is authorised **and** the
+  /// recogniser supports on-device recognition **and** is available now. Anything else is a
+  /// complete answer — the recording is made either way.
+  ///
+  /// `mayAsk` raises the speech prompt when nobody has answered it yet. Only a capture does
+  /// that: speech recognition is asked for when it is about to be used, never in passing.
+  private func resolveRecognizer(
+    locale: Locale,
+    mayAsk: Bool,
+    completion: @escaping (SFSpeechRecognizer?, Recognition) -> Void
+  ) {
+    let decide: (SFSpeechRecognizerAuthorizationStatus) -> Void = { status in
+      guard status == .authorized else {
+        completion(nil, .denied)
+        return
+      }
+      guard
+        let speechRec = SFSpeechRecognizer(locale: locale),
+        speechRec.supportsOnDeviceRecognition,
+        speechRec.isAvailable
+      else {
+        completion(nil, .unavailable)
+        return
+      }
+      completion(speechRec, .onDevice)
+    }
+
+    let status = SFSpeechRecognizer.authorizationStatus()
+    if status == .notDetermined, mayAsk {
+      SFSpeechRecognizer.requestAuthorization { answered in decide(answered) }
+    } else {
+      decide(status)
+    }
+  }
+
+  /// **The only way a recognition task is created in this module.**
+  ///
+  /// Returns nil — and so no task, and no request that anything is appended to — unless the
+  /// recogniser supports on-device recognition and the request requires it. Apple ignores
+  /// `requiresOnDeviceRecognition` where support is missing, so setting the flag is not
+  /// enough on its own: the support check is what makes the flag mean anything.
+  static func onDeviceTask(
+    recognizer: SFSpeechRecognizer,
+    request: SFSpeechRecognitionRequest,
+    resultHandler: @escaping (SFSpeechRecognitionResult?, Error?) -> Void
+  ) -> SFSpeechRecognitionTask? {
+    guard recognizer.supportsOnDeviceRecognition else { return nil }
+    request.requiresOnDeviceRecognition = true
+    guard request.requiresOnDeviceRecognition else { return nil }
+    return recognizer.recognitionTask(with: request, resultHandler: resultHandler)
+  }
+
+  /// A retained recording's location, only when it is one of ours and is there.
+  ///
+  /// Paths arrive from JavaScript and are relative to Documents. Anything that is not a
+  /// plain file directly under `chinotto/audio/` is refused rather than normalised.
+  private func retainedAudioURL(_ relativePath: String) -> URL? {
+    let prefix = "chinotto/audio/"
+    guard relativePath.hasPrefix(prefix) else { return nil }
+    let name = String(relativePath.dropFirst(prefix.count))
+    guard
+      !name.isEmpty,
+      !name.contains("/"),
+      !name.hasPrefix("."),
+      name.range(of: "^[A-Za-z0-9._-]+$", options: .regularExpression) != nil
+    else { return nil }
+
+    let directory = documentsDirectory.appendingPathComponent(prefix, isDirectory: true)
+      .standardizedFileURL
+    let url = directory.appendingPathComponent(name).standardizedFileURL
+    guard url.deletingLastPathComponent().path == directory.path else { return nil }
+    guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+    return url
   }
 
   // MARK: - Session
 
   private func startSession(
     options: NSDictionary?,
+    recognizer speechRec: SFSpeechRecognizer?,
+    recognition status: Recognition,
     resolve: @escaping RCTPromiseResolveBlock,
     reject: @escaping RCTPromiseRejectBlock
   ) {
+    if isListening {
+      DispatchQueue.main.async { resolve(nil) }
+      return
+    }
     lastTranscript = ""
     committedTranscript = ""
     heardSpeech = false
@@ -206,6 +398,8 @@ final class VoiceCaptureModule: RCTEventEmitter {
     recordedFrames = 0
     recordedSampleRate = 0
     audioWriteFailure = nil
+    request = nil
+    task = nil
 
     if let continuous = options?["continuous"] as? Bool {
       continuousMode = continuous
@@ -220,25 +414,10 @@ final class VoiceCaptureModule: RCTEventEmitter {
       silenceStopSeconds = burstSilenceStopSeconds
     }
 
-    let localeIdentifier = options?["locale"] as? String
-    let locale = localeIdentifier.map { Locale(identifier: $0) } ?? Locale.current
-    let rec = SFSpeechRecognizer(locale: locale)
-    guard let speechRec = rec else {
-      DispatchQueue.main.async {
-        reject("E_VOICE_CAPTURE", "Speech recognizer unavailable for locale.", nil)
-        self.emitError(code: "recognizer_unavailable", message: "Recognizer could not be created.")
-      }
-      return
-    }
-    guard speechRec.isAvailable else {
-      DispatchQueue.main.async {
-        reject("E_VOICE_CAPTURE", "Speech recognizer is not available.", nil)
-        self.emitError(code: "recognizer_unavailable", message: "Recognizer is not available.")
-      }
-      return
-    }
-
+    // No local recogniser is not a reason to refuse to listen. It means this recording
+    // has no words yet — which the record already knows how to say.
     recognizer = speechRec
+    recognition = status
 
     do {
       let session = AVAudioSession.sharedInstance()
@@ -269,13 +448,6 @@ final class VoiceCaptureModule: RCTEventEmitter {
       openAudioFile(named: fileName, sourceFormat: format)
     }
 
-    let speechRequest = SFSpeechAudioBufferRecognitionRequest()
-    request = speechRequest
-    speechRequest.shouldReportPartialResults = true
-    if speechRec.supportsOnDeviceRecognition {
-      speechRequest.requiresOnDeviceRecognition = true
-    }
-
     input.removeTap(onBus: 0)
     input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
       self?.workQueue.async {
@@ -283,13 +455,10 @@ final class VoiceCaptureModule: RCTEventEmitter {
       }
     }
 
-    guard attachRecognitionTask(to: speechRec) else {
-      tearDownAudioSilently()
-      DispatchQueue.main.async {
-        reject("E_VOICE_CAPTURE", "Could not start speech recognition.", nil)
-        self.emitError(code: "start_failed", message: "Could not start speech recognition.")
-      }
-      return
+    if let speechRec, !attachRecognitionTask(to: speechRec) {
+      // Could not start locally. The recording goes ahead without words.
+      recognizer = nil
+      recognition = .unavailable
     }
 
     do {
@@ -332,8 +501,9 @@ final class VoiceCaptureModule: RCTEventEmitter {
     // failed or was torn down mid-session; that must not cost the audio.
     writeToAudioFile(buffer)
 
-    guard let request else { return }
-    request.append(buffer)
+    // Only a request that `onDeviceTask` accepted exists; without one nothing reaches
+    // Speech. Silence and idle handling below run either way.
+    request?.append(buffer)
 
     let rms = rmsFloat(buffer)
     let sampleRate = buffer.format.sampleRate
@@ -393,6 +563,7 @@ final class VoiceCaptureModule: RCTEventEmitter {
       if continuousMode, isRecoverableRecognitionError(ns), restartRecognitionTask() {
         return
       }
+      recognition = .failed
       finalizeCapture(reason: "recognition_error", errorToEmit: error)
     }
   }
@@ -408,23 +579,34 @@ final class VoiceCaptureModule: RCTEventEmitter {
     request?.endAudio()
     request = nil
 
-    return attachRecognitionTask(to: speechRec)
+    // If the next phrase cannot be recognised locally, the recording carries on without it
+    // rather than ending: the audio is what matters, and the words so far are kept.
+    if !attachRecognitionTask(to: speechRec) {
+      recognizer = nil
+    }
+    return true
   }
 
+  /// Starts a recognition task on a fresh request — through `onDeviceTask`, and only then
+  /// keeps the request, so a buffer is appended to nothing that is not on-device.
   private func attachRecognitionTask(to speechRec: SFSpeechRecognizer) -> Bool {
     let speechRequest = SFSpeechAudioBufferRecognitionRequest()
-    request = speechRequest
     speechRequest.shouldReportPartialResults = true
-    if speechRec.supportsOnDeviceRecognition {
-      speechRequest.requiresOnDeviceRecognition = true
-    }
 
-    task = speechRec.recognitionTask(with: speechRequest) { [weak self] result, error in
+    let newTask = Self.onDeviceTask(recognizer: speechRec, request: speechRequest) {
+      [weak self] result, error in
       self?.workQueue.async {
         self?.processRecognition(result: result, error: error)
       }
     }
-    return task != nil
+    guard let newTask else {
+      request = nil
+      task = nil
+      return false
+    }
+    request = speechRequest
+    task = newTask
+    return true
   }
 
   private func composeDisplayTranscript(live: String) -> String {
@@ -534,7 +716,11 @@ final class VoiceCaptureModule: RCTEventEmitter {
   private func emitFinalIfNeeded(text: String, reason: String, audio: RetainedAudio?) {
     guard !didEmitFinal else { return }
     didEmitFinal = true
-    var payload: [String: Any] = ["text": text, "reason": reason]
+    var payload: [String: Any] = [
+      "text": text,
+      "reason": reason,
+      "recognition": recognition.rawValue,
+    ]
     if let audio {
       payload["audioPath"] = audio.relativePath
       payload["durationMs"] = audio.durationMs
@@ -548,6 +734,18 @@ final class VoiceCaptureModule: RCTEventEmitter {
   }
 
   // MARK: - Retained audio
+
+  /// What recognition did for a session, as JavaScript is told it.
+  enum Recognition: String {
+    /// Recognised on this iPhone (`requiresOnDeviceRecognition`, on a recogniser that supports it).
+    case onDevice = "on_device"
+    /// Not supported or not available for this language on this iPhone. No task was made.
+    case unavailable
+    /// Speech recognition is not authorised. No task was made.
+    case denied
+    /// Recognised on this iPhone until the recogniser failed. The audio is unaffected.
+    case failed
+  }
 
   struct RetainedAudio {
     let relativePath: String
