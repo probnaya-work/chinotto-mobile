@@ -245,11 +245,27 @@ without redesigning anything — and what it deliberately left undecided.
 | 10.8 | Four template permissions are blocked | `SYSTEM_ALERT_WINDOW`, `WRITE_SETTINGS`, external storage read/write | `app.json` | invented |
 | 10.9 | The device is called `this phone` where the platform will not name it | `Constants.deviceName` first, as on iOS | `RecordRoot.tsx` | invented |
 | 10.10 | No update surface on Android — no notice, no forced screen, no `up to date` — until a live Play Store listing exists | `updateGate: false`; settings shows the version alone | `record/platform.ts`, `RecordRoot.tsx` | **decided** |
+| 10.11 | Android loads plain-TrueType copies of the Archivo faces; iOS keeps the files it shipped | `assets/fonts/android/`, chosen by `fontAssets.android.ts` | `record/ui/fontAssets*.ts`, the generator | forced |
+| 10.12 | The Android app always runs in night mode | `AppCompatDelegate.MODE_NIGHT_YES` in `MainApplication.onCreate` | `plugins/withAndroidNightMode.js` | forced |
 
 10.2 keeps the surface minimal: an Android settings page that lists what Android lacks would be
 an internal compatibility checklist shown to the person. The gaps are recorded below instead.
 Nothing core is removed by it — capture, the record, Find, standing, Focus, correction,
 continuation, holding, removal and undo are all unchanged.
+
+10.11 is forced, not chosen. The generated `.ttf` files are WOFF2 inside — the generator saves
+the instancer's output with the WOFF2 source's flavour. CoreText reads that; Android's
+`Typeface` does not, and instead of failing it silently draws Roboto. On an API 36 emulator
+the whole record was Roboto while `getLoadedFonts()` listed all seventeen faces. Converting
+the shared files would have changed the submitted iOS bundle, so Android gets its own
+copies — glyph-for-glyph the same outlines, verified — and Metro's `.android.ts` resolution
+keeps them out of the iOS bundle entirely.
+
+10.12: `userInterfaceStyle: "dark"` needs `expo-system-ui` to reach Android, and that module
+would also add a native iOS dependency. Without it, React Native's edge-to-edge setup takes the
+navigation bar's appearance from the phone: on a light-mode phone, a light strip with grey
+buttons under the ink field, seen with three-button navigation on the emulator. Night mode is
+set for the Android application alone; the gesture handle and the status bar follow it.
 
 10.10: every update surface names a store and offers to open it. There is no Play listing, and
 an `update` that goes nowhere — or a URL invented to fill the gap — is worse than silence. Turn
@@ -265,7 +281,6 @@ Android would have been a second design; framing the whole record by the excess 
 | Voice capture and playback | `VoiceCaptureModule` and `AudioPlaybackModule` are Swift | An Android module that records to the same `chinotto/audio/<id>` path and drafts a transcript. `SpeechRecognizer` cannot share the microphone with a recorder before API 33, so "audio is canonical, transcript derived" needs a design decision on older Android |
 | Home widget | `expo-widgets` is iOS-only | A Glance or `AppWidgetProvider` widget and a bridge equivalent to `WidgetThoughtsBridge` |
 | Alternate app icon | `AppIconModule` is Swift | Activity aliases — or nothing, since Android themes the monochrome layer itself |
-| Dark system UI in light mode | `userInterfaceStyle` needs `expo-system-ui`, which also adds a native iOS module | Android-only night-mode plugin, or accept the system's contrast scrim behind a three-button bar |
 | Update notice and forced update | no live Play Store listing | the listing, then `updateGate: true` (10.10) |
 | Sync | not missing code — see below | the decisions below |
 
