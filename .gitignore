@@ -18,6 +18,9 @@ expo-env.d.ts
 
 # Native: iOS project is tracked; Android still generated locally (`expo prebuild`) unless added later
 /android
+# Gradle output of local native modules (`modules/*`); their sources are tracked.
+/modules/*/android/build/
+/modules/*/android/.cxx/
 
 # Kotlin
 .kotlin/

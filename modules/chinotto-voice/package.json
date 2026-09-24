@@ -1,0 +1,6 @@
+{
+  "name": "chinotto-voice",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Android voice capture and playback for the Record: recording kept on the phone, words only from a network-isolated on-device recogniser."
+}

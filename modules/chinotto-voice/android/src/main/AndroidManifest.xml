@@ -1,0 +1,15 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!-- Asked for only when somebody first holds the circle. -->
+  <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+  <!--
+    Makes recognition services visible to this app, so the package behind the system's
+    on-device recogniser can be inspected before anything is sent to it (OnDeviceGate).
+    Without visibility the inspection fails, and a failed inspection means no words.
+  -->
+  <queries>
+    <intent>
+      <action android:name="android.speech.RecognitionService" />
+    </intent>
+  </queries>
+</manifest>
