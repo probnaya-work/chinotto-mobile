@@ -239,11 +239,12 @@ export function ChinottoApp({ services }: { services: Services }) {
 
   /**
    * Recordings waiting for words, read back on this iPhone when it can — see
-   * `record/transcripts.ts`. Only where the platform offers local recognition at all.
+   * `record/transcripts.ts`. Only where the platform offers local recognition at all —
+   * never on a phone without voice, where the native module is absent by design.
    */
   const transcripts = useMemo(() => {
     const { localStatus, transcribeFile } = services.voiceEngine;
-    if (!localStatus || !transcribeFile) return null;
+    if (!capabilities.voice || !localStatus || !transcribeFile) return null;
     return createTranscriptRetry({
       db: services.db,
       store,
@@ -251,7 +252,7 @@ export function ChinottoApp({ services }: { services: Services }) {
       transcribe: transcribeFile,
       fileExists: recordFileExists,
     });
-  }, [services.db, services.voiceEngine, store]);
+  }, [capabilities.voice, services.db, services.voiceEngine, store]);
 
   useEffect(() => {
     if (!transcripts) return;
