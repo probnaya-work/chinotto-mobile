@@ -281,6 +281,7 @@ without redesigning anything — and what it deliberately left undecided.
 | 10.10 | No update surface on Android — no notice, no forced screen, no `up to date` — until a live Play Store listing exists | `updateGate: false`; settings shows the version alone | `record/platform.ts`, `RecordRoot.tsx` | **decided** |
 | 10.11 | Android loads plain-TrueType copies of the Archivo faces; iOS keeps the files it shipped | `assets/fonts/android/`, chosen by `fontAssets.android.ts` | `record/ui/fontAssets*.ts`, the generator | forced |
 | 10.12 | The Android app always runs in night mode | `AppCompatDelegate.MODE_NIGHT_YES` in `MainApplication.onCreate` | `plugins/withAndroidNightMode.js` | forced |
+| 10.13 | Android draws no default keyboard-focus highlight | `android:defaultFocusHighlightEnabled=false` on the app theme (API 26+); after a hardware key the focused record list was a grey slab until the next touch | `plugins/withAndroidNoFocusHighlight.js` | forced |
 
 10.2 keeps the surface minimal: an Android settings page that lists what Android lacks would be
 an internal compatibility checklist shown to the person. The gaps are recorded below instead.

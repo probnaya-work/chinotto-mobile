@@ -131,6 +131,7 @@
         }
       ],
       "./plugins/withAndroidNightMode.js",
+      "./plugins/withAndroidNoFocusHighlight.js",
       [
         "./plugins/withIosSplashLogoFixedConstraints.js",
         {
