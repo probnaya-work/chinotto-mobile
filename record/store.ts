@@ -437,17 +437,22 @@ export function createRecordStore(db: RecordDb, options: StoreOptions = {}) {
     });
   }
 
-  /** `bring back`. Only possible while the removal is still unpublished. */
+  /**
+   * `bring back`. Only possible while the removal is still unpublished.
+   *
+   * Deleting the `pending_removals` row is the claim, exactly as publishing claims it (see
+   * `bridge.publishDueRemovals`): a removal that has just been published — and a voice
+   * moment whose content has just been erased with it — is never half brought back.
+   */
   async function bringBack(id: string): Promise<boolean> {
-    const pending = await db.getFirstAsync<{ fragment_id: string }>(
-      'SELECT fragment_id FROM pending_removals WHERE fragment_id = ?',
-      id
-    );
-    if (!pending) return false;
+    const done = { restored: false };
     await db.withTransactionAsync(async () => {
-      await db.runAsync('DELETE FROM pending_removals WHERE fragment_id = ?', id);
+      const claim = await db.runAsync('DELETE FROM pending_removals WHERE fragment_id = ?', id);
+      if (claim.changes === 0) return;
       await db.runAsync('UPDATE fragments SET removed_at = NULL WHERE id = ?', id);
+      done.restored = true;
     });
+    if (!done.restored) return false;
     changed(id);
     return true;
   }
@@ -559,7 +564,11 @@ export function createRecordStore(db: RecordDb, options: StoreOptions = {}) {
     fragmentId: string,
     result:
       | { state: 'ok'; text: string; model?: string }
-      | { state: 'failed'; failure: string }
+      /**
+       * `model` on a failure records that a recogniser actually ran — see
+       * `record/transcripts.ts`, which never retries a recording one already has.
+       */
+      | { state: 'failed'; failure: string; model?: string }
   ): Promise<void> {
     await db.withTransactionAsync(async () => {
       if (result.state === 'ok') {
@@ -583,8 +592,10 @@ export function createRecordStore(db: RecordDb, options: StoreOptions = {}) {
         );
       } else {
         await db.runAsync(
-          `UPDATE voice_transcripts SET state = 'failed', failure = ?, transcribed_at = ? WHERE fragment_id = ?`,
+          `UPDATE voice_transcripts SET state = 'failed', failure = ?, model = ?, transcribed_at = ?
+            WHERE fragment_id = ?`,
           result.failure,
+          result.model ?? null,
           iso(now()),
           fragmentId
         );

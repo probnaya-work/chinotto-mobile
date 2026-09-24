@@ -11,7 +11,9 @@
  *   2. the record renders **immediately**, with the capture field mounted and focused, so
  *      typing is possible before anything else has finished;
  *   3. removals whose undo window elapsed while the app was closed are published;
- *   4. the legacy catch-up and the sync read happen in the background, where they belong.
+ *   4. the legacy catch-up and the sync read happen in the background, where they belong,
+ *      and so do finishing the erasure of removed voice moments and reading back recordings
+ *      that are still waiting for words.
  *
  * Nothing in 3 or 4 is allowed to block 2. That is the golden rule, expressed as an ordering.
  */
@@ -29,6 +31,9 @@ import { ForcedUpdate, WidgetPreview } from './ui/WidgetPreview';
 import { FONT_ASSETS } from './ui/type';
 import { SURFACE } from './ui/tokens';
 import { createBridge, type RecordBridge } from './bridge';
+import { sweepRemovedVoice } from './erasure';
+import { deleteRecordFile, listRetainedAudio, recordFileExists } from './files';
+import { createTranscriptRetry } from './transcripts';
 import type { AudioPlaybackPort } from './playback';
 import { createRecordStore, type RecordStore } from './store';
 import { createVoiceCapture, type VoiceEngine } from './voice';
@@ -179,9 +184,32 @@ export function ChinottoApp({ services }: { services: Services }) {
   );
 
   const bridge: RecordBridge = useMemo(
-    () => createBridge(services.db, services.legacy),
+    () =>
+      createBridge(services.db, {
+        ...services.legacy,
+        // A removal that can no longer be brought back takes its recording with it.
+        deleteAudio: deleteRecordFile,
+        // The widget shows recent text, and a published removal is text that has gone.
+        onPublished: () => setChangedAt((n) => n + 1),
+      }),
     [services.db, services.legacy]
   );
+
+  /**
+   * Once per launch, in the background: erasure that earlier builds never did, or that was
+   * interrupted between the database and the disk. Only what is provably removed for good
+   * is touched — see `record/erasure.ts`.
+   */
+  useEffect(() => {
+    void sweepRemovedVoice(services.db, {
+      listAudio: listRetainedAudio,
+      deleteAudio: deleteRecordFile,
+    }).then((report) => {
+      if (__DEV__ && (report.erased || report.deletedFiles || report.keptUnproven.length)) {
+        console.info('[Record] removed voice sweep', report);
+      }
+    });
+  }, [services.db]);
 
   /**
    * The voice controller holds the recording that is currently happening — the id the file
@@ -208,6 +236,36 @@ export function ChinottoApp({ services }: { services: Services }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [store, services.voiceEngine, services.newId]
   );
+
+  /**
+   * Recordings waiting for words, read back on this iPhone when it can — see
+   * `record/transcripts.ts`. Only where the platform offers local recognition at all.
+   */
+  const transcripts = useMemo(() => {
+    const { localStatus, transcribeFile } = services.voiceEngine;
+    if (!localStatus || !transcribeFile) return null;
+    return createTranscriptRetry({
+      db: services.db,
+      store,
+      status: localStatus,
+      transcribe: transcribeFile,
+      fileExists: recordFileExists,
+    });
+  }, [services.db, services.voiceEngine, store]);
+
+  useEffect(() => {
+    if (!transcripts) return;
+    const run = () => void transcripts.run();
+    // Not in the launch's way: the record is up and typing works before this asks anything.
+    const first = setTimeout(run, 4000);
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') run();
+    });
+    return () => {
+      clearTimeout(first);
+      sub.remove();
+    };
+  }, [transcripts]);
 
   const sync = useSyncSurface(services.syncPorts, bridge);
   const account = useSyncAccount(services.syncAccount, () => void sync.refresh());
@@ -368,17 +426,23 @@ export function ChinottoApp({ services }: { services: Services }) {
           current ? { ...current, transcript: text } : current
         );
       },
-      onTranscriptFinal: (text, _reason, audio, failure) => {
+      onTranscriptFinal: (text, _reason, audio, failure, recognition) => {
         setRecording(null);
-        void voice.settle(text, audio, failure).then((outcome) => {
+        void voice.settle(text, audio, failure, recognition ?? null).then((outcome) => {
           // Only when something was actually kept. A recording too short to be a thought
           // is not a thought that landed.
           if (outcome.kind === 'kept') thoughtLanded();
+          // This iPhone just recognised locally, so anything still waiting for words need
+          // not wait out a backoff from when it could not.
+          if (recognition === 'on_device' && transcripts) {
+            transcripts.reset();
+            void transcripts.run();
+          }
         });
       },
       onError: () => setRecording(null),
     });
-  }, [services.voiceEngine, voice]);
+  }, [services.voiceEngine, voice, transcripts]);
 
   /** The elapsed counter only runs while something is being said. */
   useEffect(() => {

@@ -27,9 +27,11 @@ import { SystemFrame } from './record/ui/systemInsets';
 import { capabilitiesFor } from './record/platform';
 import type { VoiceEngine } from './record/voice';
 import {
+  localRecognitionStatus,
   startVoiceCapture,
   stopVoiceCapture,
   subscribeVoiceCapture,
+  transcribeVoiceFile,
 } from './src/features/voiceCapture/NativeVoiceCapture';
 import type { AudioPlaybackPort } from './record/playback';
 import {
@@ -183,6 +185,8 @@ const voiceEngine: VoiceEngine = {
   start: (options) => startVoiceCapture({ continuous: true, audioFileName: options.audioFileName }),
   stop: () => stopVoiceCapture(),
   subscribe: (handlers) => subscribeVoiceCapture(handlers),
+  localStatus: () => localRecognitionStatus(),
+  transcribeFile: (relativePath) => transcribeVoiceFile(relativePath),
 };
 
 /**

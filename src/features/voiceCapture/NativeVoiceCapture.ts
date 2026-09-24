@@ -11,6 +11,8 @@ export type VoiceCapturePhase = 'idle' | 'listening';
 type VoiceCaptureNativeType = {
   start: (options?: Record<string, unknown>) => Promise<void>;
   stop: () => void;
+  transcribeFile?: (relativePath: string) => Promise<{ status?: unknown; text?: unknown }>;
+  localRecognitionStatus?: () => Promise<unknown>;
   /** Present when supported; NativeEventEmitter needs it for `addListener`. */
   addListener?: (eventType: string) => void;
   removeListeners?: (count: number) => void;
@@ -54,6 +56,58 @@ export function stopVoiceCapture() {
 }
 
 /**
+ * What recognition did for one recording. Recognition only ever runs on this iPhone, so
+ * there is no "server" value to report.
+ *
+ *   * `on_device`   — recognised locally
+ *   * `unavailable` — this iPhone has no local recogniser for the language right now
+ *   * `denied`      — speech recognition is not authorised
+ *   * `failed`      — recognised locally until the recogniser failed
+ */
+export type VoiceRecognition = 'on_device' | 'unavailable' | 'denied' | 'failed';
+
+const RECOGNITIONS: readonly VoiceRecognition[] = ['on_device', 'unavailable', 'denied', 'failed'];
+
+function asRecognition(value: unknown): VoiceRecognition | null {
+  return RECOGNITIONS.includes(value as VoiceRecognition) ? (value as VoiceRecognition) : null;
+}
+
+/** Whether a retained recording could be read back as words, on this iPhone, right now. */
+export type LocalRecognitionStatus = 'available' | 'unavailable' | 'denied' | 'not_determined';
+
+/** Never prompts. `not_determined` means nobody has held the circle yet. */
+export async function localRecognitionStatus(): Promise<LocalRecognitionStatus> {
+  if (!NativeVoiceCapture?.localRecognitionStatus) return 'unavailable';
+  const value = await NativeVoiceCapture.localRecognitionStatus();
+  return value === 'available' || value === 'denied' || value === 'not_determined'
+    ? value
+    : 'unavailable';
+}
+
+export type FileTranscription =
+  | { status: 'ok'; text: string }
+  | { status: 'no_speech' | 'unavailable' | 'denied' | 'failed' | 'busy' | 'missing' };
+
+/** Reads a retained recording back as words, locally only. Never prompts. */
+export async function transcribeVoiceFile(relativePath: string): Promise<FileTranscription> {
+  if (!NativeVoiceCapture?.transcribeFile) return { status: 'unavailable' };
+  const r = await NativeVoiceCapture.transcribeFile(relativePath);
+  if (r?.status === 'ok' && typeof r.text === 'string' && r.text.trim()) {
+    return { status: 'ok', text: r.text };
+  }
+  switch (r?.status) {
+    case 'no_speech':
+    case 'unavailable':
+    case 'denied':
+    case 'busy':
+    case 'missing':
+      return { status: r.status };
+    default:
+      return { status: 'failed' };
+  }
+}
+
+/**
  * What the recording turned out to be.
  *
  * Present whenever `audioFileName` was given and at least one buffer reached disk. The
@@ -73,7 +127,8 @@ export type VoiceCaptureSubscriptionHandlers = {
     text: string,
     reason: string,
     audio: RetainedAudio | null,
-    audioFailure?: string
+    audioFailure?: string,
+    recognition?: VoiceRecognition | null
   ) => void;
   onError?: (code: string, message?: string) => void;
 };
@@ -116,6 +171,7 @@ export function subscribeVoiceCapture(handlers: VoiceCaptureSubscriptionHandlers
           audioPath?: string;
           durationMs?: number;
           audioFailure?: string;
+          recognition?: string;
         }) => {
           if (typeof e?.text !== 'string' || typeof e?.reason !== 'string') {
             return;
@@ -124,7 +180,13 @@ export function subscribeVoiceCapture(handlers: VoiceCaptureSubscriptionHandlers
             typeof e.audioPath === 'string' && typeof e.durationMs === 'number'
               ? { path: e.audioPath, durationMs: e.durationMs }
               : null;
-          handlers.onTranscriptFinal?.(e.text, e.reason, audio, e.audioFailure);
+          handlers.onTranscriptFinal?.(
+            e.text,
+            e.reason,
+            audio,
+            e.audioFailure,
+            asRecognition(e.recognition)
+          );
         },
       ),
     );
