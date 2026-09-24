@@ -37,7 +37,8 @@ let didConfigure = false;
  * - Verbose logs in development unless `EXPO_PUBLIC_REVENUECAT_QUIET` — then a no-op log handler is set
  *   **before** `configure` so the SDK does not attach the default `console.*` bridge (avoids LogBox banners).
  * - iOS: uses {@link REVENUECAT_IOS_API_KEY}.
- * - Android: configures only if `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY` is set (optional).
+ * - Android: never configures. Whether and how Android sells Chinotto Pro is undecided
+ *   (`docs/unspecified-decisions.md` §10), so no key — in `.env` or on EAS — may switch it on.
  * - Web / unsupported: no-op.
  *
  * Must run on a **development build** with native code (not Expo Go).
@@ -46,7 +47,8 @@ export function initRevenueCat(): void {
   if (didConfigure) {
     return;
   }
-  if (Platform.OS === 'web') {
+  // Only the iPhone sells anything. Android and web never touch the native SDK at all.
+  if (Platform.OS !== 'ios') {
     return;
   }
 
@@ -89,17 +91,6 @@ export function initRevenueCat(): void {
         apiKey: iosKey,
         ...(storeKitVersion != null ? { storeKitVersion } : {}),
       });
-    } else if (Platform.OS === 'android') {
-      const androidKey = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY;
-      if (androidKey == null || androidKey === '') {
-        if (__DEV__ && !quiet) {
-          console.warn(
-            '[RevenueCat] Android: set EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY to enable Purchases on Android.'
-          );
-        }
-        return;
-      }
-      Purchases.configure({ apiKey: androidKey });
     } else {
       return;
     }
@@ -124,6 +115,7 @@ export function initRevenueCat(): void {
  * App root: configure SDK (once) + initial CustomerInfo fetch into entitlement cache.
  */
 export async function bootstrapRevenueCat(): Promise<void> {
+  if (Platform.OS !== 'ios') return;
   initRevenueCat();
   const info = await refreshEntitlementCacheFromRevenueCat();
   await logRevenueCatSubscriptionsAndProducts(info, 'bootstrap');
