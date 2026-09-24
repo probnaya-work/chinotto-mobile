@@ -39,7 +39,7 @@ Mobile app role:
 - Input is the primary UI
 - Thinking happens on desktop
 
-**Platform priority (this repo):** **iOS first** — ship-quality UX and sync (Sign in with Apple) target iPhone. **Android** runs the record local-first; voice, the widget and sync are not on Android yet, and every iOS-only surface asks `record/platform.ts` rather than the platform directly (`docs/unspecified-decisions.md` §10). **Windows and Linux** desktop apps are **planned later** (desktop lives outside this repo). Product scope is governed by this file and by `docs/architecture.md`; decisions the design did not specify are recorded in `docs/unspecified-decisions.md`.
+**Platform priority (this repo):** **iOS first** — ship-quality UX and sync (Sign in with Apple) target iPhone. **Android** runs the record local-first, with voice from `modules/chinotto-voice` (words only from a recogniser the phone shows cannot reach the network, §10.14); the widget and sync are not on Android yet, and every iOS-only surface asks `record/platform.ts` rather than the platform directly (`docs/unspecified-decisions.md` §10). **Windows and Linux** desktop apps are **planned later** (desktop lives outside this repo). Product scope is governed by this file and by `docs/architecture.md`; decisions the design did not specify are recorded in `docs/unspecified-decisions.md`.
 
 **Sync documentation:** **Wire contract** — `docs/internal/sync/sync.md` (this repo). **Desktop** implementation and ops — `docs/internal/sync.md` in the `probnaya-work/chinotto` repository. **Ship alignment** — `docs/internal/sync/sync-release-checklist.md`, mirrored in `chinotto-app` (update both when criteria change). Log mobile implementation tweaks in `docs/internal/sync/sync.md` § Changelog.
 

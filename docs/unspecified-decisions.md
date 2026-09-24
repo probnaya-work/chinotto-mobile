@@ -270,8 +270,8 @@ without redesigning anything — and what it deliberately left undecided.
 | # | Decision | Value | Where | Status |
 |---|---|---|---|---|
 | 10.1 | What Android can and cannot offer is one table, asked by the surface | `capabilitiesFor(Platform.OS)`; iOS answers are exactly what the shipping app assumed | `record/platform.ts` | invented |
-| 10.2 | An iOS-only feature is **hidden** on Android, not explained | no sync section, no microphone or widget row, no icon picker; the gaps live here, not in the UI | `record/ui/Settings.tsx` | **decided** |
-| 10.3 | The hold-to-speak circle is not drawn on Android, and the empty record does not promise it | `type anything. it lands here, and stays.` | `record/ui/Edge.tsx`, `RecordList.tsx` | invented |
+| 10.2 | An iOS-only feature is **hidden** on Android, not explained | no sync section, no widget row, no icon picker; the gaps live here, not in the UI | `record/ui/Settings.tsx` | **decided** |
+| 10.3 | ~~The hold-to-speak circle is not drawn on Android~~ — **superseded by 10.14.** The circle is drawn, and the empty record offers it (`type anything, or hold the circle and talk.`) | | `record/ui/Edge.tsx`, `RecordList.tsx` | superseded |
 | 10.4 | Back puts away one layer at a time, top-most first, and never writes | sync · share · widget · settings page · settings · years · correction · continuation · focus · standing · selection · then the system | `record/back.ts` | invented |
 | 10.5 | The record is framed clear of the system bars by only what exceeds the design's allowance | 54 at the top, 34 at the bottom; a 48dp button bar lifts it 14 | `record/ui/systemInsets.tsx` | invented |
 | 10.6 | The keyboard inset adds back the navigation bar React Native leaves out, less the frame's lift | `ime − systemBars` is what RN reports on API 30+ | `useKeyboardInset.ts` | inferred from RN's `ReactRootView` |
@@ -282,6 +282,11 @@ without redesigning anything — and what it deliberately left undecided.
 | 10.11 | Android loads plain-TrueType copies of the Archivo faces; iOS keeps the files it shipped | `assets/fonts/android/`, chosen by `fontAssets.android.ts` | `record/ui/fontAssets*.ts`, the generator | forced |
 | 10.12 | The Android app always runs in night mode | `AppCompatDelegate.MODE_NIGHT_YES` in `MainApplication.onCreate` | `plugins/withAndroidNightMode.js` | forced |
 | 10.13 | Android draws no default keyboard-focus highlight | `android:defaultFocusHighlightEnabled=false` on the app theme (API 26+); after a hardware key the focused record list was a grey slab until the next touch | `plugins/withAndroidNoFocusHighlight.js` | forced |
+| 10.14 | Android words come only from a recogniser the phone shows cannot reach the network | API 33+; `config_defaultOnDeviceSpeechRecognitionService` belongs to a visible system app that neither requests nor holds `INTERNET`; it lists no online languages; the language is installed. Otherwise the recording is kept, `unavailable` | `modules/chinotto-voice/…/OnDevicePolicy.kt`, `OnDeviceGate.kt` | **decided** (user, 24 sep 2026: "on-device only; save audio without words where Android cannot guarantee it") |
+| 10.15 | No language pack is downloaded on the person's behalf | an installed language, or an installed variant of the same language (`en-GB` phone, `en-US` pack) | `OnDevicePolicy.chooseLanguage` | invented |
+| 10.16 | Android records 16 kHz mono AAC in the same `.m4a` container the Record already stores | `AudioRecord` `VOICE_RECOGNITION` → `MediaCodec` → `MediaMuxer`; the same PCM goes to the recogniser through a pipe | `AacFileWriter.kt`, `PcmFeed.kt` | invented |
+| 10.17 | A read-back is thrown away if anything records while it runs | a recogniser that ignored our audio and opened the microphone would be transcribing the room | `VoiceCaptureModule.FileJob.watchMicrophone` | invented |
+| 10.18 | Android's copy names Android and describes only Android | mic notices and the settings line say `android`; privacy says the words and recordings stay on the phone and exactly when speech becomes words; *why chinotto* is the chinotto.app manifesto less the widget, sync and desktop | `record/platform.ts` | invented — the iPhone keeps its submitted copy |
 
 10.2 keeps the surface minimal: an Android settings page that lists what Android lacks would be
 an internal compatibility checklist shown to the person. The gaps are recorded below instead.
@@ -313,7 +318,7 @@ Android would have been a second design; framing the whole record by the excess 
 
 | | Why | What it would take |
 |---|---|---|
-| Voice capture and playback | `VoiceCaptureModule` and `AudioPlaybackModule` are Swift; the transcription engine is **pending a product decision** — see *Voice on Android* below | an Android recorder and player behind the existing `VoiceEngine` / `AudioPlaybackPort`, and the engine chosen below |
+| Words on every Android phone | recognition runs only where 10.14 passes: never below Android 13, never where the on-device service could reach the network, never without an installed language. Everywhere else a recording is kept without words | nothing from Chinotto — it follows the phone |
 | Home widget | `expo-widgets` is iOS-only | A Glance or `AppWidgetProvider` widget and a bridge equivalent to `WidgetThoughtsBridge` |
 | Alternate app icon | `AppIconModule` is Swift | Activity aliases — or nothing, since Android themes the monochrome layer itself |
 | Update notice and forced update | no live Play Store listing | the listing, then `updateGate: true` (10.10) |
@@ -336,7 +341,7 @@ sends. What cannot be built without a ruling:
    sells Chinotto Pro through Google Play, whether a purchase in one store unlocks the other,
    and whether the paywall precedes sign-in on Android, are undecided.
 
-### Voice on Android — evaluated, not built (24 sep 2026)
+### Voice on Android — evaluated (24 sep 2026), then built on the second row (10.14)
 
 The requirement is that the recording never leaves the phone, works offline, and becomes an
 ordinary entry. Every engine that could transcribe it trades against that or against the app:
@@ -349,9 +354,15 @@ ordinary entry. Every engine that could transcribe it trades against that or aga
 | Vosk in-process (`react-native-vosk`, MIT; models Apache-2.0) | 21+ | no | yes | yes, streaming | 31–45 MB **per language**; small-ru WER 23–32 % | yes |
 | A model Chinotto already has | — | — | — | — | desktop has only a text-embedding model (MiniLM), no speech | — |
 
-No engine satisfies privacy, offline, size and device coverage together without a product
-tradeoff, so nothing was implemented. Two iOS facts surfaced and are recorded, not changed:
-iOS requires on-device recognition only `if supportsOnDeviceRecognition`, otherwise Apple's
-recogniser may use its servers; and a published removal never deletes its audio file,
-although 4.6 says it should.
+No engine satisfied privacy, offline, size and device coverage together, so the first pass
+built nothing. The ruling that followed was the iPhone's rule: on-device only, and a
+recording without words where that cannot be guaranteed. The second row is what shipped,
+with the guarantee Android's documentation does not give checked on the phone instead
+(10.14): the network isolation the platform enforces for a package without `INTERNET` —
+which is also how Google describes Private Compute Core, where Pixel's on-device recogniser
+lives — rather than the service's name. The AOSP emulator has no recognition service, so
+there it records and never transcribes; recognition itself needs a physical phone.
+
+The two iOS facts recorded here were since fixed on `main` (on-device only; erasure at the
+permanent boundary) and merged into this branch.
 
