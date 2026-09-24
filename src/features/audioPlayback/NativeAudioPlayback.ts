@@ -6,13 +6,9 @@
  * have it — so the surface degrades to "no playback" rather than to a crash.
  */
 
-import {
-  NativeEventEmitter,
-  NativeModules,
-  type EmitterSubscription,
-  type NativeModule,
-  Platform,
-} from 'react-native';
+import { Platform } from 'react-native';
+
+import { playbackNative } from './playbackNative';
 
 type AudioPlaybackNativeType = {
   /** Resolves true when sound is actually coming out; false when it could not start. */
@@ -22,15 +18,11 @@ type AudioPlaybackNativeType = {
   removeListeners?: (count: number) => void;
 };
 
-const NativeAudioPlayback = NativeModules.AudioPlaybackModule as
-  | AudioPlaybackNativeType
-  | undefined;
+// The iPhone's bridge module, or Android's `modules/chinotto-voice` — same contract.
+const { module: NativeAudioPlayback, emitter } = playbackNative<AudioPlaybackNativeType>();
 
-const emitter = NativeAudioPlayback
-  ? new NativeEventEmitter(NativeAudioPlayback as unknown as NativeModule)
-  : null;
-
-export const audioPlaybackSupported = Platform.OS === 'ios' && NativeAudioPlayback != null;
+export const audioPlaybackSupported =
+  (Platform.OS === 'ios' || Platform.OS === 'android') && NativeAudioPlayback != null;
 
 /** `path` is relative to the app's Documents directory, as stored in `voice_captures`. */
 export function playAudio(id: string, path: string): Promise<boolean> {
@@ -51,7 +43,7 @@ export type AudioPlaybackHandlers = {
 export function subscribeAudioPlayback(handlers: AudioPlaybackHandlers): () => void {
   if (!emitter) return () => {};
 
-  const subs: EmitterSubscription[] = [];
+  const subs: { remove(): void }[] = [];
 
   if (handlers.onFinished) {
     subs.push(

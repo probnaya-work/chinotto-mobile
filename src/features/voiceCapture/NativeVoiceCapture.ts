@@ -1,10 +1,6 @@
-import {
-  NativeEventEmitter,
-  NativeModules,
-  type EmitterSubscription,
-  type NativeModule,
-  Platform,
-} from 'react-native';
+import { Platform } from 'react-native';
+
+import { voiceNative } from './voiceNative';
 
 export type VoiceCapturePhase = 'idle' | 'listening';
 
@@ -18,13 +14,11 @@ type VoiceCaptureNativeType = {
   removeListeners?: (count: number) => void;
 };
 
-const NativeVoiceCapture = NativeModules.VoiceCaptureModule as VoiceCaptureNativeType | undefined;
+// The iPhone's bridge module, or Android's `modules/chinotto-voice` — same contract.
+const { module: NativeVoiceCapture, emitter } = voiceNative<VoiceCaptureNativeType>();
 
-const emitter = NativeVoiceCapture
-  ? new NativeEventEmitter(NativeVoiceCapture as unknown as NativeModule)
-  : null;
-
-export const voiceCaptureSupported = Platform.OS === 'ios' && NativeVoiceCapture != null;
+export const voiceCaptureSupported =
+  (Platform.OS === 'ios' || Platform.OS === 'android') && NativeVoiceCapture != null;
 
 export type VoiceCaptureStartOptions = {
   locale?: string;
@@ -56,11 +50,11 @@ export function stopVoiceCapture() {
 }
 
 /**
- * What recognition did for one recording. Recognition only ever runs on this iPhone, so
+ * What recognition did for one recording. Recognition only ever runs on this phone, so
  * there is no "server" value to report.
  *
  *   * `on_device`   — recognised locally
- *   * `unavailable` — this iPhone has no local recogniser for the language right now
+ *   * `unavailable` — this phone has no local recogniser for the language right now
  *   * `denied`      — speech recognition is not authorised
  *   * `failed`      — recognised locally until the recogniser failed
  */
@@ -72,7 +66,7 @@ function asRecognition(value: unknown): VoiceRecognition | null {
   return RECOGNITIONS.includes(value as VoiceRecognition) ? (value as VoiceRecognition) : null;
 }
 
-/** Whether a retained recording could be read back as words, on this iPhone, right now. */
+/** Whether a retained recording could be read back as words, on this phone, right now. */
 export type LocalRecognitionStatus = 'available' | 'unavailable' | 'denied' | 'not_determined';
 
 /** Never prompts. `not_determined` means nobody has held the circle yet. */
@@ -138,7 +132,7 @@ export function subscribeVoiceCapture(handlers: VoiceCaptureSubscriptionHandlers
     return () => {};
   }
 
-  const subs: EmitterSubscription[] = [];
+  const subs: { remove(): void }[] = [];
 
   if (handlers.onStateChange) {
     subs.push(
