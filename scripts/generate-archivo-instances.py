@@ -34,6 +34,7 @@ except ImportError:  # pragma: no cover - a developer-machine concern
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "node_modules" / "@fontsource-variable" / "archivo" / "files"
 OUT = ROOT / "assets" / "fonts"
+ANDROID_OUT = OUT / "android"
 
 # Every (weight, width, italic) the prototype actually draws. Nothing speculative: each entry
 # names where it is used, so an unused instance is obvious and removable.
@@ -71,6 +72,7 @@ def main() -> int:
     if not SRC.exists():
         sys.exit(f"missing {SRC} — run `pnpm install` first")
     OUT.mkdir(parents=True, exist_ok=True)
+    ANDROID_OUT.mkdir(parents=True, exist_ok=True)
 
     sources = {
         False: SRC / "archivo-latin-wdth-normal.woff2",
@@ -96,7 +98,13 @@ def main() -> int:
             records.setName(name, name_id, 1, 0, 0)
 
         dest = OUT / f"{name}.ttf"
+        # Saved with the source's WOFF2 flavour, as it always has been: iOS reads it, and the
+        # shipped iOS files are these bytes.
         static.save(dest)
+        # Android's Typeface cannot read WOFF2 and silently draws Roboto instead, so it gets the
+        # same instance as plain TrueType (`record/ui/fontAssets.android.ts`).
+        static.flavor = None
+        static.save(ANDROID_OUT / f"{name}.ttf")
         static.close()
         written.append((dest, why))
 
