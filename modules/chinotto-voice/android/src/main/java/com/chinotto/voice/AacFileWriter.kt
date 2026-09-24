@@ -20,6 +20,8 @@ internal class AacFileWriter(private val file: File, private val sampleRate: Int
   private var track = -1
   private var muxing = false
   private var samplesIn = 0L
+  /** Encoded audio frames that actually reached the container. A header alone is not a recording. */
+  private var framesMuxed = 0
   private var closed = false
 
   /** Why writing stopped, if it did. Reported with the final event as `audioFailure`. */
@@ -67,11 +69,12 @@ internal class AacFileWriter(private val file: File, private val sampleRate: Int
   }
 
   /**
-   * Finishes the container. Returns true when a playable file is on disk; false when
-   * nothing was ever written, in which case the empty file is removed.
+   * Finishes the container. Returns true when a playable file with audio in it is on disk;
+   * false when no audio ever reached it — a press cut short before the first buffer, as the
+   * iPhone's writer reports no recording for zero frames — and then the file is removed.
    */
   fun close(): Boolean {
-    if (closed) return muxing
+    if (closed) return muxing && framesMuxed > 0
     closed = true
     try {
       if (failure == null) {
@@ -87,7 +90,7 @@ internal class AacFileWriter(private val file: File, private val sampleRate: Int
     }
     try { codec.stop() } catch (_: Exception) {}
     codec.release()
-    val wrote = muxing
+    val wrote = muxing && framesMuxed > 0
     try {
       if (muxing) muxer.stop()
     } catch (e: Exception) {
@@ -117,6 +120,7 @@ internal class AacFileWriter(private val file: File, private val sampleRate: Int
             output.position(info.offset)
             output.limit(info.offset + info.size)
             muxer.writeSampleData(track, output, info)
+            framesMuxed += 1
           }
           codec.releaseOutputBuffer(index, false)
           if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) return
