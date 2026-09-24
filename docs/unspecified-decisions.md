@@ -278,7 +278,7 @@ Android would have been a second design; framing the whole record by the excess 
 
 | | Why | What it would take |
 |---|---|---|
-| Voice capture and playback | `VoiceCaptureModule` and `AudioPlaybackModule` are Swift | An Android module that records to the same `chinotto/audio/<id>` path and drafts a transcript. `SpeechRecognizer` cannot share the microphone with a recorder before API 33, so "audio is canonical, transcript derived" needs a design decision on older Android |
+| Voice capture and playback | `VoiceCaptureModule` and `AudioPlaybackModule` are Swift; the transcription engine is **pending a product decision** — see *Voice on Android* below | an Android recorder and player behind the existing `VoiceEngine` / `AudioPlaybackPort`, and the engine chosen below |
 | Home widget | `expo-widgets` is iOS-only | A Glance or `AppWidgetProvider` widget and a bridge equivalent to `WidgetThoughtsBridge` |
 | Alternate app icon | `AppIconModule` is Swift | Activity aliases — or nothing, since Android themes the monochrome layer itself |
 | Update notice and forced update | no live Play Store listing | the listing, then `updateGate: true` (10.10) |
@@ -300,3 +300,23 @@ sends. What cannot be built without a ruling:
 3. **Entitlement.** On iOS the sync sheet runs the paywall before sign-in. Whether Android
    sells Chinotto Pro through Google Play, whether a purchase in one store unlocks the other,
    and whether the paywall precedes sign-in on Android, are undecided.
+
+### Voice on Android — evaluated, not built (24 sep 2026)
+
+The requirement is that the recording never leaves the phone, works offline, and becomes an
+ordinary entry. Every engine that could transcribe it trades against that or against the app:
+
+| Engine | API | Can audio leave the phone? | Offline | Record while transcribing | Size | Can it be verified here? |
+|---|---|---|---|---|---|---|
+| `SpeechRecognizer` (default) | 8+ | **yes** — `EXTRA_PREFER_OFFLINE` "may have no effect" (SDK Javadoc) | not guaranteed | no — it opens the mic itself | 0 | rejected |
+| `createOnDeviceSpeechRecognizer` | 31+ (feeding our own audio via `EXTRA_AUDIO_SOURCE`: 33+) | governed by the phone maker's on-device service, not by Chinotto; the SDK says "on-device" and nothing about the network | by contract; language packs download first (`triggerModelDownload`, 33+) | 33+ only, and only if the service supports `EXTRA_AUDIO_SOURCE` | 0 | no — the API 36 AOSP emulator has no `RecognitionService` at all; needs a physical Pixel/Samsung |
+| whisper.cpp in-process (`whisper.rn`, MIT; weights MIT) | 24+ | no — runs in Chinotto's process; checkable by per-UID traffic | yes | no live partials; transcribes after release | tiny q5_1 32 MB · base q5_1 60 MB (multilingual) | yes |
+| Vosk in-process (`react-native-vosk`, MIT; models Apache-2.0) | 21+ | no | yes | yes, streaming | 31–45 MB **per language**; small-ru WER 23–32 % | yes |
+| A model Chinotto already has | — | — | — | — | desktop has only a text-embedding model (MiniLM), no speech | — |
+
+No engine satisfies privacy, offline, size and device coverage together without a product
+tradeoff, so nothing was implemented. Two iOS facts surfaced and are recorded, not changed:
+iOS requires on-device recognition only `if supportsOnDeviceRecognition`, otherwise Apple's
+recogniser may use its servers; and a published removal never deletes its audio file,
+although 4.6 says it should.
+
