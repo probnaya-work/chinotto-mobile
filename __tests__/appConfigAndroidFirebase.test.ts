@@ -86,4 +86,8 @@ describe('android permissions', () => {
       ])
     );
   });
+
+  it('blocks play billing, which android does not sell through', () => {
+    expect(appJson.android.blockedPermissions).toContain('com.android.vending.BILLING');
+  });
 });
