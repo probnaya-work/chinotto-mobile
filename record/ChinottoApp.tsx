@@ -12,7 +12,8 @@
  *      typing is possible before anything else has finished;
  *   3. removals whose undo window elapsed while the app was closed are published;
  *   4. the legacy catch-up and the sync read happen in the background, where they belong,
- *      and so does reading back recordings that are still waiting for words.
+ *      and so do finishing the erasure of removed voice moments and reading back recordings
+ *      that are still waiting for words.
  *
  * Nothing in 3 or 4 is allowed to block 2. That is the golden rule, expressed as an ordering.
  */
@@ -30,7 +31,8 @@ import { ForcedUpdate, WidgetPreview } from './ui/WidgetPreview';
 import { FONT_ASSETS } from './ui/type';
 import { SURFACE } from './ui/tokens';
 import { createBridge, type RecordBridge } from './bridge';
-import { recordFileExists } from './files';
+import { sweepRemovedVoice } from './erasure';
+import { deleteRecordFile, listRetainedAudio, recordFileExists } from './files';
 import { createTranscriptRetry } from './transcripts';
 import type { AudioPlaybackPort } from './playback';
 import { createRecordStore, type RecordStore } from './store';
@@ -177,9 +179,32 @@ export function ChinottoApp({ services }: { services: Services }) {
   );
 
   const bridge: RecordBridge = useMemo(
-    () => createBridge(services.db, services.legacy),
+    () =>
+      createBridge(services.db, {
+        ...services.legacy,
+        // A removal that can no longer be brought back takes its recording with it.
+        deleteAudio: deleteRecordFile,
+        // The widget shows recent text, and a published removal is text that has gone.
+        onPublished: () => setChangedAt((n) => n + 1),
+      }),
     [services.db, services.legacy]
   );
+
+  /**
+   * Once per launch, in the background: erasure that earlier builds never did, or that was
+   * interrupted between the database and the disk. Only what is provably removed for good
+   * is touched — see `record/erasure.ts`.
+   */
+  useEffect(() => {
+    void sweepRemovedVoice(services.db, {
+      listAudio: listRetainedAudio,
+      deleteAudio: deleteRecordFile,
+    }).then((report) => {
+      if (__DEV__ && (report.erased || report.deletedFiles || report.keptUnproven.length)) {
+        console.info('[Record] removed voice sweep', report);
+      }
+    });
+  }, [services.db]);
 
   /**
    * The voice controller holds the recording that is currently happening — the id the file

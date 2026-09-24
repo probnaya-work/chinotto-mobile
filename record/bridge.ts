@@ -33,6 +33,7 @@
  * | holds, traces, judgements, returns | decisions and caches, not material |
  */
 
+import { eraseVoiceContent } from './erasure';
 import { NOT_BLANK } from './migrate';
 import type { RecordDb } from './db';
 
@@ -50,6 +51,13 @@ export type BridgeOptions = {
   dequeue?: (db: RecordDb, id: string) => Promise<void>;
   /** Suppression + tombstone outbox, as the v1 delete path does it. */
   tombstone?: (db: RecordDb, id: string) => Promise<void>;
+  /**
+   * Deletes a recording whose removal has just become permanent. Called after the
+   * transaction that erased its content has committed. See `record/erasure.ts`.
+   */
+  deleteAudio?: (relativePath: string) => boolean;
+  /** Told which removals were published, so surfaces that show recent text can refresh. */
+  onPublished?: (ids: string[]) => void;
 };
 
 const iso = (ms: number) => new Date(ms).toISOString();
@@ -303,17 +311,44 @@ export function createBridge(db: RecordDb, options: BridgeOptions = {}) {
    *
    * This is the other half of the eight seconds. Nothing reaches the network until the
    * window is over, so a `bring back` on either device can still find the material.
+   *
+   * It is also the moment a removal becomes permanent on this phone, so a voice moment's
+   * content is erased here, in the same transaction (see `record/erasure.ts`).
+   *
+   * Each removal is **claimed** by deleting its `pending_removals` row, and only a claim
+   * that deleted it goes on. `bring back` starts the same way, so whichever of the two gets
+   * the row decides: a moment brought back at the last instant is neither tombstoned nor
+   * erased, and two overlapping flushes publish it once.
    */
   async function publishDueRemovals(dueIds: string[]): Promise<number> {
-    let n = 0;
+    const published: string[] = [];
+    const recordings: string[] = [];
     for (const id of dueIds) {
-      await db.runAsync('DELETE FROM entries WHERE id = ?', id);
-      if (options.dequeue) await options.dequeue(db, id);
-      if (options.tombstone) await options.tombstone(db, id);
-      await db.runAsync('DELETE FROM pending_removals WHERE fragment_id = ?', id);
-      n += 1;
+      const done: { claimed: boolean; audio: string | null } = { claimed: false, audio: null };
+      await db.withTransactionAsync(async () => {
+        const claim = await db.runAsync(
+          `DELETE FROM pending_removals
+            WHERE fragment_id = ? AND publish_at <= ?
+              AND fragment_id IN (SELECT id FROM fragments WHERE removed_at IS NOT NULL)`,
+          id,
+          iso(now())
+        );
+        if (claim.changes === 0) return;
+        await db.runAsync('DELETE FROM entries WHERE id = ?', id);
+        if (options.dequeue) await options.dequeue(db, id);
+        if (options.tombstone) await options.tombstone(db, id);
+        done.audio = await eraseVoiceContent(db, id);
+        done.claimed = true;
+      });
+      if (!done.claimed) continue;
+      published.push(id);
+      if (done.audio) recordings.push(done.audio);
     }
-    return n;
+    // After the commit: a file deleted for a transaction that then rolled back would be a
+    // recording lost from a moment that still exists.
+    for (const path of recordings) options.deleteAudio?.(path);
+    if (published.length) options.onPublished?.(published);
+    return published.length;
   }
 
   return {

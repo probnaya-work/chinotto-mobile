@@ -102,12 +102,24 @@ export function audioPathFor(fragmentId: string, extension = 'm4a'): string {
   return `${AUDIO_DIR}/${safe}.${extension}`;
 }
 
+/** A retained recording's path, as this module writes them: one plain file in `AUDIO_DIR`. */
+const RETAINED_AUDIO = /^chinotto\/audio\/[A-Za-z0-9_-][A-Za-z0-9._-]*\.m4a$/;
+
+/** True for a path that is plainly one of the Record's own recordings, and nothing else. */
+export function isRetainedAudioPath(relativePath: string): boolean {
+  return RETAINED_AUDIO.test(relativePath) && !relativePath.includes('..');
+}
+
 /**
- * Deletes retained audio. Used only when a removal is finally published and the fragment is
- * genuinely gone — never during the 8-second undo window, and never on a transcription
- * failure. Returns true when something was deleted.
+ * Deletes retained audio. Returns true when something was deleted.
+ *
+ * Called when a recording is too short to keep, and when a removal can no longer be brought
+ * back (`record/erasure.ts`) — never during the undo window, and never on a transcription
+ * failure. Refuses anything that is not plainly a file in `AUDIO_DIR`: a path comes from the
+ * database, and the database is not a reason to delete something elsewhere.
  */
 export function deleteRecordFile(relativePath: string): boolean {
+  if (!isRetainedAudioPath(relativePath)) return false;
   try {
     const file = new File(Paths.document, relativePath);
     if (!file.exists) return false;
@@ -115,5 +127,22 @@ export function deleteRecordFile(relativePath: string): boolean {
     return true;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Every file in the audio directory, as relative paths. Null when the directory cannot be
+ * read — which is not the same as empty, and callers must not treat it as such.
+ */
+export function listRetainedAudio(): string[] | null {
+  try {
+    const dir = new Directory(Paths.document, AUDIO_DIR);
+    if (!dir.exists) return [];
+    return dir
+      .list()
+      .filter((entry): entry is File => entry instanceof File)
+      .map((file) => `${AUDIO_DIR}/${file.name}`);
+  } catch {
+    return null;
   }
 }
