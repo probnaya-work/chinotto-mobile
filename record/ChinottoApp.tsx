@@ -635,7 +635,7 @@ export function ChinottoApp({ services }: { services: Services }) {
         changedAt={changedAt}
         capabilities={capabilities}
         backRef={recordBack}
-        sync={{ notice: sync.notice, onOpen: openSync }}
+        sync={{ notice: capabilities.syncSetup ? sync.notice : null, onOpen: openSync }}
         update={{
           soft: services.update.soft && !updateDismissed,
           availableVersion: services.update.availableVersion,
@@ -810,7 +810,7 @@ function SettingsSurface(props: {
       onOpenSync={props.onOpenSync}
       icon={props.icon}
       onPickIcon={props.setIcon}
-      micLine={settingsCopy.microphone(permission)}
+      micLine={settingsCopy.microphone(permission, props.capabilities.systemName)}
       micDenied={permission === 'denied'}
       onOpenSystemSettings={props.services.openSystemSettings}
       onSeeWidget={props.onSeeWidget}

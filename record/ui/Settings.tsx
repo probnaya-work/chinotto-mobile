@@ -129,7 +129,7 @@ export function Settings(props: SettingsProps) {
       </View>
 
       {props.page === 'root' ? <Root {...props} capabilities={can} /> : null}
-      {props.page === 'manifesto' ? <Manifesto /> : null}
+      {props.page === 'manifesto' ? <Manifesto paragraphs={can.manifesto} /> : null}
       {props.page === 'delete' ? <DeleteAccount {...props} /> : null}
     </View>
   );
@@ -258,9 +258,12 @@ function Root(props: SettingsProps & { capabilities: PlatformCapabilities }) {
       </Section>
 
       <Section label="privacy" gap={10}>
-        <Text style={body}>
-          the words stay on this phone unless sync is on, and then only go to your own devices.
-        </Text>
+        <Text style={body}>{can.privacyLine}</Text>
+        {can.voicePrivacyLine ? (
+          <Text style={type({ size: 14, width: 90, lineHeight: 1.4, color: ink.far })}>
+            {can.voicePrivacyLine}
+          </Text>
+        ) : null}
         <Text style={type({ size: 14, width: 90, lineHeight: 1.4, color: ink.far })}>
           {'anonymous usage · '}
           <Text style={{ color: ink.near }}>{props.analyticsOn ? 'on' : 'off'}</Text>
@@ -330,14 +333,7 @@ function Section({
 }
 
 /** The argument, in the product's own words. Not marketing, and not a tour. */
-function Manifesto() {
-  const paragraphs = [
-    'Thinking rarely starts structured.',
-    'Most tools assume the opposite. They ask you to create a document, a folder, a workspace before you even know what the thought is.',
-    'So you name things, you organize, you plan — and the thought slips away. Sometimes you do not write it down at all because the friction is too high.',
-    'Chinotto is built for the moment the thought appears. You open it, capture it, and move on. No hierarchy to maintain. Just capture.',
-    'Structure can come later, when the thought has had time to settle. Not before.',
-  ];
+function Manifesto({ paragraphs }: { paragraphs: readonly string[] }) {
   return (
     <ScrollView
       style={{ flex: 1 }}
@@ -464,9 +460,9 @@ export const settingsCopy = {
     if (state.error) return 'fix';
     return state.on ? 'manage' : 'set up';
   },
-  microphone(permission: 'granted' | 'ask' | 'denied'): string {
+  microphone(permission: 'granted' | 'ask' | 'denied', system: 'ios' | 'android' = 'ios'): string {
     if (permission === 'denied') return 'off for chinotto.';
-    if (permission === 'ask') return 'not asked yet · ios asks the first time you hold the circle.';
+    if (permission === 'ask') return `not asked yet · ${system} asks the first time you hold the circle.`;
     return 'allowed.';
   },
 };

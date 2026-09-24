@@ -3,8 +3,8 @@
  *
  * The same real `RecordApp` over a real SQLite database as `RecordApp.test.tsx`, given
  * Android's capabilities and the back handler Android's back gesture reaches. What is
- * asserted is the Android-specific part of what somebody would see and do: no circle that
- * cannot listen, an empty record that does not offer one, and back putting away one layer
+ * asserted is the Android-specific part of what somebody would see and do: the circle beside
+ * the field, an empty record that offers both, and back putting away one layer
  * at a time without touching the record — then falling through to the system.
  *
  * Capture, correction, removal and restoration themselves are platform-neutral and are
@@ -39,20 +39,24 @@ const defaults = {
     start: jest.fn(async () => false),
     stop: jest.fn(async () => {}),
     state: null,
-    permission: 'ask' as const,
+    permission: 'ask' as 'granted' | 'ask' | 'denied',
     openSystemSettings: jest.fn(),
   },
   sync: { notice: null, onOpen: jest.fn() },
   update: { soft: false, availableVersion: null, onUpdate: jest.fn(), onLater: jest.fn() },
 };
 
-async function mount(h: ReturnType<typeof harness>) {
+async function mount(
+  h: ReturnType<typeof harness>,
+  voice: typeof defaults.voice = defaults.voice
+) {
   const backRef: { current: (() => boolean) | null } = { current: null };
   const view = render(
     <RecordApp
       store={h.store}
       bridge={h.bridge}
       {...defaults}
+      voice={voice}
       capabilities={ANDROID}
       backRef={backRef}
     />
@@ -80,15 +84,17 @@ describe('the record on android', () => {
     jest.useRealTimers();
   });
 
-  it('offers typing only, and does not promise a circle', async () => {
+  it('offers the circle beside typing, and says so when the record is empty', async () => {
     const h = harness();
     await migrate(h.db);
     await mount(h);
 
     await waitFor(() =>
-      expect(screen.getByText('type anything. it lands here, and stays.')).toBeTruthy()
+      expect(
+        screen.getByText('type anything, or hold the circle and talk. it lands here, and stays.')
+      ).toBeTruthy()
     );
-    expect(screen.queryByLabelText('hold to speak')).toBeNull();
+    expect(screen.getByLabelText('hold to speak')).toBeTruthy();
     expect(screen.getByLabelText('capture')).toBeTruthy();
     h.db.close();
   });
@@ -176,6 +182,42 @@ describe('the record on android', () => {
     expect(await back()).toBe(true);
     await waitFor(() => expect(screen.queryByText(/you are in mar 2024/)).toBeNull());
     expect(await back()).toBe(false);
+    h.db.close();
+  });
+
+  it('asks for the microphone only when the circle is held, and says Android will ask', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const voice = { ...defaults.voice, start: jest.fn(async () => true), permission: 'ask' as const };
+    await mount(h, voice);
+    expect(voice.start).not.toHaveBeenCalled();
+
+    await act(async () => {
+      fireEvent(screen.getByLabelText('hold to speak'), 'pressIn');
+      await Promise.resolve();
+    });
+    expect(voice.start).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('android will ask once whether chinotto may hear you.')).toBeTruthy();
+    expect(screen.queryByText(/ios/)).toBeNull();
+    h.db.close();
+  });
+
+  it('points at android settings when the microphone is refused, and records nothing', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const voice = { ...defaults.voice, start: jest.fn(async () => true), permission: 'denied' as const };
+    await mount(h, voice);
+
+    await act(async () => {
+      fireEvent(screen.getByLabelText('hold to speak'), 'pressIn');
+      await Promise.resolve();
+    });
+    expect(voice.start).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(/^chinotto can’t hear — the microphone is off for it in android settings\./)
+    ).toBeTruthy();
+    fireEvent.press(screen.getByText('open settings ›'));
+    expect(voice.openSystemSettings).toHaveBeenCalled();
     h.db.close();
   });
 });

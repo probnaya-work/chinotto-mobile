@@ -288,9 +288,9 @@ export function RecordApp(props: RecordAppProps) {
       kind: 'mic',
       text:
         micNotice === 'denied'
-          ? 'chinotto can’t hear — the microphone is off for it in ios settings.'
-          : 'ios will ask once whether chinotto may hear you.',
-      // Nothing to offer while iOS is the one asking — the notice is saying what is about
+          ? `chinotto can’t hear — the microphone is off for it in ${capabilities.systemName} settings.`
+          : `${capabilities.systemName} will ask once whether chinotto may hear you.`,
+      // Nothing to offer while the system is the one asking — the notice is saying what is about
       // to happen, not standing in front of it.
       action: micNotice === 'denied' ? 'open settings ›' : undefined,
       onAction:

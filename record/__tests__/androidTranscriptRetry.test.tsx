@@ -1,10 +1,10 @@
 /**
  * Reading recordings back runs only where the phone can listen at all.
  *
- * On Android there is no voice module, and so no recording to read back and nothing to ask.
- * The retry is not merely expected to find nothing there: it is not built, so it never asks a
- * native module that is absent by design. On the iPhone it still runs, a few seconds after
- * launch, exactly as before.
+ * A phone without voice has no recording to read back and nothing to ask: the retry is not
+ * built there, so it never asks a native module that is absent by design. Android has voice
+ * now (`modules/chinotto-voice`), so there — as on the iPhone — it runs a few seconds after
+ * launch.
  */
 
 import React from 'react';
@@ -17,7 +17,9 @@ import { capabilitiesFor } from '../platform';
 import type { VoiceEngine } from '../voice';
 import type { RecordDb } from '../db';
 
-function services(db: RecordDb, engine: VoiceEngine, os: 'ios' | 'android'): Services {
+type Phone = 'ios' | 'android' | 'no-voice';
+
+function services(db: RecordDb, engine: VoiceEngine, os: Phone): Services {
   return {
     db,
     voiceEngine: engine,
@@ -48,7 +50,8 @@ function services(db: RecordDb, engine: VoiceEngine, os: 'ios' | 'android'): Ser
     revokeDevice: async () => false,
     incomingShare: null,
     onShareHandled: () => {},
-    capabilities: capabilitiesFor(os),
+    capabilities:
+      os === 'no-voice' ? { ...capabilitiesFor('android'), voice: false } : capabilitiesFor(os),
     syncPorts: {
       configured: () => false,
       currentUserId: () => null,
@@ -63,7 +66,7 @@ function services(db: RecordDb, engine: VoiceEngine, os: 'ios' | 'android'): Ser
   };
 }
 
-async function launch(os: 'ios' | 'android') {
+async function launch(os: Phone) {
   const db = openTestDb();
   await migrate(db);
   const localStatus = jest.fn(async () => 'unavailable' as const);
@@ -90,8 +93,12 @@ describe('reading recordings back', () => {
   beforeEach(() => jest.useFakeTimers());
   afterEach(() => jest.useRealTimers());
 
-  it('never asks for local recognition on android', async () => {
-    expect(await launch('android')).not.toHaveBeenCalled();
+  it('never asks for local recognition on a phone without voice', async () => {
+    expect(await launch('no-voice')).not.toHaveBeenCalled();
+  });
+
+  it('asks on android, which records and reads back on the phone', async () => {
+    expect(await launch('android')).toHaveBeenCalled();
   });
 
   it('still asks on the iphone after launch', async () => {
