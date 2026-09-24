@@ -7,6 +7,12 @@ Chinotto Mobile is **local-first**. Your thoughts stay on your device in SQLite.
 - **Entry text** is stored locally only. It is not sent to analytics or included in crash-style telemetry.
 - **Account deletion** — when signed in for sync, Settings → Account → Delete Account removes your cloud data and Firebase account. Local entries on the device are kept.
 
+## Voice
+
+- **Transcription runs only on this iPhone.** Chinotto uses Apple's speech recognition with on-device recognition required, and only when the iPhone supports it for the language. When it does not, or when speech recognition is not allowed, the recording is kept without a transcript and nothing is sent anywhere; it is read back on the device later, once, if local recognition becomes available.
+- **Recordings stay in the app's local data** and are not part of sync; only the transcribed text syncs. iCloud Backup may include the app's local data.
+- **Removing a voice entry** deletes its recording and transcript from this iPhone once the few seconds to bring it back have passed.
+
 ## Optional sync
 
 When you enable sync and sign in with Apple, entries can sync with Chinotto desktop via Firebase. Sync is optional; the app remains fully usable without it.
