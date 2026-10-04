@@ -36,7 +36,7 @@ import { Mark } from './ui/Mark';
 import { RecordList } from './ui/RecordList';
 import { ReturnBlock } from './ui/ReturnBlock';
 import { YearsOverlay } from './ui/YearsOverlay';
-import { agency, frame, ink, SURFACE } from './ui/tokens';
+import { agency, frame, ink, LIVE, SURFACE } from './ui/tokens';
 import { hasFoundSettings, rememberFoundSettings } from './pullHint';
 import { type } from './ui/type';
 import { useRecord } from './useRecord';
@@ -681,7 +681,7 @@ function PullStrip({
         }}
         pointerEvents="none"
       >
-        <Mark size={pulling ? 22 : 16} color={pulling ? agency.quiet : ink.near} />
+        <Mark size={pulling ? 24 : 20} color={pulling ? agency.ink : LIVE} />
         {pulling || hint ? (
           <Text
             style={type({ size: 14, width: 90, color: pulling ? ink.meta : ink.faint })}
