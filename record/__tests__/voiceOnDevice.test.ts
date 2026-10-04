@@ -21,12 +21,17 @@ import { createVoiceCapture, type VoiceEngine, type VoiceRecognition } from '../
 
 const T0 = new Date('2026-09-24T09:00:00.000Z').getTime();
 
-async function harness() {
+async function harness(engineOverrides: Partial<VoiceEngine> = {}) {
   const db = openTestDb();
   await migrate(db);
   let seq = 0;
   const deleted: string[] = [];
-  const engine: VoiceEngine = { start: async () => {}, stop: () => {}, subscribe: () => () => {} };
+  const engine: VoiceEngine = {
+    start: async () => {},
+    stop: () => {},
+    subscribe: () => () => {},
+    ...engineOverrides,
+  };
   const store = createRecordStore(db, { now: () => T0, newId: () => `s${++seq}` });
   const voice = createVoiceCapture({
     store,
@@ -116,6 +121,23 @@ describe('speech recognition refused', () => {
 });
 
 describe('a local recogniser that heard nothing', () => {
+  it('retries the finished audio file before giving up on a fast second tap', async () => {
+    const transcribeFile = jest.fn(async () => ({
+      status: 'ok' as const,
+      text: 'olá, isto ficou guardado',
+    }));
+    const h = await harness({ transcribeFile });
+    const { id, audioPath } = await h.record('', 'on_device');
+
+    expect(transcribeFile).toHaveBeenCalledWith(audioPath);
+    expect(await h.transcript(id)).toMatchObject({
+      state: 'ok',
+      model: ON_DEVICE_MODEL,
+      machine_transcript: 'olá, isto ficou guardado',
+    });
+    h.db.close();
+  });
+
   it('is an answer, and is not asked again', async () => {
     const h = await harness();
     const { id } = await h.record('', 'on_device');
@@ -138,7 +160,7 @@ describe('a local recogniser that heard nothing', () => {
 });
 
 describe('the existing thresholds still hold without a recogniser', () => {
-  it('a press-and-release is still dropped, file and all', async () => {
+  it('an immediate stop tap is still dropped, file and all', async () => {
     const h = await harness();
     const { audioPath } = await h.voice.start();
     const outcome = await h.voice.settle('', { path: audioPath, durationMs: 400 }, undefined, 'unavailable');

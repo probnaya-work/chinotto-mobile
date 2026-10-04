@@ -64,7 +64,7 @@ computed and then flattened. The surface is identical; the tree is not.
 | 4.2 | Audio is written before transcription is attempted | — | same | **decided** (product instruction) |
 | 4.3 | Container and codec | `.m4a`, AAC, at the input's own sample rate and channel count | `ios/Chinotto/VoiceCaptureModule.swift` | **divergence from desktop — see below** |
 | 4.4 | Audio paths are stored relative to the document directory | — | `record/files.ts` | invented |
-| 4.5 | Releasing under `0.8s` drops the recording silently, file and all | `0.8s` | `record/voice.ts` | from the prototype |
+| 4.5 | A second tap under `0.8s` drops the recording silently, file and all | `0.8s` | `record/voice.ts` | revised after use: tap-to-toggle replaces hold-to-speak |
 | 4.6 | ~~Retained audio is deleted only when a removal is finally published~~ — **now does what it says.** At the publish that ends the undo window, a voice moment's recording, transcript, every wording, voice metadata, search entry, Traces and Returns that quote it are erased; the fragment row (id, `captured_at`, method, `removed_at`) and the sync outbox rows stay. See 4.17 | — | `record/erasure.ts`, `record/bridge.ts` | **product rule** (2026-09-24) |
 | 4.7 | No retention cap or budget on recorded audio | — | — | **pending** |
 | 4.8 | A recording that could not be written still yields a moment, from the transcript alone | — | `record/voice.ts` | invented |
@@ -271,7 +271,7 @@ without redesigning anything — and what it deliberately left undecided.
 |---|---|---|---|---|
 | 10.1 | What Android can and cannot offer is one table, asked by the surface | `capabilitiesFor(Platform.OS)`; iOS answers are exactly what the shipping app assumed | `record/platform.ts` | invented |
 | 10.2 | An iOS-only feature is **hidden** on Android, not explained | no sync section, no widget row, no icon picker; the gaps live here, not in the UI | `record/ui/Settings.tsx` | **decided** |
-| 10.3 | ~~The hold-to-speak circle is not drawn on Android~~ — **superseded by 10.14.** The circle is drawn, and the empty record offers it (`type anything, or hold the circle and talk.`) | | `record/ui/Edge.tsx`, `RecordList.tsx` | superseded |
+| 10.3 | ~~The voice circle is not drawn on Android~~ — **superseded by 10.14.** The circle is drawn with the same tap-to-start / tap-to-stop contract as iOS | | `record/ui/Edge.tsx`, `RecordList.tsx` | superseded |
 | 10.4 | Back puts away one layer at a time, top-most first, and never writes | sync · share · widget · settings page · settings · years · correction · continuation · focus · standing · selection · then the system | `record/back.ts` | invented |
 | 10.5 | The record is framed clear of the system bars by only what exceeds the design's allowance | 54 at the top, 34 at the bottom; a 48dp button bar lifts it 14 | `record/ui/systemInsets.tsx` | invented |
 | 10.6 | The keyboard inset adds back the navigation bar React Native leaves out, less the frame's lift | `ime − systemBars` is what RN reports on API 30+ | `useKeyboardInset.ts` | inferred from RN's `ReactRootView` |
@@ -365,4 +365,3 @@ there it records and never transcribes; recognition itself needs a physical phon
 
 The two iOS facts recorded here were since fixed on `main` (on-device only; erasure at the
 permanent boundary) and merged into this branch.
-

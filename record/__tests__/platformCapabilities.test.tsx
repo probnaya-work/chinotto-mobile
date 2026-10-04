@@ -126,7 +126,7 @@ describe('settings on android', () => {
       />
     );
     expect(
-      screen.getByText(/microphone · not asked yet · android asks the first time you hold the circle/)
+      screen.getByText(/microphone · not asked yet · android asks the first time you tap the circle/)
     ).toBeTruthy();
     expect(screen.getByText(capabilitiesFor('android').privacyLine)).toBeTruthy();
     expect(screen.getByText(capabilitiesFor('android').voicePrivacyLine!)).toBeTruthy();
@@ -136,7 +136,7 @@ describe('settings on android', () => {
   it('argues the current manifesto, without promising what Android lacks', () => {
     render(<Settings {...props} page="manifesto" capabilities={capabilitiesFor('android')} />);
     expect(screen.getByText(/thoughts that stop mid-sentence/)).toBeTruthy();
-    expect(screen.getByText(/hold the circle and talk, or share in/)).toBeTruthy();
+    expect(screen.getByText(/tap the circle and talk, or share in/)).toBeTruthy();
     expect(screen.getByText(/stay on this phone. There is no Chinotto account./)).toBeTruthy();
     expect(screen.queryByText(/widget|sign in with apple|sync|desktop|spaces/i)).toBeNull();
     expect(screen.queryByText('Thinking rarely starts structured.')).toBeNull();

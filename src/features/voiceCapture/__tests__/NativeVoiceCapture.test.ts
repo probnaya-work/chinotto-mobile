@@ -1,6 +1,7 @@
 describe('NativeVoiceCapture', () => {
   afterEach(() => {
     jest.resetModules();
+    jest.dontMock('../voiceNative');
   });
 
   it('reports unsupported off iOS or without native module', () => {
@@ -62,6 +63,32 @@ describe('NativeVoiceCapture', () => {
 
     expect(onTranscriptFinal.mock.calls[0]).toEqual(['', 'manual', { path: 'chinotto/audio/a.m4a', durationMs: 900 }, undefined, 'unavailable']);
     expect(onTranscriptFinal.mock.calls[1][4]).toBeNull();
+  });
+
+  it('forwards a bounded real microphone level', () => {
+    const listeners: Record<string, (e: unknown) => void> = {};
+    const module = { start: jest.fn() };
+    jest.doMock('../voiceNative', () => ({
+      voiceNative: () => ({
+        module,
+        emitter: {
+          addListener: (name: string, fn: (e: unknown) => void) => {
+            listeners[name] = fn;
+            return { remove: () => {} };
+          },
+        },
+      }),
+    }));
+    jest.doMock('react-native', () => ({ Platform: { OS: 'android' } }));
+    const { subscribeVoiceCapture } = require('../NativeVoiceCapture') as typeof import('../NativeVoiceCapture');
+    const onLevel = jest.fn();
+    subscribeVoiceCapture({ onLevel });
+
+    listeners.VoiceCaptureLevel({ level: 1.4 });
+    listeners.VoiceCaptureLevel({ level: -0.2 });
+    listeners.VoiceCaptureLevel({ level: 'loud' });
+
+    expect(onLevel.mock.calls).toEqual([[1], [0]]);
   });
 
   it('maps file transcription answers, and treats anything unexpected as a failure', async () => {

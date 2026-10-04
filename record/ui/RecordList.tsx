@@ -11,7 +11,7 @@
  * item, because a band can be four hundred moments long.
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
   FlatList,
@@ -19,10 +19,11 @@ import {
   Text,
   View,
   type ListRenderItemInfo,
+  type ViewToken,
 } from 'react-native';
 
 import { HeldRow, MomentRow } from './MomentRow';
-import { bandLabel, frame, ink, rule } from './tokens';
+import { agency, bandLabel, frame, ink, rule } from './tokens';
 import { face, type } from './type';
 import type { Row } from './rows';
 import { yearBarHeight, type YearSummary } from '../model/bands';
@@ -84,7 +85,102 @@ export type RecordListProps = {
   edgeHeight?: number;
 };
 
+export type ScrollFocus = {
+  activeKey: string | null;
+  aboveKey: string | null;
+  belowKey: string | null;
+};
+
+const noScrollFocus: ScrollFocus = {
+  activeKey: null,
+  aboveKey: null,
+  belowKey: null,
+};
+
+/**
+ * Pick the middle visible thought and its immediate visual neighbours.
+ *
+ * The list is inverted, so a larger data index is above the active thought and a smaller
+ * index is below it. Labels and utility rows never take focus away from a thought.
+ */
+export function scrollFocusFromViewable(
+  viewableItems: ReadonlyArray<Pick<ViewToken<Row>, 'index' | 'isViewable' | 'item'>>
+): ScrollFocus {
+  const moments = viewableItems
+    .filter(
+      (token): token is typeof token & { index: number } =>
+        token.isViewable === true && token.index !== null && token.item.kind === 'moment'
+    )
+    .sort((a, b) => a.index - b.index);
+
+  if (moments.length === 0) return noScrollFocus;
+
+  const activeIndex = Math.floor((moments.length - 1) / 2);
+
+  return {
+    activeKey: moments[activeIndex].item.key,
+    aboveKey: moments[activeIndex + 1]?.item.key ?? null,
+    belowKey: moments[activeIndex - 1]?.item.key ?? null,
+  };
+}
+
+type ScrollFocusRole = 'none' | 'active' | 'above' | 'below';
+
+function ScrollFocusMotion({
+  role,
+  children,
+}: {
+  role: ScrollFocusRole;
+  children: React.ReactNode;
+}) {
+  const scale = useRef(new Animated.Value(role === 'active' ? 1.022 : 1)).current;
+  const translateY = useRef(
+    new Animated.Value(role === 'above' ? -4 : role === 'below' ? 4 : 0)
+  ).current;
+
+  useEffect(() => {
+    const spring = {
+      damping: 22,
+      stiffness: 230,
+      mass: 0.7,
+      useNativeDriver: true,
+    } as const;
+
+    Animated.parallel([
+      Animated.spring(scale, {
+        ...spring,
+        toValue: role === 'active' ? 1.022 : 1,
+      }),
+      Animated.spring(translateY, {
+        ...spring,
+        toValue: role === 'above' ? -4 : role === 'below' ? 4 : 0,
+      }),
+    ]).start();
+  }, [role, scale, translateY]);
+
+  return (
+    <Animated.View style={{ transform: [{ translateY }, { scale }] }}>
+      {children}
+    </Animated.View>
+  );
+}
+
 export function RecordList(props: RecordListProps) {
+  const [scrollFocus, setScrollFocus] = useState<ScrollFocus>(noScrollFocus);
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 10 }).current;
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: ViewToken<Row>[] }) => {
+      const next = scrollFocusFromViewable(viewableItems);
+      setScrollFocus((current) =>
+        current.activeKey === next.activeKey &&
+        current.aboveKey === next.aboveKey &&
+        current.belowKey === next.belowKey
+          ? current
+          : next
+      );
+    }
+  ).current;
+
   const renderItem = useCallback(
     ({ item }: ListRenderItemInfo<Row>) => {
       switch (item.kind) {
@@ -117,38 +213,51 @@ export function RecordList(props: RecordListProps) {
             >
               {props.voice === false
                 ? 'type anything. it lands here, and stays.'
-                : 'type anything, or hold the circle and talk. it lands here, and stays.'}
+                : 'type anything, or tap the circle and talk. tap again and it stays.'}
             </Text>
           );
 
-        case 'moment':
+        case 'moment': {
+          const focusRole: ScrollFocusRole =
+            item.key === scrollFocus.activeKey
+              ? 'active'
+              : item.key === scrollFocus.aboveKey
+                ? 'above'
+                : item.key === scrollFocus.belowKey
+                  ? 'below'
+                  : 'none';
+
           return (
-            <MomentRow
-              material={item.material}
-              tier={item.tier}
-              gap={item.gap}
-              now={props.now}
-              highlight={props.highlight}
-              selected={props.selectedId === item.material.id}
-              justSaved={props.justSavedId === item.material.id}
-              editSecondsLeft={props.editSecondsLeft}
-              continuationOffer={
-                props.justSavedId === item.material.id ? props.continuationOffer : null
-              }
-              playing={props.playingId === item.material.id}
-              held={props.heldIds.has(item.material.id)}
-              lineLength={props.lines[item.material.id]?.length}
-              lineStartedAt={props.lines[item.material.id]?.startedAt}
-              onTap={() => props.onTapMoment(item.material, item.tier)}
-              onPlay={() => props.onPlay(item.material)}
-              onContinue={() => props.onContinue(item.material)}
-              onHold={() => props.onHold(item.material)}
-              onCorrect={() => props.onCorrect(item.material)}
-              onRemove={() => props.onRemove(item.material)}
-              onAcceptContinuation={props.onAcceptContinuation}
-              onRejectContinuation={props.onRejectContinuation}
-            />
+            <ScrollFocusMotion role={focusRole}>
+              <MomentRow
+                material={item.material}
+                tier={item.tier}
+                gap={item.gap}
+                focused={focusRole === 'active'}
+                now={props.now}
+                highlight={props.highlight}
+                selected={props.selectedId === item.material.id}
+                justSaved={props.justSavedId === item.material.id}
+                editSecondsLeft={props.editSecondsLeft}
+                continuationOffer={
+                  props.justSavedId === item.material.id ? props.continuationOffer : null
+                }
+                playing={props.playingId === item.material.id}
+                held={props.heldIds.has(item.material.id)}
+                lineLength={props.lines[item.material.id]?.length}
+                lineStartedAt={props.lines[item.material.id]?.startedAt}
+                onTap={() => props.onTapMoment(item.material, item.tier)}
+                onPlay={() => props.onPlay(item.material)}
+                onContinue={() => props.onContinue(item.material)}
+                onHold={() => props.onHold(item.material)}
+                onCorrect={() => props.onCorrect(item.material)}
+                onRemove={() => props.onRemove(item.material)}
+                onAcceptContinuation={props.onAcceptContinuation}
+                onRejectContinuation={props.onRejectContinuation}
+              />
+            </ScrollFocusMotion>
           );
+        }
 
         case 'bandLabel':
           return (
@@ -188,7 +297,7 @@ export function RecordList(props: RecordListProps) {
           );
       }
     },
-    [props]
+    [props, scrollFocus]
   );
 
   return (
@@ -223,6 +332,8 @@ export function RecordList(props: RecordListProps) {
         keyboardShouldPersistTaps="handled"
         // Dragging down through the record puts the keyboard away, tracking the finger.
         keyboardDismissMode="interactive"
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
         // Tuned so a chunk is always measured before it can be seen. The record is arranged
         // by distance and standing re-measures from where you stand, so it cannot be paged —
         // the whole thing is in the list and only the window is mounted.
@@ -262,7 +373,7 @@ function YearsBand({
           accessibilityRole="button"
           accessibilityLabel={`${y.y}, ${y.count} moments`}
         >
-          <Text style={type({ size: 12, width: 90, color: ink.meta })}>{y.y}</Text>
+          <Text style={type({ size: 12, width: 90, color: agency.quiet })}>{y.y}</Text>
           <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 3, height: 12 }}>
             {y.months.map((count, i) => (
               <View

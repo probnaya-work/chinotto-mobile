@@ -137,7 +137,7 @@ describe('voice capture', () => {
     h.db.close();
   });
 
-  it('drops a press-and-release without comment, and takes the file with it', async () => {
+  it('drops an immediate stop tap without comment, and takes the file with it', async () => {
     const h = harness();
     await migrate(h.db);
     const { audioPath } = await h.voice.start();
@@ -230,6 +230,42 @@ describe('voice capture', () => {
     const m = (await h.store.getFragment(id))!;
     expect(m.body.length).toBeGreaterThan(20_000);
     expect(m.durationMs).toBe(55 * 60 * 1000);
+    h.db.close();
+  });
+
+  it('refuses overlapping starts instead of reassigning an active recording', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const first = await h.voice.start();
+
+    await expect(h.voice.start()).rejects.toThrow('already active');
+    await h.voice.settle('first', { path: first.audioPath, durationMs: 1200 });
+
+    const second = await h.voice.start();
+    expect(second.id).not.toBe(first.id);
+    await h.voice.settle('second', { path: second.audioPath, durationMs: 1200 });
+    expect(new Set((await h.store.loadRecord()).map((m) => m.body))).toEqual(
+      new Set(['first', 'second'])
+    );
+    h.db.close();
+  });
+
+  it('keeps identity and audio aligned through 200 consecutive captures', async () => {
+    const h = harness();
+    await migrate(h.db);
+
+    for (let i = 0; i < 200; i += 1) {
+      const { id, audioPath } = await h.voice.start();
+      const words = i % 7 === 0 ? '' : `thought ${i}`;
+      const outcome = await h.voice.settle(words, { path: audioPath, durationMs: 1000 + i });
+      expect(outcome.kind).toBe('kept');
+      expect(await h.store.audioPathOf(id)).toBe(audioPath);
+    }
+
+    const record = await h.store.loadRecord();
+    expect(record).toHaveLength(200);
+    expect(new Set(record.map((m) => m.id)).size).toBe(200);
+    expect(record.filter((m) => m.method === 'voice')).toHaveLength(200);
     h.db.close();
   });
 });

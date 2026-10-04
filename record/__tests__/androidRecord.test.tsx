@@ -91,10 +91,10 @@ describe('the record on android', () => {
 
     await waitFor(() =>
       expect(
-        screen.getByText('type anything, or hold the circle and talk. it lands here, and stays.')
+        screen.getByText('type anything, or tap the circle and talk. tap again and it stays.')
       ).toBeTruthy()
     );
-    expect(screen.getByLabelText('hold to speak')).toBeTruthy();
+    expect(screen.getByLabelText('start recording')).toBeTruthy();
     expect(screen.getByLabelText('capture')).toBeTruthy();
     h.db.close();
   });
@@ -185,7 +185,7 @@ describe('the record on android', () => {
     h.db.close();
   });
 
-  it('asks for the microphone only when the circle is held, and says Android will ask', async () => {
+  it('asks for the microphone only when the circle is tapped, and says Android will ask', async () => {
     const h = harness();
     await migrate(h.db);
     const voice = { ...defaults.voice, start: jest.fn(async () => true), permission: 'ask' as const };
@@ -193,7 +193,7 @@ describe('the record on android', () => {
     expect(voice.start).not.toHaveBeenCalled();
 
     await act(async () => {
-      fireEvent(screen.getByLabelText('hold to speak'), 'pressIn');
+      fireEvent.press(screen.getByLabelText('start recording'));
       await Promise.resolve();
     });
     expect(voice.start).toHaveBeenCalledTimes(1);
@@ -209,7 +209,7 @@ describe('the record on android', () => {
     await mount(h, voice);
 
     await act(async () => {
-      fireEvent(screen.getByLabelText('hold to speak'), 'pressIn');
+      fireEvent.press(screen.getByLabelText('start recording'));
       await Promise.resolve();
     });
     expect(voice.start).not.toHaveBeenCalled();

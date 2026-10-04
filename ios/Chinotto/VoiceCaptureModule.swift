@@ -12,8 +12,8 @@ import UIKit
 ///
 ///   * the file is opened and written from the same tap that feeds the recogniser, so a
 ///     recording exists from the first buffer, before transcription can succeed or fail;
-///   * every exit path — manual stop, silence, timeout, interruption, recogniser error —
-///     closes the file and reports where it is;
+///   * every exit path — manual stop, silence, timeout or interruption — closes the file and
+///     reports where it is; a recogniser error is not an exit and audio keeps recording;
 ///   * if the recogniser never starts, or dies halfway, the recording is unaffected and is
 ///     still reported. A transcription failure must never lose what somebody said.
 ///
@@ -33,6 +33,7 @@ import UIKit
 @objc(VoiceCaptureModule)
 final class VoiceCaptureModule: RCTEventEmitter {
   private static let stateEvent = "VoiceCaptureState"
+  private static let levelEvent = "VoiceCaptureLevel"
   private static let partialEvent = "VoiceCapturePartial"
   private static let finalEvent = "VoiceCaptureFinal"
   private static let errorEvent = "VoiceCaptureError"
@@ -69,7 +70,9 @@ final class VoiceCaptureModule: RCTEventEmitter {
   private var heardSpeech = false
   private var silenceSeconds: Double = 0
   private var isListening = false
+  private var isStarting = false
   private var isFinalizing = false
+  private var lastLevelEmitAt: TimeInterval = 0
   private var continuousMode = true
   private var recognitionRestartCount = 0
 
@@ -86,7 +89,7 @@ final class VoiceCaptureModule: RCTEventEmitter {
   override static func requiresMainQueueSetup() -> Bool { true }
 
   override func supportedEvents() -> [String]! {
-    [Self.stateEvent, Self.partialEvent, Self.finalEvent, Self.errorEvent]
+    [Self.stateEvent, Self.levelEvent, Self.partialEvent, Self.finalEvent, Self.errorEvent]
   }
 
   override init() {
@@ -136,19 +139,24 @@ final class VoiceCaptureModule: RCTEventEmitter {
   ) {
     workQueue.async { [weak self] in
       guard let self else { return }
-      if self.isListening {
-        DispatchQueue.main.async { resolve(nil) }
+      if self.isListening || self.isStarting || self.isFinalizing {
+        let message = "A voice capture is already active."
+        DispatchQueue.main.async { reject("E_VOICE_BUSY", message, nil) }
         return
       }
+      self.isStarting = true
 
       // The microphone is the only permission a recording needs. Speech recognition is
       // asked for afterwards, and only decides whether this recording also gets words.
       self.requestMicrophone { granted in
         guard granted else {
           let message = "Microphone access is not authorized."
-          DispatchQueue.main.async {
-            reject("E_VOICE_PERMISSION", message, nil)
-            self.emitError(code: "permission_denied", message: message)
+          self.workQueue.async {
+            self.isStarting = false
+            DispatchQueue.main.async {
+              reject("E_VOICE_PERMISSION", message, nil)
+              self.emitError(code: "permission_denied", message: message)
+            }
           }
           return
         }
@@ -181,7 +189,7 @@ final class VoiceCaptureModule: RCTEventEmitter {
   /// Resolves `{ status, text? }`, never rejects for a recognition outcome:
   /// `ok` · `no_speech` · `unavailable` · `denied` · `failed` · `busy` · `missing`.
   /// Never asks for a permission — a retry happens in the background, and a prompt is only
-  /// ever raised by somebody holding the circle.
+  /// ever raised by somebody tapping the circle.
   @objc(transcribeFile:resolver:rejecter:)
   func transcribeFile(
     _ relativePath: NSString,
@@ -382,8 +390,15 @@ final class VoiceCaptureModule: RCTEventEmitter {
     resolve: @escaping RCTPromiseResolveBlock,
     reject: @escaping RCTPromiseRejectBlock
   ) {
+    isStarting = false
+    guard UIApplication.shared.applicationState == .active else {
+      let message = "Voice capture cannot start while Chinotto is in the background."
+      DispatchQueue.main.async { reject("E_VOICE_BACKGROUND", message, nil) }
+      return
+    }
     if isListening {
-      DispatchQueue.main.async { resolve(nil) }
+      let message = "A voice capture is already active."
+      DispatchQueue.main.async { reject("E_VOICE_BUSY", message, nil) }
       return
     }
     lastTranscript = ""
@@ -398,6 +413,7 @@ final class VoiceCaptureModule: RCTEventEmitter {
     recordedFrames = 0
     recordedSampleRate = 0
     audioWriteFailure = nil
+    lastLevelEmitAt = 0
     request = nil
     task = nil
 
@@ -506,6 +522,7 @@ final class VoiceCaptureModule: RCTEventEmitter {
     request?.append(buffer)
 
     let rms = rmsFloat(buffer)
+    emitLevelIfNeeded(rms: rms)
     let sampleRate = buffer.format.sampleRate
     guard sampleRate > 0 else { return }
     let dt = Double(buffer.frameLength) / sampleRate
@@ -525,6 +542,20 @@ final class VoiceCaptureModule: RCTEventEmitter {
       if silenceSeconds >= silenceStopSeconds {
         finalizeCapture(reason: "silence", errorToEmit: nil)
       }
+    }
+  }
+
+  /// A throttled, normalized microphone level for the UI. The bars are evidence that actual
+  /// buffers are arriving; they are deliberately not a decorative loop.
+  private func emitLevelIfNeeded(rms: Float) {
+    let now = ProcessInfo.processInfo.systemUptime
+    guard now - lastLevelEmitAt >= 0.08 else { return }
+    lastLevelEmitAt = now
+
+    let decibels = rms > 0 ? 20 * log10(Double(rms)) : -55
+    let level = min(1, max(0, (decibels + 55) / 45))
+    DispatchQueue.main.async {
+      self.sendEvent(withName: Self.levelEvent, body: ["level": level])
     }
   }
 
@@ -564,7 +595,16 @@ final class VoiceCaptureModule: RCTEventEmitter {
         return
       }
       recognition = .failed
-      finalizeCapture(reason: "recognition_error", errorToEmit: error)
+      // Speech failed, not the microphone. Keep writing every buffer until the person taps
+      // stop; the retained audio can be transcribed again later.
+      let failedRequest = request
+      let failedTask = task
+      request = nil
+      task = nil
+      recognizer = nil
+      failedRequest?.endAudio()
+      failedTask?.cancel()
+      return
     }
   }
 
@@ -710,6 +750,7 @@ final class VoiceCaptureModule: RCTEventEmitter {
     recognizer = nil
     try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     isListening = false
+    isStarting = false
     isFinalizing = false
   }
 

@@ -2,7 +2,7 @@
  * What this phone can actually do, in one place.
  *
  * The Record was built on an iPhone, and several of its surfaces stand on native code that
- * Android either has in its own form (hold-to-speak and playback, `modules/chinotto-voice`)
+ * Android either has in its own form (tap-to-record and playback, `modules/chinotto-voice`)
  * or does not have at all (the home widget, the alternate app icon, sync). A surface that
  * offers what is missing either fails under the finger or claims something false — a widget
  * that is not there, a sync that cannot be set up.
@@ -100,7 +100,7 @@ const ANDROID: PlatformCapabilities = {
     'Most notes apps help you capture, organize, or find a note later. Returning to an unfinished thought — with more around it — is rarer: how do you pick up where you left off?',
     'Most notes apps keep the file. Chinotto keeps the return — the same line, later, with more weight.',
     'You capture without closing the thought. Structure can wait until you come back.',
-    'On this phone, Chinotto is the pocket — type, hold the circle and talk, or share in from another app; find what came before when you have a minute.',
+    'On this phone, Chinotto is the pocket — type, tap the circle and talk, or share in from another app; find what came before when you have a minute.',
     'Not another notes app. A place to pick up unfinished thoughts months later.',
     'Your thoughts stay on this phone. There is no Chinotto account.',
   ],

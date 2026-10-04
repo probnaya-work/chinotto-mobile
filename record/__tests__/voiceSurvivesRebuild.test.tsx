@@ -123,22 +123,22 @@ describe('a recording in flight', () => {
     });
 
     await act(async () => {
-      fireEvent(screen.getByLabelText('hold to speak'), 'pressIn');
+      fireEvent.press(screen.getByLabelText('start recording'));
       await Promise.resolve();
     });
     expect(h.started).toHaveLength(1);
     const audioPath = h.started[0].audioFileName;
 
-    // Holding the circle is what answers it, so the answer lands mid-recording and the
+    // Tapping the circle is what answers it, so the answer lands mid-recording and the
     // services object is rebuilt underneath. Everything downstream of it is rebuilt too.
     await act(async () => {
       view.rerender(<ChinottoApp services={h.services('granted')} />);
       await Promise.resolve();
     });
 
-    // The circle is let go and the audio comes back, under the id it was opened with.
+    // A second tap stops it and the audio comes back under the id it was opened with.
     await act(async () => {
-      fireEvent(screen.getByLabelText('stop recording'), 'pressOut');
+      fireEvent.press(screen.getByLabelText('stop and save recording'));
       h.final('', 'manual', { path: audioPath, durationMs: 4000 });
       await Promise.resolve();
     });

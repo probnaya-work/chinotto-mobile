@@ -116,6 +116,8 @@ export type RetainedAudio = {
 
 export type VoiceCaptureSubscriptionHandlers = {
   onStateChange?: (state: VoiceCapturePhase) => void;
+  /** Normalized microphone input, 0...1. */
+  onLevel?: (level: number) => void;
   onTranscriptPartial?: (text: string) => void;
   onTranscriptFinal?: (
     text: string,
@@ -140,6 +142,16 @@ export function subscribeVoiceCapture(handlers: VoiceCaptureSubscriptionHandlers
         const s = e?.state;
         if (s === 'idle' || s === 'listening') {
           handlers.onStateChange?.(s);
+        }
+      }),
+    );
+  }
+
+  if (handlers.onLevel) {
+    subs.push(
+      emitter.addListener('VoiceCaptureLevel', (e: { level?: unknown }) => {
+        if (typeof e?.level === 'number' && Number.isFinite(e.level)) {
+          handlers.onLevel?.(Math.max(0, Math.min(1, e.level)));
         }
       }),
     );

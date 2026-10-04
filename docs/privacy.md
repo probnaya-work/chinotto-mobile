@@ -18,7 +18,7 @@ Chinotto Mobile is **local-first**. Your thoughts stay on your device in SQLite.
 - **Recordings are made and kept on the phone**, in the app's own storage, whatever happens to recognition.
 - **Words come only from Android's on-device recogniser, and only where the phone shows it cannot reach the network**: Android 13 or later, the system's on-device recognition service is a system app without the `INTERNET` permission, it reports no online languages, and the language is already installed. Chinotto never uses Android's default recogniser, which may send audio to a server, and never downloads a language on your behalf.
 - **Otherwise the recording is kept without words** and nothing is sent anywhere; it is read back on the phone later, once, if all of the above becomes true.
-- **The microphone is the only permission**, asked for the first time you hold the circle.
+- **The microphone is the only permission**, asked for the first time you tap the circle.
 - **Removing a voice entry** deletes its recording and transcript from the phone once the few seconds to bring it back have passed.
 - There is no sync on Android: nothing you write or say leaves the phone.
 

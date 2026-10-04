@@ -1,7 +1,8 @@
 /**
  * The Record's design tokens.
  *
- * Every value here is lifted verbatim from the working mobile prototype
+ * Except for the readability-adjusted type scale in `tiers.ts`, every value here is lifted
+ * verbatim from the working mobile prototype
  * (`Chinotto Mobile.dc.html`) and the handoff's own "Colour and affordance" table, which
  * together are the UI and visual source of truth. Nothing is interpolated, averaged or
  * extrapolated. Where a value is needed that the design does not draw, it is marked
@@ -193,7 +194,9 @@ export const edge = {
 /** The band label above every tier but D0. */
 export const bandLabel = {
   size: 10,
-  color: ink.meta,
+  // Time is navigation, not material. The quiet cream keeps month/year landmarks distinct
+  // without adding a plaque, rule or second accent hue.
+  color: agency.quiet,
   /** `0.06em` at 10px. RN letter spacing is in points, not em. */
   letterSpacing: 0.6,
   marginBottom: 6,

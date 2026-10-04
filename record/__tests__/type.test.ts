@@ -2,8 +2,8 @@ import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 
 import { FACES, face, type } from '../ui/type';
-import { TIERS } from '../ui/tiers';
-import { ink } from '../ui/tokens';
+import { FOCUSED_TIER_COLORS, TIERS, tierTextStyle } from '../ui/tiers';
+import { agency, bandLabel, ink } from '../ui/tokens';
 
 const FONT_DIR = join(__dirname, '..', '..', 'assets', 'fonts');
 
@@ -49,10 +49,10 @@ describe('the type ladder', () => {
   });
 
   it('converts tracking from em to points, as React Native wants it', () => {
-    const d0 = type({ size: 20, width: 100, lineHeight: 1.28, tracking: -0.01 });
-    expect(d0.fontSize).toBe(20);
-    expect(d0.lineHeight).toBeCloseTo(25.6);
-    expect(d0.letterSpacing).toBeCloseTo(-0.2);
+    const d0 = type({ size: 21, width: 100, lineHeight: 1.28, tracking: -0.01 });
+    expect(d0.fontSize).toBe(21);
+    expect(d0.lineHeight).toBeCloseTo(26.88);
+    expect(d0.letterSpacing).toBeCloseTo(-0.21);
   });
 
   it('narrows and fades in lockstep as material recedes', () => {
@@ -63,7 +63,7 @@ describe('the type ladder', () => {
     expect(colors).toEqual([ink.ink, ink.far, ink.dim, ink.meta, ink.meta]);
 
     const sizes = [0, 1, 2, 3, 4].map((t) => TIERS[t as 0].size);
-    expect(sizes).toEqual([20, 14, 12, 12, 12]);
+    expect(sizes).toEqual([21, 17, 15, 14, 14]);
 
     // Nothing ever widens or brightens as it gets older.
     for (let t = 1; t <= 4; t += 1) {
@@ -74,5 +74,17 @@ describe('the type ladder', () => {
 
   it('clamps harder the further back material sits', () => {
     expect([0, 1, 2, 3, 4].map((t) => TIERS[t as 0].clamp)).toEqual([4, 2, 1, 1, 1]);
+  });
+
+  it('lifts only the active thought by one quiet ink step', () => {
+    expect(tierTextStyle(2).color).toBe(ink.dim);
+    expect(tierTextStyle(2, { focused: true }).color).toBe(FOCUSED_TIER_COLORS[2]);
+    expect(tierTextStyle(0, { voice: true, focused: true }).color).toBe(
+      FOCUSED_TIER_COLORS[1]
+    );
+  });
+
+  it('uses the quiet cream for chronology landmarks', () => {
+    expect(bandLabel.color).toBe(agency.quiet);
   });
 });

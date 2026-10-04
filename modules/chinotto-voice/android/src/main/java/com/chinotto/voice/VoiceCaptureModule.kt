@@ -22,6 +22,7 @@ import expo.modules.kotlin.modules.ModuleDefinition
 import java.io.File
 import java.util.Locale
 import java.util.concurrent.Executors
+import kotlin.math.log10
 import kotlin.math.sqrt
 
 /**
@@ -39,7 +40,7 @@ import kotlin.math.sqrt
  * could use the network, a language not installed — the recording is made and kept, reported
  * as `unavailable`, and `record/transcripts.ts` reads it back later if that changes.
  *
- * The microphone is the only permission. It is asked for when somebody first holds the
+ * The microphone is the only permission. It is asked for when somebody first taps the
  * circle, never before, and never by a background retry.
  *
  * All state lives on the main thread. The recording thread only reads, writes the file and
@@ -49,6 +50,7 @@ class VoiceCaptureModule : Module() {
   private val main = Handler(Looper.getMainLooper())
   private val io = Executors.newSingleThreadExecutor()
   private var capture: Capture? = null
+  private var starting = false
   private var fileJob: FileJob? = null
 
   private val context: Context
@@ -57,7 +59,7 @@ class VoiceCaptureModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("ChinottoVoiceCapture")
 
-    Events(STATE_EVENT, PARTIAL_EVENT, FINAL_EVENT, ERROR_EVENT)
+    Events(STATE_EVENT, LEVEL_EVENT, PARTIAL_EVENT, FINAL_EVENT, ERROR_EVENT)
 
     AsyncFunction("start") { options: Map<String, Any?>, promise: Promise ->
       main.post { start(options, promise) }
@@ -114,11 +116,13 @@ class VoiceCaptureModule : Module() {
   // MARK: - Capture
 
   private fun start(options: Map<String, Any?>, promise: Promise) {
-    if (capture != null) {
-      promise.resolve(null)
+    if (capture != null || starting) {
+      promise.reject("E_VOICE_BUSY", "A voice capture is already active.", null)
       return
     }
+    starting = true
     askMicrophone { granted ->
+      starting = false
       if (!granted) {
         val message = "Microphone access is not authorized."
         promise.reject("E_VOICE_PERMISSION", message, null)
@@ -126,7 +130,7 @@ class VoiceCaptureModule : Module() {
         return@askMicrophone
       }
       if (capture != null) {
-        promise.resolve(null)
+        promise.reject("E_VOICE_BUSY", "A voice capture is already active.", null)
         return@askMicrophone
       }
       // Somebody speaking outranks a background read-back; that recording keeps waiting.
@@ -172,6 +176,7 @@ class VoiceCaptureModule : Module() {
     private val maxDuration = Runnable { finish("max_duration") }
     private var silentMs = 0L
     private var recordedMs = 0L
+    private var lastLevelAtMs = -LEVEL_INTERVAL_MS
     private var focus: AudioFocusRequest? = null
     private var recordingCallback: AudioManager.AudioRecordingCallback? = null
 
@@ -259,7 +264,15 @@ class VoiceCaptureModule : Module() {
         writer?.write(buffer, n)
         handOn(buffer, n)
         val chunkMs = n * 1000L / (SAMPLE_RATE * 2)
-        if (rms(buffer, n) >= SPEECH_RMS) {
+        val inputRms = rms(buffer, n)
+        if (recordedMs - lastLevelAtMs >= LEVEL_INTERVAL_MS) {
+          lastLevelAtMs = recordedMs
+          val level = if (inputRms > 0) ((20 * log10(inputRms) + 55) / 45).coerceIn(0.0, 1.0) else 0.0
+          main.post {
+            if (capture === this@Capture && !finishing) sendEvent(LEVEL_EVENT, mapOf("level" to level))
+          }
+        }
+        if (inputRms >= SPEECH_RMS) {
           heardSpeech = true
           silentMs = 0
         } else if (!heardSpeech) {
@@ -619,6 +632,7 @@ class VoiceCaptureModule : Module() {
 
   companion object {
     const val STATE_EVENT = "VoiceCaptureState"
+    const val LEVEL_EVENT = "VoiceCaptureLevel"
     const val PARTIAL_EVENT = "VoiceCapturePartial"
     const val FINAL_EVENT = "VoiceCaptureFinal"
     const val ERROR_EVENT = "VoiceCaptureError"
@@ -633,6 +647,7 @@ class VoiceCaptureModule : Module() {
     const val IDLE_NO_SPEECH_MS = 45_000L
     const val MAX_RESTARTS = 48
     const val SPEECH_RMS = 0.022
+    const val LEVEL_INTERVAL_MS = 80L
 
     const val PREROLL_MAX_BYTES = SAMPLE_RATE * 2 * 10
     const val FINAL_RESULT_WAIT_MS = 2_500L

@@ -70,7 +70,7 @@ export function WidgetPreview(props: WidgetPreviewProps) {
             <Pressable
               onPress={props.onSpeak}
               accessibilityRole="button"
-              accessibilityLabel="hold to speak"
+              accessibilityLabel="start recording"
               style={{
                 width: 34,
                 height: 34,

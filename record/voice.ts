@@ -11,9 +11,8 @@
  *      if that is all there is — and only then is the transcript applied;
  *   4. a transcript that never arrives, or fails, changes nothing about 1–3.
  *
- * The one thing that is thrown away is a recording under 0.8 seconds, which the prototype
- * drops silently: a circle pressed and released is not a thought, and asking about it would
- * be worse than losing it.
+ * The one thing that is thrown away is a recording under 0.8 seconds: an immediate second
+ * tap is not a thought, and asking about it would be worse than losing it.
  *
  * Recognition runs on this iPhone or not at all (see `VoiceCaptureModule.swift`). The native
  * side says which happened, and a transcript is labelled `ios-on-device` only when it did.
@@ -47,6 +46,8 @@ export type VoiceEngine = {
   stop(): void;
   subscribe(handlers: {
     onStateChange?: (state: 'idle' | 'listening') => void;
+    /** Normalized microphone input, 0...1. */
+    onLevel?: (level: number) => void;
     onTranscriptPartial?: (text: string) => void;
     onTranscriptFinal?: (
       text: string,
@@ -96,6 +97,7 @@ export function createVoiceCapture(deps: VoiceDeps) {
    * touched, so that whatever comes back can be attached to the right moment.
    */
   async function start(): Promise<{ id: string; audioPath: string }> {
+    if (pendingId) throw new Error('A voice capture is already active.');
     const id = deps.newId();
     const audioPath = audioPathFor(id);
     ensureDirectory();
@@ -103,8 +105,17 @@ export function createVoiceCapture(deps: VoiceDeps) {
     pendingId = id;
     pendingPath = audioPath;
 
-    await deps.engine.start({ audioFileName: audioPath });
-    return { id, audioPath };
+    try {
+      await deps.engine.start({ audioFileName: audioPath });
+      return { id, audioPath };
+    } catch (error) {
+      if (pendingId === id) {
+        pendingId = null;
+        pendingPath = null;
+      }
+      removeFile(audioPath);
+      throw error;
+    }
   }
 
   function stop(): void {
@@ -131,7 +142,8 @@ export function createVoiceCapture(deps: VoiceDeps) {
 
     if (!id) return { kind: 'nothing' };
 
-    const spoken = text.trim();
+    let spoken = text.trim();
+    let recognitionResult = recognition;
     const durationMs = audio?.durationMs ?? 0;
 
     // Too short to be a thought. The file goes with it; nothing is recorded anywhere.
@@ -144,6 +156,26 @@ export function createVoiceCapture(deps: VoiceDeps) {
     if (!audio && !spoken) {
       if (path) removeFile(path);
       return { kind: 'nothing' };
+    }
+
+    // A quick second tap can close the live recognition task before it has emitted even a
+    // partial, while the complete audio file is already safe. Give that finished file one
+    // immediate local pass before showing a permanent-looking transcription failure. This
+    // is the same on-device recogniser, not a network fallback, and only runs when one was
+    // available for the live session.
+    if (
+      !spoken &&
+      audio &&
+      deps.engine.transcribeFile &&
+      (recognitionResult === 'on_device' || recognitionResult === 'failed')
+    ) {
+      const retried = await deps.engine
+        .transcribeFile(audio.path)
+        .catch((): FileResult => ({ status: 'failed' }));
+      if (retried.status === 'ok') {
+        spoken = retried.text.trim();
+        recognitionResult = 'on_device';
+      }
     }
 
     // The fragment is created FROM the audio. The body starts empty and the transcript is
@@ -160,18 +192,18 @@ export function createVoiceCapture(deps: VoiceDeps) {
 
     // Words only ever come from a local recogniser, but the label is not inferred from
     // that: it is applied when the native side said so, and left off when it did not.
-    const local = recognition === 'on_device' || recognition === 'failed';
+    const local = recognitionResult === 'on_device' || recognitionResult === 'failed';
     if (spoken) {
       await deps.store.setTranscript(id, {
         state: 'ok',
         text: spoken,
         ...(local ? { model: ON_DEVICE_MODEL } : {}),
       });
-    } else if (recognition === 'unavailable' || recognition === 'denied') {
+    } else if (recognitionResult === 'unavailable' || recognitionResult === 'denied') {
       // No recogniser ran. Left without a model, which is what keeps it retryable.
       await deps.store.setTranscript(id, {
         state: 'failed',
-        failure: recognition === 'denied' ? TRANSCRIPT_DENIED : TRANSCRIPT_UNAVAILABLE,
+        failure: recognitionResult === 'denied' ? TRANSCRIPT_DENIED : TRANSCRIPT_UNAVAILABLE,
       });
     } else {
       await deps.store.setTranscript(id, {
@@ -179,7 +211,7 @@ export function createVoiceCapture(deps: VoiceDeps) {
         failure: audioFailure ?? TRANSCRIPT_NOTHING_HEARD,
         // A local recogniser listened to all of it and heard nothing: an answer, not a
         // failure to ask. A recogniser that broke partway is left retryable.
-        ...(recognition === 'on_device' ? { model: ON_DEVICE_MODEL } : {}),
+        ...(recognitionResult === 'on_device' ? { model: ON_DEVICE_MODEL } : {}),
       });
     }
 

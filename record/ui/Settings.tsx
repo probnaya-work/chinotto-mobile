@@ -462,7 +462,7 @@ export const settingsCopy = {
   },
   microphone(permission: 'granted' | 'ask' | 'denied', system: 'ios' | 'android' = 'ios'): string {
     if (permission === 'denied') return 'off for chinotto.';
-    if (permission === 'ask') return `not asked yet · ${system} asks the first time you hold the circle.`;
+    if (permission === 'ask') return `not asked yet · ${system} asks the first time you tap the circle.`;
     return 'allowed.';
   },
 };

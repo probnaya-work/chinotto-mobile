@@ -17,7 +17,7 @@ import * as path from 'path';
  *   · every recognition is started with our own audio, through the one intent builder;
  *   · a recogniser that lists online languages is refused;
  *   · the recording is written before anything is handed to a recogniser;
- *   · the microphone is asked for only by somebody holding the circle, never by a retry;
+ *   · the microphone is asked for only by somebody tapping the circle, never by a retry;
  *   · the module adds no network permission of its own.
  */
 
@@ -108,7 +108,16 @@ describe('Android voice recognition stays on the device', () => {
     expect(loop.indexOf('handOn(buffer, n)')).toBeGreaterThan(loop.indexOf('writer?.write(buffer, n)'));
   });
 
-  it('asks for the microphone only when somebody holds the circle', () => {
+  it('publishes microphone evidence from the same recorded buffers', () => {
+    const loop = bodyOf(code('VoiceCaptureModule.kt'), 'private fun readLoop(');
+    expect(loop.indexOf('writer?.write(buffer, n)')).toBeGreaterThan(-1);
+    expect(loop.indexOf('sendEvent(LEVEL_EVENT')).toBeGreaterThan(
+      loop.indexOf('writer?.write(buffer, n)')
+    );
+    expect(code('VoiceCaptureModule.kt')).toContain('const val LEVEL_INTERVAL_MS = 80L');
+  });
+
+  it('asks for the microphone only when somebody taps the circle', () => {
     const module = code('VoiceCaptureModule.kt');
     expect(count(module, 'askForPermissions(')).toBe(1);
     expect(count(module, 'askMicrophone {')).toBe(1);
