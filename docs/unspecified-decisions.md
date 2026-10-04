@@ -64,7 +64,7 @@ computed and then flattened. The surface is identical; the tree is not.
 | 4.2 | Audio is written before transcription is attempted | — | same | **decided** (product instruction) |
 | 4.3 | Container and codec | `.m4a`, AAC, at the input's own sample rate and channel count | `ios/Chinotto/VoiceCaptureModule.swift` | **divergence from desktop — see below** |
 | 4.4 | Audio paths are stored relative to the document directory | — | `record/files.ts` | invented |
-| 4.5 | Releasing under `0.8s` drops the recording silently, file and all | `0.8s` | `record/voice.ts` | from the prototype |
+| 4.5 | A second tap under `0.8s` drops the recording silently, file and all | `0.8s` | `record/voice.ts` | revised after use: tap-to-toggle replaces hold-to-speak |
 | 4.6 | ~~Retained audio is deleted only when a removal is finally published~~ — **now does what it says.** At the publish that ends the undo window, a voice moment's recording, transcript, every wording, voice metadata, search entry, Traces and Returns that quote it are erased; the fragment row (id, `captured_at`, method, `removed_at`) and the sync outbox rows stay. See 4.17 | — | `record/erasure.ts`, `record/bridge.ts` | **product rule** (2026-09-24) |
 | 4.7 | No retention cap or budget on recorded audio | — | — | **pending** |
 | 4.8 | A recording that could not be written still yields a moment, from the transcript alone | — | `record/voice.ts` | invented |

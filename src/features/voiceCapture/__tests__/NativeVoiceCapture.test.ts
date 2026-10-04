@@ -64,6 +64,29 @@ describe('NativeVoiceCapture', () => {
     expect(onTranscriptFinal.mock.calls[1][4]).toBeNull();
   });
 
+  it('forwards a bounded real microphone level', () => {
+    const listeners: Record<string, (e: unknown) => void> = {};
+    jest.doMock('react-native', () => ({
+      NativeModules: { VoiceCaptureModule: { start: jest.fn() } },
+      NativeEventEmitter: jest.fn().mockImplementation(() => ({
+        addListener: (name: string, fn: (e: unknown) => void) => {
+          listeners[name] = fn;
+          return { remove: () => {} };
+        },
+      })),
+      Platform: { OS: 'ios' },
+    }));
+    const { subscribeVoiceCapture } = require('../NativeVoiceCapture') as typeof import('../NativeVoiceCapture');
+    const onLevel = jest.fn();
+    subscribeVoiceCapture({ onLevel });
+
+    listeners.VoiceCaptureLevel({ level: 1.4 });
+    listeners.VoiceCaptureLevel({ level: -0.2 });
+    listeners.VoiceCaptureLevel({ level: 'loud' });
+
+    expect(onLevel.mock.calls).toEqual([[1], [0]]);
+  });
+
   it('maps file transcription answers, and treats anything unexpected as a failure', async () => {
     const transcribeFile = jest
       .fn()

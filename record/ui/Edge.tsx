@@ -3,10 +3,10 @@
  *
  * Three states share one row, because they are one thing:
  *
- *   * **idle** — a 3pt caret standing in for the field, and the hold-to-speak circle.
+ *   * **idle** — a 3pt caret standing in for the field, and the tap-to-speak circle.
  *   * **typing** — the field, and a send button where the circle was.
- *   * **speaking** — the record recedes behind a veil, the live transcript and the elapsed
- *     time come up, and the circle grows and inverts.
+ *   * **speaking** — the record recedes behind a veil, the real microphone level, live
+ *     transcript and elapsed time come up, and a second tap keeps the recording.
  *
  * Above them, the quiet notices stack: microphone, undo, sync, update. None of them is a
  * dialog, none of them blocks, and none of them survives being ignored.
@@ -19,7 +19,6 @@
 import React, { useEffect, useRef } from 'react';
 import {
   Animated,
-  Easing,
   Pressable,
   Text,
   TextInput,
@@ -41,6 +40,14 @@ export type EdgeNotice =
   | { kind: 'sync'; text: string; urgent: boolean; onOpen: () => void }
   | { kind: 'update'; version: string; onUpdate: () => void; onLater: () => void };
 
+export type VoiceCaptureDisplayState = {
+  phase: 'starting' | 'listening' | 'saving';
+  seconds: number;
+  transcript: string;
+  /** Normalized microphone input, 0...1. This is measured audio, not decorative motion. */
+  level: number;
+};
+
 export type EdgeProps = {
   input: string;
   onChangeInput: (text: string) => void;
@@ -61,7 +68,7 @@ export type EdgeProps = {
   findSummary: string | null;
   onToggleMeaning: () => void;
 
-  recording: { seconds: number; transcript: string } | null;
+  recording: VoiceCaptureDisplayState | null;
   onStartRecording: () => void;
   onStopRecording: () => void;
 
@@ -224,22 +231,21 @@ export function Edge(props: EdgeProps) {
             </>
           )}
 
-          {/*
-            One circle, across both states, and never swapped for another one.
-            "Hold to speak, release to leave it" is a single touch: pressing it starts the
-            recording, which is also what changes how it looks. Drawing the speaking state
-            as a *different* Pressable unmounted the element the finger was on, so the
-            release landed on nothing and the recording ran on after the hand was gone. A
-            tap on the new circle stopped it, which is how it looked like it worked.
-          */}
+          {/* One circle, one reliable toggle: tap to start, tap again to keep it. */}
           {showMic || recording ? (
             <Pressable
-              onPressIn={recording ? undefined : props.onStartRecording}
-              onPressOut={props.onStopRecording}
+              onPress={recording ? props.onStopRecording : props.onStartRecording}
+              disabled={props.recording?.phase === 'saving'}
               accessibilityRole="button"
-              accessibilityLabel={recording ? 'stop recording' : 'hold to speak'}
+              accessibilityLabel={
+                props.recording?.phase === 'saving'
+                  ? 'saving recording'
+                  : recording
+                    ? 'stop and save recording'
+                    : 'start recording'
+              }
               style={
-                recording
+                props.recording?.phase === 'listening'
                   ? {
                       width: edge.micRecordingSize,
                       height: edge.micRecordingSize,
@@ -248,7 +254,18 @@ export function Edge(props: EdgeProps) {
                       alignItems: 'center',
                       justifyContent: 'center',
                     }
-                  : {
+                  : props.recording?.phase === 'saving'
+                    ? {
+                        width: edge.micRecordingSize,
+                        height: edge.micRecordingSize,
+                        borderRadius: edge.micRecordingSize / 2,
+                        borderWidth: 1.5,
+                        borderColor: ink.meta,
+                        opacity: 0.7,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }
+                    : {
                       width: edge.micSize,
                       height: edge.micSize,
                       borderRadius: edge.micSize / 2,
@@ -262,8 +279,8 @@ export function Edge(props: EdgeProps) {
             >
               <View
                 style={
-                  recording
-                    ? { width: 14, height: 14, borderRadius: 7, backgroundColor: SURFACE }
+                  props.recording?.phase === 'listening'
+                    ? { width: 14, height: 14, borderRadius: 3, backgroundColor: SURFACE }
                     : { width: 12, height: 12, borderRadius: 6, backgroundColor: agency.ink }
                 }
               />
@@ -328,7 +345,14 @@ const CaptureField = React.forwardRef<TextInput, TextInputProps>(function Captur
 });
 
 /** What is being said, over a veil so the record behind it never collides with the words. */
-function SpeakingVeil({ recording }: { recording: { seconds: number; transcript: string } }) {
+function SpeakingVeil({ recording }: { recording: VoiceCaptureDisplayState }) {
+  const status =
+    recording.phase === 'starting'
+      ? 'opening microphone…'
+      : recording.phase === 'saving'
+        ? 'keeping it…'
+        : recording.transcript;
+
   return (
     <>
       <View
@@ -361,18 +385,22 @@ function SpeakingVeil({ recording }: { recording: { seconds: number; transcript:
             { minHeight: 30 },
           ]}
         >
-          {recording.transcript}
-          <Text style={{ color: ink.faint }}> …</Text>
+          {status}
+          {recording.phase === 'listening' ? <Text style={{ color: ink.faint }}> …</Text> : null}
         </Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-          <SpeakingBars />
+          <SpeakingBars level={recording.phase === 'listening' ? recording.level : 0} />
           <Text style={type({ size: 34, width: 100, tracking: -0.02, color: ink.ink })}>
             {fmtDur(recording.seconds)}
           </Text>
           <Text
             style={[type({ size: 12, width: 90, color: ink.meta }), { marginLeft: 'auto' }]}
           >
-            release to leave it
+            {recording.phase === 'starting'
+              ? 'tap to cancel'
+              : recording.phase === 'saving'
+                ? 'audio is safe first'
+                : 'tap again to keep it'}
           </Text>
         </View>
       </View>
@@ -381,52 +409,52 @@ function SpeakingVeil({ recording }: { recording: { seconds: number; transcript:
 }
 
 /**
- * Four bars at the prototype's four durations.
- *
- * Under reduced motion they are held at full height rather than frozen mid-scale — a row of
- * stubs would read as a broken meter rather than as a still one.
+ * Four bars driven by the microphone's measured input. Motion here is evidence: decorative
+ * looping bars can look healthy while the microphone is actually silent.
  */
-function SpeakingBars() {
-  const values = useRef(RECORDING_BAR_SECONDS.map(() => new Animated.Value(1))).current;
+function SpeakingBars({ level }: { level: number }) {
+  const value = useRef(new Animated.Value(level)).current;
   const reduced = useReducedMotion();
 
   useEffect(() => {
-    if (reduced) return;
-    const loops = values.map((v, i) =>
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(v, {
-            toValue: 0.4,
-            duration: (RECORDING_BAR_SECONDS[i] * 1000) / 2,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
-          Animated.timing(v, {
-            toValue: 1,
-            duration: (RECORDING_BAR_SECONDS[i] * 1000) / 2,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
-        ])
-      )
-    );
-    loops.forEach((l) => l.start());
-    return () => loops.forEach((l) => l.stop());
-  }, [values, reduced]);
+    if (reduced) {
+      value.setValue(level);
+      return;
+    }
+    const animation = Animated.timing(value, {
+      toValue: level,
+      duration: 80,
+      useNativeDriver: true,
+    });
+    animation.start();
+    return () => animation.stop();
+  }, [level, reduced, value]);
 
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, height: 36 }}>
-      {values.map((v, i) => (
+      {RECORDING_BAR_SECONDS.map((_, i) => {
+        const floor = 0.1 + i * 0.025;
+        const ceiling = [0.68, 1, 0.82, 0.54][i];
+        return (
         <Animated.View
           key={i}
           style={{
             width: 3,
             height: 36,
             backgroundColor: LIVE,
-            transform: [{ scaleY: v }],
+            transform: [
+              {
+                scaleY: value.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [floor, ceiling],
+                  extrapolate: 'clamp',
+                }),
+              },
+            ],
           }}
         />
-      ))}
+        );
+      })}
     </View>
   );
 }

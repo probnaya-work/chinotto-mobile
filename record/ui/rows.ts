@@ -27,7 +27,7 @@ export type Row =
   | { kind: 'return'; key: string }
   /** Kept present, above the record. */
   | { kind: 'held'; key: string; material: Material }
-  /** `type anything, or hold the circle and talk. it lands here, and stays.` */
+  /** `type anything, or tap the circle and talk. tap again and it stays.` */
   | { kind: 'empty'; key: string }
   /** `nothing with those words. close in meaning, maybe:` and its guesses. */
   | { kind: 'findEmpty'; key: string }

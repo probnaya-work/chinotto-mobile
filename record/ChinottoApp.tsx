@@ -24,6 +24,7 @@ import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 
 import { RecordApp } from './RecordApp';
+import type { VoiceCaptureDisplayState } from './ui/Edge';
 import { Settings, settingsCopy, type SettingsPage } from './ui/Settings';
 import { ShareSurface, metBeforeLabel } from './ui/ShareSurface';
 import { SyncSheet } from './ui/SyncSheet';
@@ -150,7 +151,7 @@ export function ChinottoApp({ services }: { services: Services }) {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [updateDismissed, setUpdateDismissed] = useState(false);
 
-  const [recording, setRecording] = useState<{ seconds: number; transcript: string } | null>(null);
+  const [recording, setRecording] = useState<VoiceCaptureDisplayState | null>(null);
   const recordingStartedAt = useRef(0);
 
   /**
@@ -416,24 +417,43 @@ export function ChinottoApp({ services }: { services: Services }) {
 
   useEffect(() => {
     return services.voiceEngine.subscribe({
+      onStateChange: (state) => {
+        if (state !== 'listening') return;
+        recordingStartedAt.current = Date.now();
+        setRecording((current) =>
+          current && current.phase !== 'saving'
+            ? { ...current, phase: 'listening', seconds: 0 }
+            : current
+        );
+      },
+      onLevel: (level) => {
+        setRecording((current) =>
+          current?.phase === 'listening' ? { ...current, level } : current
+        );
+      },
       onTranscriptPartial: (text) => {
         setRecording((current) =>
           current ? { ...current, transcript: text } : current
         );
       },
       onTranscriptFinal: (text, _reason, audio, failure, recognition) => {
-        setRecording(null);
-        void voice.settle(text, audio, failure, recognition ?? null).then((outcome) => {
-          // Only when something was actually kept. A recording too short to be a thought
-          // is not a thought that landed.
-          if (outcome.kind === 'kept') thoughtLanded();
-          // This iPhone just recognised locally, so anything still waiting for words need
-          // not wait out a backoff from when it could not.
-          if (recognition === 'on_device' && transcripts) {
-            transcripts.reset();
-            void transcripts.run();
-          }
-        });
+        setRecording((current) =>
+          current ? { ...current, phase: 'saving', level: 0 } : current
+        );
+        void voice
+          .settle(text, audio, failure, recognition ?? null)
+          .then((outcome) => {
+            // Only when something was actually kept. A recording too short to be a thought
+            // is not a thought that landed.
+            if (outcome.kind === 'kept') thoughtLanded();
+            // This iPhone just recognised locally, so anything still waiting for words need
+            // not wait out a backoff from when it could not.
+            if (recognition === 'on_device' && transcripts) {
+              transcripts.reset();
+              void transcripts.run();
+            }
+          })
+          .finally(() => setRecording(null));
       },
       onError: () => setRecording(null),
     });
@@ -441,7 +461,7 @@ export function ChinottoApp({ services }: { services: Services }) {
 
   /** The elapsed counter only runs while something is being said. */
   useEffect(() => {
-    if (!recording) return;
+    if (recording?.phase !== 'listening') return;
     const id = setInterval(() => {
       setRecording((current) =>
         current
@@ -450,7 +470,7 @@ export function ChinottoApp({ services }: { services: Services }) {
       );
     }, 100);
     return () => clearInterval(id);
-  }, [recording !== null]);
+  }, [recording?.phase]);
 
   /**
    * The widget's circle opens the app already listening. Held until the fonts are up so the
@@ -465,8 +485,7 @@ export function ChinottoApp({ services }: { services: Services }) {
   const [voiceOnOpenReady, setVoiceOnOpenReady] = useState(false);
 
   const startVoice = useCallback(async () => {
-    recordingStartedAt.current = Date.now();
-    setRecording({ seconds: 0, transcript: '' });
+    setRecording({ phase: 'starting', seconds: 0, transcript: '', level: 0 });
     try {
       await voice.start();
       return true;
@@ -477,6 +496,9 @@ export function ChinottoApp({ services }: { services: Services }) {
   }, [voice]);
 
   const stopVoice = useCallback(async () => {
+    setRecording((current) =>
+      current ? { ...current, phase: 'saving', level: 0 } : current
+    );
     voice.stop();
   }, [voice]);
 

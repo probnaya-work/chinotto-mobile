@@ -13,7 +13,7 @@
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { ink, rule, SURFACE } from './tokens';
+import { agency, ink, rule, SURFACE } from './tokens';
 import { type } from './type';
 import { yearBarHeight } from '../model/bands';
 
@@ -81,7 +81,7 @@ export function YearsOverlay({
                   size: Math.max(12, 44 - i * 5),
                   width: 100,
                   tracking: -0.03,
-                  color: i === 0 ? ink.ink : i < 3 ? ink.near : ink.meta,
+                  color: i === 0 ? agency.ink : i < 3 ? agency.quiet : ink.near,
                 }),
                 { width: 110 },
               ]}

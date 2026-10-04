@@ -371,7 +371,7 @@ export default function RecordRoot() {
       },
       openSystemSettings: () => void Linking.openSettings(),
 
-      // Asking IS holding the circle: the native side raises both prompts on its first
+      // Asking IS tapping the circle: the native side raises both prompts on its first
       // attempt, so there is nothing separate to request — and nothing separate that could
       // quietly become a stub while the surface waited on it.
       microphonePermission: () => micPermission,

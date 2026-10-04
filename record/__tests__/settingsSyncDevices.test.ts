@@ -121,7 +121,7 @@ describe('what settings says is true', () => {
     expect(settingsCopy.microphone('granted')).toBe('allowed.');
     expect(settingsCopy.microphone('denied')).toBe('off for chinotto.');
     expect(settingsCopy.microphone('ask')).toBe(
-      'not asked yet · ios asks the first time you hold the circle.'
+      'not asked yet · ios asks the first time you tap the circle.'
     );
   });
 });

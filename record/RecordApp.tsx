@@ -22,7 +22,12 @@ import {
   type TextInput as TextInputType,
 } from 'react-native';
 
-import { Edge, useReducedMotion, type EdgeNotice } from './ui/Edge';
+import {
+  Edge,
+  useReducedMotion,
+  type EdgeNotice,
+  type VoiceCaptureDisplayState,
+} from './ui/Edge';
 import { dismissKeyboard, useKeyboardInset } from './ui/useKeyboardInset';
 import { Focus } from './ui/Focus';
 import { Launch, launchHoldFor } from './ui/Launch';
@@ -30,7 +35,7 @@ import { Mark } from './ui/Mark';
 import { RecordList } from './ui/RecordList';
 import { ReturnBlock } from './ui/ReturnBlock';
 import { YearsOverlay } from './ui/YearsOverlay';
-import { frame, ink, SURFACE } from './ui/tokens';
+import { agency, frame, ink, SURFACE } from './ui/tokens';
 import { hasFoundSettings, rememberFoundSettings } from './pullHint';
 import { type } from './ui/type';
 import { useRecord } from './useRecord';
@@ -46,11 +51,11 @@ export type RecordAppProps = {
   /** False on a warm resume, so the lockup plays once per cold start and no more. */
   coldStart: boolean;
   onOpenSettings: () => void;
-  /** Hold-to-speak. Returns what was recorded, or null if it was too short to keep. */
+  /** Tap-to-record. The second tap stops and keeps the captured audio. */
   voice: {
     start: () => Promise<boolean>;
     stop: () => Promise<void>;
-    state: { seconds: number; transcript: string } | null;
+    state: VoiceCaptureDisplayState | null;
     permission: 'granted' | 'ask' | 'denied';
     openSystemSettings: () => void;
   };
@@ -179,21 +184,16 @@ export function RecordApp(props: RecordAppProps) {
   /* -------------------------------------------------------------------- voice */
 
   /**
-   * Whether the circle is still under a finger.
-   *
-   * Starting is not instant — the session is configured, the engine is built, the file is
-   * opened, and the very first time iOS raises two permission prompts in the middle of it.
-   * A release that arrives before any of that finishes used to be spent on a recording that
-   * had not begun, and the one that began a moment later had nothing left to end it: it
-   * ran on until something else was pressed.
+   * A second tap may arrive while iOS is still opening the microphone or showing its first
+   * permission prompt. `stop()` is harmless before the engine starts, but it cannot stop a
+   * future engine, so the intent is replayed after `start()` settles as well.
    */
-  const holding = useRef(false);
+  const openingVoice = useRef<Promise<boolean> | null>(null);
+  const stopAfterOpen = useRef(false);
 
-  const startRecording = useCallback(async (handsFree = false) => {
-    // A recording asked for by the widget has no finger behind it, so it is not "held" and
-    // must not be ended for being let go of. It ends by pressing the circle.
-    holding.current = !handsFree;
-    // Holding the circle is not typing. The keyboard goes away so the recording has the
+  const startRecording = useCallback(async () => {
+    if (openingVoice.current || props.voice.state) return;
+    // Speaking is not typing. The keyboard goes away so the recording has the
     // whole edge, which is what the veil and the level meter are drawn against.
     dismissKeyboard();
     if (props.voice.permission === 'denied') {
@@ -202,7 +202,7 @@ export function RecordApp(props: RecordAppProps) {
       setTimeout(() => setMicNotice(null), 7000);
       return;
     }
-    // `ask` is not a refusal, and it is the state every cold launch starts in. Holding the
+    // `ask` is not a refusal, and it is the state every cold launch starts in. Tapping the
     // circle IS the request: the native side raises both prompts on its first attempt, and
     // answering them is what turns `ask` into `granted` or `denied`. Stopping here instead
     // left voice unreachable for good — nothing else ever asks.
@@ -212,25 +212,38 @@ export function RecordApp(props: RecordAppProps) {
     } else {
       setMicNotice(null);
     }
-    await props.voice.start();
-    // Let go while it was still opening: end it now, as if the release had waited. A
-    // hands-free recording was never held, so this does not apply to it.
-    if (!handsFree && !holding.current) await props.voice.stop();
+    const opening = props.voice.start();
+    openingVoice.current = opening;
+    const started = await opening;
+    if (openingVoice.current === opening) openingVoice.current = null;
+    if (stopAfterOpen.current) {
+      stopAfterOpen.current = false;
+      if (started) await props.voice.stop();
+    }
   }, [props.voice]);
 
-  /** The widget asked for listening. Once per arrival, and only once the surface is up. */
+  const stopRecording = useCallback(async () => {
+    // Ask now, then ask once more after a pending start. This closes the permission-prompt
+    // race without requiring somebody to notice that the circle kept listening.
+    if (openingVoice.current) stopAfterOpen.current = true;
+    await props.voice.stop();
+  }, [props.voice]);
+
+  /**
+   * The widget asked to toggle listening. A second widget tap can reach a foreground app
+   * just like a second circle tap, so every entrance to voice keeps the same start/stop
+   * promise instead of silently asking an already-running recorder to start again.
+   */
   useEffect(() => {
     if (!props.voiceOnOpen) return;
     props.onVoiceOnOpenHandled?.();
-    const id = setTimeout(() => void startRecording(true), 320);
+    const id = setTimeout(() => {
+      if (props.voice.state) void stopRecording();
+      else void startRecording();
+    }, 320);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.voiceOnOpen]);
-
-  const stopRecording = useCallback(async () => {
-    holding.current = false;
-    await props.voice.stop();
-  }, [props.voice]);
 
   /* ------------------------------------------------------------------ notices */
 
@@ -604,13 +617,13 @@ function PullStrip({
           flexDirection: 'row',
           alignItems: 'center',
           gap: 11,
-          // At rest the strip is a handle, not an announcement: it sits at the quietest ink
-          // the record has. Under the finger it comes up to the weight of everything else.
+          // The mark is a quiet cream landmark; the instructional copy stays subdued.
+          // Under the finger the mark comes up one final step.
           opacity: pulling ? Math.min(1, pull / 40) : 1,
         }}
         pointerEvents="none"
       >
-        <Mark size={pulling ? 22 : 16} color={pulling ? ink.meta : ink.faint} />
+        <Mark size={pulling ? 22 : 16} color={pulling ? agency.quiet : ink.near} />
         {pulling || hint ? (
           <Text
             style={type({ size: 14, width: 90, color: pulling ? ink.meta : ink.faint })}

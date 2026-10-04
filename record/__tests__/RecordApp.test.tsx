@@ -79,7 +79,7 @@ describe('the record surface', () => {
 
     await waitFor(() =>
       expect(
-        screen.getByText('type anything, or hold the circle and talk. it lands here, and stays.')
+        screen.getByText('type anything, or tap the circle and talk. tap again and it stays.')
       ).toBeTruthy()
     );
     h.db.close();
@@ -200,30 +200,30 @@ describe('the record surface', () => {
     // Every cold launch starts here, granted or not: the permission is only learned from
     // what happens when recording is attempted.
     const voice = { ...defaults.voice, permission: 'ask' as const, start: jest.fn(async () => true) };
-    await mount(h, { voice });
+    const view = await mount(h, { voice });
 
     await act(async () => {
-      fireEvent(screen.getByLabelText('hold to speak'), 'pressIn');
+      fireEvent.press(screen.getByLabelText('start recording'));
       await Promise.resolve();
     });
 
-    // Holding the circle IS the request. Refusing to start while the answer is unknown
+    // Tapping the circle IS the request. Refusing to start while the answer is unknown
     // left voice unreachable for good, because nothing else ever asks.
     expect(voice.start).toHaveBeenCalled();
     expect(screen.getByText(/ios will ask once/)).toBeTruthy();
     h.db.close();
   });
 
-  it('keeps one circle across both states, so the release reaches it', async () => {
+  it('uses one circle as a start-stop toggle', async () => {
     const h = harness();
     await migrate(h.db);
     const voice = { ...defaults.voice, start: jest.fn(async () => true), stop: jest.fn(async () => {}) };
     const view = await mount(h, { voice });
 
     // The element the finger goes down on.
-    const circle = screen.getByLabelText('hold to speak');
+    const circle = screen.getByLabelText('start recording');
     await act(async () => {
-      fireEvent(circle, 'pressIn');
+      fireEvent.press(circle);
       await Promise.resolve();
     });
     expect(voice.start).toHaveBeenCalled();
@@ -235,24 +235,22 @@ describe('the record surface', () => {
           store={h.store}
           bridge={h.bridge}
           {...defaults}
-          voice={{ ...voice, state: { seconds: 1, transcript: '' } }}
+          voice={{ ...voice, state: { phase: 'listening', seconds: 1, transcript: '', level: 0.5 } }}
         />
       );
       await Promise.resolve();
     });
 
-    // The same element, still there. Drawing the speaking state as a different Pressable
-    // unmounted the one the finger was on, and the release landed on nothing.
-    expect(circle.props.accessibilityLabel).toBe('stop recording');
+    expect(circle.props.accessibilityLabel).toBe('stop and save recording');
     await act(async () => {
-      fireEvent(circle, 'pressOut');
+      fireEvent.press(circle);
       await Promise.resolve();
     });
     expect(voice.stop).toHaveBeenCalled();
     h.db.close();
   });
 
-  it('ends a recording that was let go while it was still opening', async () => {
+  it('honours a stop tap while the microphone is still opening', async () => {
     const h = harness();
     await migrate(h.db);
 
@@ -267,12 +265,27 @@ describe('the record surface', () => {
       start: jest.fn(() => opening),
       stop: jest.fn(async () => {}),
     };
-    await mount(h, { voice });
+    const view = await mount(h, { voice });
 
-    const circle = screen.getByLabelText('hold to speak');
+    const circle = screen.getByLabelText('start recording');
     await act(async () => {
-      fireEvent(circle, 'pressIn');
-      fireEvent(circle, 'pressOut');
+      fireEvent.press(circle);
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      view.rerender(
+        <RecordApp
+          store={h.store}
+          bridge={h.bridge}
+          {...defaults}
+          voice={{ ...voice, state: { phase: 'starting', seconds: 0, transcript: '', level: 0 } }}
+        />
+      );
+      await Promise.resolve();
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('stop and save recording'));
       await Promise.resolve();
     });
 
@@ -317,6 +330,32 @@ describe('the record surface', () => {
     h.db.close();
   });
 
+  it('keeps the recording on a second voice widget tap', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const voice = {
+      ...defaults.voice,
+      stop: jest.fn(async () => {}),
+      state: { phase: 'listening' as const, seconds: 3, transcript: 'olá', level: 0.5 },
+    };
+    const view = await mount(h, { voice });
+
+    await act(async () => {
+      view.rerender(
+        <RecordApp store={h.store} bridge={h.bridge} {...defaults} voice={voice} voiceOnOpen />
+      );
+      await Promise.resolve();
+    });
+    await act(async () => {
+      jest.advanceTimersByTime(400);
+      await Promise.resolve();
+    });
+
+    expect(voice.stop).toHaveBeenCalledTimes(1);
+    expect(voice.start).not.toHaveBeenCalled();
+    h.db.close();
+  });
+
   it('says why nothing happened when the widget asks and the microphone is off', async () => {
     const h = harness();
     await migrate(h.db);
@@ -351,7 +390,7 @@ describe('the record surface', () => {
     await mount(h, { voice });
 
     await act(async () => {
-      fireEvent(screen.getByLabelText('hold to speak'), 'pressIn');
+      fireEvent.press(screen.getByLabelText('start recording'));
       await Promise.resolve();
     });
 

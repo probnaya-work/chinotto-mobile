@@ -17,7 +17,7 @@ import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { Marked } from './Marked';
-import { bandGap, tierClamp, tierTextStyle, voiceChip } from './tiers';
+import { FOCUSED_TIER_COLORS, bandGap, tierClamp, tierTextStyle, voiceChip } from './tiers';
 import { VoiceChip } from './VoiceChip';
 import { agency, ink, rule, wash } from './tokens';
 import { face, type } from './type';
@@ -45,6 +45,8 @@ export type MomentRowProps = {
   highlight?: (string | null)[];
   /** D0 only. */
   selected?: boolean;
+  /** The thought currently nearest the centre of the scrolling record. */
+  focused?: boolean;
   /** D0 only: the twelve seconds after it landed. */
   justSaved?: boolean;
   editSecondsLeft?: number;
@@ -113,7 +115,11 @@ export function MomentRow(props: MomentRowProps) {
   const quote = isQuoteOnly(material);
   const borrowed = hasNoWordsYet(material);
 
-  const textStyle = tierTextStyle(tier, { voice, borrowedWords: borrowed });
+  const textStyle = tierTextStyle(tier, {
+    voice,
+    borrowedWords: borrowed,
+    focused: props.focused,
+  });
   const meta = compact ? null : metaFor(material, props.lineLength, props.lineStartedAt, now);
 
   // A recording whose reading does not exist yet, or failed. Saying which is the whole
@@ -121,7 +127,15 @@ export function MomentRow(props: MomentRowProps) {
   const wordless = voice && isBlank(material.body);
 
   const body = wordless ? (
-    <Text style={[textStyle, { fontStyle: 'normal', color: ink.meta }]}>
+    <Text
+      style={[
+        textStyle,
+        {
+          fontStyle: 'normal',
+          color: props.focused ? FOCUSED_TIER_COLORS[3] : ink.meta,
+        },
+      ]}
+    >
       {material.transcriptState === 'failed'
         ? material.audioMissing
           ? 'couldn’t transcribe · the audio is not on this device'
