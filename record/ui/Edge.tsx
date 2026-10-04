@@ -3,10 +3,10 @@
  *
  * Three states share one row, because they are one thing:
  *
- *   * **idle** — a 3pt caret standing in for the field, and the tap-to-speak circle.
+ *   * **idle** — a 3pt caret standing in for the field, and the press-to-speak circle.
  *   * **typing** — the field, and a send button where the circle was.
  *   * **speaking** — the record recedes behind a veil, the real microphone level, live
- *     transcript and elapsed time come up, and a second tap keeps the recording.
+ *     transcript and elapsed time come up. Release keeps it; sliding up locks it.
  *
  * Above them, the quiet notices stack: microphone, undo, sync, update. None of them is a
  * dialog, none of them blocks, and none of them survives being ignored.
@@ -16,13 +16,14 @@
  * wait for anything.
  */
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Pressable,
   Text,
   TextInput,
   View,
+  type GestureResponderEvent,
   type TextInputProps,
 } from 'react-native';
 
@@ -32,6 +33,15 @@ import { fmtDur } from '../model/time';
 
 /** The field's own breathing room, above and below the words. */
 const FIELD_PADDING_Y = 14;
+const MIC_LOCK_DISTANCE = 32;
+const MIC_TAP_MS = 260;
+
+type MicGesture = {
+  kind: 'record' | 'stop';
+  startedAt: number;
+  startY: number;
+  locked: boolean;
+};
 
 export type EdgeNotice =
   | { kind: 'mic'; text: string; action?: string; onAction?: () => void }
@@ -102,14 +112,103 @@ export type EdgeProps = {
 
 export function Edge(props: EdgeProps) {
   const reportedHeight = useRef(0);
+  const micGesture = useRef<MicGesture | null>(null);
+  const [micHeld, setMicHeld] = useState(false);
+  const [micLocked, setMicLocked] = useState(false);
   const recording = props.recording !== null;
+  const micDisabled =
+    props.recording?.phase === 'saving' || props.recording?.phase === 'discarding';
   const showCaret = !props.input && !props.focused && !props.anchored && !recording;
   const showSend = Boolean(props.input) && !props.input.startsWith('/') && !props.anchored;
   const showMic = props.voice !== false && !props.input && !props.anchored;
 
+  useEffect(() => {
+    if (recording) return;
+    setMicHeld(false);
+    setMicLocked(false);
+  }, [recording]);
+
+  const beginMicGesture = (pageY: number) => {
+    if (micDisabled) return;
+    if (recording) {
+      micGesture.current = {
+        kind: 'stop',
+        startedAt: Date.now(),
+        startY: pageY,
+        locked: true,
+      };
+      return;
+    }
+
+    micGesture.current = {
+      kind: 'record',
+      startedAt: Date.now(),
+      startY: pageY,
+      locked: false,
+    };
+    setMicHeld(true);
+    setMicLocked(false);
+    props.onStartRecording();
+  };
+
+  const moveMicGesture = (pageY: number) => {
+    const gesture = micGesture.current;
+    if (!gesture || gesture.kind !== 'record' || gesture.locked) return;
+    if (gesture.startY - pageY < MIC_LOCK_DISTANCE) return;
+    gesture.locked = true;
+    setMicHeld(false);
+    setMicLocked(true);
+  };
+
+  const finishMicGesture = () => {
+    const gesture = micGesture.current;
+    if (!gesture) return;
+
+    if (gesture.kind === 'stop') {
+      props.onStopRecording();
+    } else if (gesture.locked || Date.now() - gesture.startedAt < MIC_TAP_MS) {
+      // A quick tap keeps the earlier toggle behaviour. A deliberate upward slide reaches
+      // the same locked state without requiring the finger to leave the circle.
+      setMicHeld(false);
+      setMicLocked(true);
+    } else {
+      setMicHeld(false);
+      props.onStopRecording();
+    }
+
+    micGesture.current = null;
+  };
+
+  const activateMic = () => {
+    // The responder captures physical touch before the inner Pressable. `onPress` therefore
+    // remains an independent path for VoiceOver, TalkBack, keyboards, and test harnesses.
+    if (recording) {
+      props.onStopRecording();
+    } else {
+      setMicLocked(true);
+      props.onStartRecording();
+    }
+  };
+
+  const discardRecording = () => {
+    setMicHeld(false);
+    setMicLocked(false);
+    micGesture.current = null;
+    props.onCancelRecording();
+  };
+
+  const endMicGesture = (event: GestureResponderEvent) => {
+    // A fast flick may coalesce its move events. The final position still gets a chance to
+    // cross the lock threshold before release is interpreted.
+    moveMicGesture(event.nativeEvent.pageY);
+    finishMicGesture();
+  };
+
   return (
     <>
-      {recording ? <SpeakingVeil recording={props.recording!} /> : null}
+      {recording ? (
+        <SpeakingVeil recording={props.recording!} micHeld={micHeld} micLocked={micLocked} />
+      ) : null}
 
       <Animated.View
         testID="edge"
@@ -159,7 +258,7 @@ export function Edge(props: EdgeProps) {
             <View style={{ flex: 1, alignItems: 'flex-start', justifyContent: 'flex-end' }}>
               {props.recording?.phase === 'starting' || props.recording?.phase === 'listening' ? (
                 <Pressable
-                  onPress={props.onCancelRecording}
+                  onPress={discardRecording}
                   accessibilityRole="button"
                   accessibilityLabel="discard recording"
                   hitSlop={12}
@@ -249,65 +348,79 @@ export function Edge(props: EdgeProps) {
             </>
           )}
 
-          {/* One circle, one reliable toggle: tap to start, tap again to keep it. */}
+          {/* One circle: hold and release, slide up to lock, or tap for the old toggle. */}
           {showMic || recording ? (
-            <Pressable
-              onPress={recording ? props.onStopRecording : props.onStartRecording}
-              disabled={
-                props.recording?.phase === 'saving' || props.recording?.phase === 'discarding'
-              }
-              accessibilityRole="button"
-              accessibilityLabel={
-                props.recording?.phase === 'saving'
-                  ? 'saving recording'
-                  : props.recording?.phase === 'discarding'
-                    ? 'discarding recording'
-                  : recording
-                    ? 'stop and save recording'
-                    : 'start recording'
-              }
-              style={
-                props.recording?.phase === 'listening'
-                  ? {
-                      width: edge.micRecordingSize,
-                      height: edge.micRecordingSize,
-                      borderRadius: edge.micRecordingSize / 2,
-                      backgroundColor: LIVE,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }
-                  : props.recording?.phase === 'saving' ||
-                      props.recording?.phase === 'discarding'
+            <View
+              testID="voice-gesture"
+              collapsable={false}
+              // This view owns the responder from touch-down to release. Unlike Pressable,
+              // it keeps receiving moves after the finger leaves the circle's bounds.
+              onStartShouldSetResponder={() => !micDisabled}
+              onStartShouldSetResponderCapture={() => !micDisabled}
+              onMoveShouldSetResponder={() => !micDisabled}
+              onMoveShouldSetResponderCapture={() => !micDisabled}
+              onResponderGrant={(event) => beginMicGesture(event.nativeEvent.pageY)}
+              onResponderMove={(event) => moveMicGesture(event.nativeEvent.pageY)}
+              onResponderRelease={endMicGesture}
+              onResponderTerminate={endMicGesture}
+              onResponderTerminationRequest={() => false}
+            >
+              <Pressable
+                onPress={activateMic}
+                disabled={micDisabled}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  props.recording?.phase === 'saving'
+                    ? 'saving recording'
+                    : props.recording?.phase === 'discarding'
+                      ? 'discarding recording'
+                    : recording
+                      ? 'stop and save recording'
+                      : 'start recording'
+                }
+                style={
+                  props.recording?.phase === 'listening'
                     ? {
                         width: edge.micRecordingSize,
                         height: edge.micRecordingSize,
                         borderRadius: edge.micRecordingSize / 2,
-                        borderWidth: 1.5,
-                        borderColor: ink.meta,
-                        opacity: 0.7,
+                        backgroundColor: LIVE,
                         alignItems: 'center',
                         justifyContent: 'center',
                       }
-                    : {
-                      width: edge.micSize,
-                      height: edge.micSize,
-                      borderRadius: edge.micSize / 2,
-                      borderWidth: 1.5,
-                      borderColor: agency.ink,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      marginBottom: 4,
-                    }
-              }
-            >
-              <View
-                style={
-                  props.recording?.phase === 'listening'
-                    ? { width: 14, height: 14, borderRadius: 3, backgroundColor: SURFACE }
-                    : { width: 12, height: 12, borderRadius: 6, backgroundColor: agency.ink }
+                    : props.recording?.phase === 'saving' ||
+                        props.recording?.phase === 'discarding'
+                      ? {
+                          width: edge.micRecordingSize,
+                          height: edge.micRecordingSize,
+                          borderRadius: edge.micRecordingSize / 2,
+                          borderWidth: 1.5,
+                          borderColor: ink.meta,
+                          opacity: 0.7,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }
+                      : {
+                        width: edge.micSize,
+                        height: edge.micSize,
+                        borderRadius: edge.micSize / 2,
+                        borderWidth: 1.5,
+                        borderColor: agency.ink,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginBottom: 4,
+                      }
                 }
-              />
-            </Pressable>
+              >
+                <View
+                  style={
+                    props.recording?.phase === 'listening'
+                      ? { width: 14, height: 14, borderRadius: 3, backgroundColor: SURFACE }
+                      : { width: 12, height: 12, borderRadius: 6, backgroundColor: agency.ink }
+                  }
+                />
+              </Pressable>
+            </View>
           ) : null}
         </View>
       </Animated.View>
@@ -368,7 +481,15 @@ const CaptureField = React.forwardRef<TextInput, TextInputProps>(function Captur
 });
 
 /** What is being said, over a veil so the record behind it never collides with the words. */
-function SpeakingVeil({ recording }: { recording: VoiceCaptureDisplayState }) {
+function SpeakingVeil({
+  recording,
+  micHeld,
+  micLocked,
+}: {
+  recording: VoiceCaptureDisplayState;
+  micHeld: boolean;
+  micLocked: boolean;
+}) {
   const status =
     recording.phase === 'starting'
       ? 'opening microphone…'
@@ -427,7 +548,11 @@ function SpeakingVeil({ recording }: { recording: VoiceCaptureDisplayState }) {
                 ? 'audio is safe first'
                 : recording.phase === 'discarding'
                   ? 'nothing will be kept'
-                : 'tap again to keep it'}
+                : micHeld
+                  ? '↑ slide to lock · release to keep'
+                  : micLocked
+                    ? 'locked · tap the square to keep'
+                    : 'tap the square to keep'}
           </Text>
         </View>
       </View>

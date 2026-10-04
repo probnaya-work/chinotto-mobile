@@ -92,7 +92,7 @@ describe('the record on android', () => {
 
     await waitFor(() =>
       expect(
-        screen.getByText('type anything, or tap the circle and talk. tap again and it stays.')
+        screen.getByText('type anything, or hold the circle and talk. slide up to lock it.')
       ).toBeTruthy()
     );
     expect(screen.getByLabelText('start recording')).toBeTruthy();

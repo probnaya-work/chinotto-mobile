@@ -109,8 +109,20 @@ describe('iOS voice recognition stays on the device', () => {
   it('does not let a recognition failure stop the retained recording', () => {
     const recognition = bodyOf('private func processRecognition(');
     expect(recognition).toContain('recognition = .failed');
-    expect(recognition).toContain('request = nil');
+    expect(recognition).toContain('disableRecognition()');
     expect(recognition).not.toContain('finalizeCapture(reason: "recognition_error"');
+  });
+
+  it('turns a spoken pause into a fresh segment, never the end of capture', () => {
+    const recognition = bodyOf('private func processRecognition(');
+    expect(recognition).toContain('guard generation == recognitionGeneration else { return }');
+    expect(recognition).toContain('commitSegment(currentSegmentTranscript)');
+    expect(recognition).not.toContain('finalizeCapture(reason: "segment_end"');
+
+    const restart = bodyOf('private func restartRecognitionTask()');
+    expect(restart).toContain('return attached');
+    const attach = bodyOf('private func attachRecognitionTask(');
+    expect(attach).toContain('generation: generation');
   });
 
   it('a background retry never raises a prompt', () => {

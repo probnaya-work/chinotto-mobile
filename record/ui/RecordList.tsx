@@ -213,7 +213,7 @@ export function RecordList(props: RecordListProps) {
             >
               {props.voice === false
                 ? 'type anything. it lands here, and stays.'
-                : 'type anything, or tap the circle and talk. tap again and it stays.'}
+                : 'type anything, or hold the circle and talk. slide up to lock it.'}
             </Text>
           );
 

@@ -287,12 +287,12 @@ class VoiceCaptureModule : Module() {
     }
 
     private fun handOn(pcm: ByteArray, n: Int) {
-      val f = feed
-      if (f != null) {
-        f.offer(pcm, n)
-        return
-      }
       synchronized(prerollLock) {
+        val f = feed
+        if (f != null) {
+          f.offer(pcm, n)
+          return
+        }
         val held = preroll ?: return
         if (prerollBytes + n > PREROLL_MAX_BYTES) {
           prerollOverflowed = true
@@ -365,7 +365,17 @@ class VoiceCaptureModule : Module() {
 
     private fun onSessionEnded(text: String, error: Int?) {
       session = null
-      feed = null
+      // A device may end one recognition session at a spoken pause even though capture is
+      // still running. Hold every buffer between sessions so the first word after the pause
+      // cannot fall into the small gap while the next recogniser starts.
+      synchronized(prerollLock) {
+        feed = null
+        if (!finishing) {
+          preroll = mutableListOf()
+          prerollBytes = 0
+          prerollOverflowed = false
+        }
+      }
       if (text.isNotBlank()) {
         if (heard.isNotEmpty()) heard.append(' ')
         heard.append(text.trim())
@@ -377,9 +387,10 @@ class VoiceCaptureModule : Module() {
       // the iPhone restarts its task. One that broke is not: the recording carries on alone.
       if (!finishing && recognition == "on_device" && restarts < MAX_RESTARTS) {
         restarts += 1
-        startSession(flushPreroll = false)
+        startSession(flushPreroll = true)
         return
       }
+      synchronized(prerollLock) { preroll = null }
       releaseRecognizer()
       markRecognitionDone()
     }

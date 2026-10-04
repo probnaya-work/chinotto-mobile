@@ -80,7 +80,7 @@ describe('the record surface', () => {
 
     await waitFor(() =>
       expect(
-        screen.getByText('type anything, or tap the circle and talk. tap again and it stays.')
+        screen.getByText('type anything, or hold the circle and talk. slide up to lock it.')
       ).toBeTruthy()
     );
     h.db.close();
@@ -250,6 +250,83 @@ describe('the record surface', () => {
       await Promise.resolve();
     });
     expect(voice.stop).toHaveBeenCalled();
+    h.db.close();
+  });
+
+  it('records while held and keeps the recording when the finger is released', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const voice = { ...defaults.voice, start: jest.fn(async () => true), stop: jest.fn(async () => {}) };
+    await mount(h, { voice });
+
+    const gesture = screen.getByTestId('voice-gesture');
+    await act(async () => {
+      fireEvent(gesture, 'responderGrant', { nativeEvent: { pageY: 600 } });
+      await Promise.resolve();
+    });
+    expect(voice.start).toHaveBeenCalledTimes(1);
+
+    act(() => jest.advanceTimersByTime(400));
+    await act(async () => {
+      fireEvent(gesture, 'responderRelease', { nativeEvent: { pageY: 600 } });
+      await Promise.resolve();
+    });
+    expect(voice.stop).toHaveBeenCalledTimes(1);
+    h.db.close();
+  });
+
+  it('locks a held recording when the finger slides up', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const voice = { ...defaults.voice, start: jest.fn(async () => true), stop: jest.fn(async () => {}) };
+    const view = await mount(h, { voice });
+
+    const gesture = screen.getByTestId('voice-gesture');
+    await act(async () => {
+      fireEvent(gesture, 'responderGrant', { nativeEvent: { pageY: 600 } });
+      fireEvent(gesture, 'responderMove', { nativeEvent: { pageY: 560 } });
+      fireEvent(gesture, 'responderRelease', { nativeEvent: { pageY: 560 } });
+      await Promise.resolve();
+    });
+    expect(voice.start).toHaveBeenCalledTimes(1);
+    expect(voice.stop).not.toHaveBeenCalled();
+
+    await act(async () => {
+      view.rerender(
+        <RecordApp
+          store={h.store}
+          bridge={h.bridge}
+          {...defaults}
+          voice={{ ...voice, state: { phase: 'listening', seconds: 1, transcript: '', level: 0.5 } }}
+        />
+      );
+      await Promise.resolve();
+    });
+    expect(screen.getByText('locked · tap the square to keep')).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('stop and save recording'));
+      await Promise.resolve();
+    });
+    expect(voice.stop).toHaveBeenCalledTimes(1);
+    h.db.close();
+  });
+
+  it('locks a fast upward flick even when its move event was coalesced', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const voice = { ...defaults.voice, start: jest.fn(async () => true), stop: jest.fn(async () => {}) };
+    await mount(h, { voice });
+
+    const gesture = screen.getByTestId('voice-gesture');
+    await act(async () => {
+      fireEvent(gesture, 'responderGrant', { nativeEvent: { pageY: 600 } });
+      fireEvent(gesture, 'responderRelease', { nativeEvent: { pageY: 520 } });
+      await Promise.resolve();
+    });
+
+    expect(voice.start).toHaveBeenCalledTimes(1);
+    expect(voice.stop).not.toHaveBeenCalled();
     h.db.close();
   });
 

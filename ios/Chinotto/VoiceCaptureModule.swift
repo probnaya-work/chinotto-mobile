@@ -67,6 +67,11 @@ final class VoiceCaptureModule: RCTEventEmitter {
 
   private var lastTranscript = ""
   private var committedTranscript = ""
+  /// The words owned by the current recognition task. Kept separately so a pause can
+  /// commit only this segment instead of duplicating everything already committed.
+  private var currentSegmentTranscript = ""
+  /// Makes callbacks from a task we just replaced harmless to the new task.
+  private var recognitionGeneration = 0
   private var heardSpeech = false
   private var silenceSeconds: Double = 0
   private var isListening = false
@@ -403,6 +408,8 @@ final class VoiceCaptureModule: RCTEventEmitter {
     }
     lastTranscript = ""
     committedTranscript = ""
+    currentSegmentTranscript = ""
+    recognitionGeneration = 0
     heardSpeech = false
     silenceSeconds = 0
     isFinalizing = false
@@ -559,10 +566,19 @@ final class VoiceCaptureModule: RCTEventEmitter {
     }
   }
 
-  private func processRecognition(result: SFSpeechRecognitionResult?, error: Error?) {
+  private func processRecognition(
+    result: SFSpeechRecognitionResult?,
+    error: Error?,
+    generation: Int
+  ) {
+    // Cancelling the previous segment commonly produces one last callback. It belongs to
+    // that task and must never cancel or disable the fresh task that replaced it.
+    guard generation == recognitionGeneration else { return }
+
     if let result {
       guard isListening else { return }
       let live = result.bestTranscription.formattedString
+      currentSegmentTranscript = live
       if !live.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
         heardSpeech = true
         silenceSeconds = 0
@@ -576,8 +592,11 @@ final class VoiceCaptureModule: RCTEventEmitter {
       if result.isFinal {
         if continuousMode {
           commitSegment(live)
+          currentSegmentTranscript = ""
           if !restartRecognitionTask() {
-            finalizeCapture(reason: "segment_end", errorToEmit: nil)
+            // A derived convenience may go away; the microphone and retained audio do not.
+            recognition = .failed
+            disableRecognition()
           }
         } else {
           finalizeCapture(reason: "final", errorToEmit: nil)
@@ -586,25 +605,20 @@ final class VoiceCaptureModule: RCTEventEmitter {
       }
     }
 
-    if let error {
+    if error != nil {
       if !isListening { return }
-      let ns = error as NSError
-      if ns.domain == "kAFAssistantErrorDomain", ns.code == 216 { return }
-      if ns.domain == "kAFAssistantErrorDomain", ns.code == 203 { return }
-      if continuousMode, isRecoverableRecognitionError(ns), restartRecognitionTask() {
+      // Some locale/OS combinations report a phrase boundary as an error rather than an
+      // `isFinal` result. Preserve its partial words and open the next segment either way.
+      commitSegment(currentSegmentTranscript)
+      currentSegmentTranscript = ""
+      if continuousMode, restartRecognitionTask() {
         return
       }
       recognition = .failed
       // Speech failed, not the microphone. Keep writing every buffer until the person taps
       // stop; the retained audio can be transcribed again later. Ending the capture here
       // made a derived convenience capable of truncating the canonical material.
-      let failedRequest = request
-      let failedTask = task
-      request = nil
-      task = nil
-      recognizer = nil
-      failedRequest?.endAudio()
-      failedTask?.cancel()
+      disableRecognition()
       return
     }
   }
@@ -622,10 +636,11 @@ final class VoiceCaptureModule: RCTEventEmitter {
 
     // If the next phrase cannot be recognised locally, the recording carries on without it
     // rather than ending: the audio is what matters, and the words so far are kept.
-    if !attachRecognitionTask(to: speechRec) {
+    let attached = attachRecognitionTask(to: speechRec)
+    if !attached {
       recognizer = nil
     }
-    return true
+    return attached
   }
 
   /// Starts a recognition task on a fresh request — through `onDeviceTask`, and only then
@@ -633,11 +648,13 @@ final class VoiceCaptureModule: RCTEventEmitter {
   private func attachRecognitionTask(to speechRec: SFSpeechRecognizer) -> Bool {
     let speechRequest = SFSpeechAudioBufferRecognitionRequest()
     speechRequest.shouldReportPartialResults = true
+    recognitionGeneration += 1
+    let generation = recognitionGeneration
 
     let newTask = Self.onDeviceTask(recognizer: speechRec, request: speechRequest) {
       [weak self] result, error in
       self?.workQueue.async {
-        self?.processRecognition(result: result, error: error)
+        self?.processRecognition(result: result, error: error, generation: generation)
       }
     }
     guard let newTask else {
@@ -648,6 +665,19 @@ final class VoiceCaptureModule: RCTEventEmitter {
     request = speechRequest
     task = newTask
     return true
+  }
+
+  /// Lets recording continue when Speech cannot continue. Invalidate first so the task's
+  /// cancellation callback cannot be mistaken for a failure of whatever comes next.
+  private func disableRecognition() {
+    recognitionGeneration += 1
+    let failedRequest = request
+    let failedTask = task
+    request = nil
+    task = nil
+    recognizer = nil
+    failedRequest?.endAudio()
+    failedTask?.cancel()
   }
 
   private func composeDisplayTranscript(live: String) -> String {
@@ -666,16 +696,6 @@ final class VoiceCaptureModule: RCTEventEmitter {
       committedTranscript += " " + segment
     }
     lastTranscript = committedTranscript
-  }
-
-  private func isRecoverableRecognitionError(_ error: NSError) -> Bool {
-    guard error.domain == "kAFAssistantErrorDomain" else { return false }
-    switch error.code {
-    case 1110, 209, 301: // no speech / retryable phrase boundaries
-      return true
-    default:
-      return false
-    }
   }
 
   private func rmsFloat(_ buffer: AVAudioPCMBuffer) -> Float {
@@ -705,6 +725,7 @@ final class VoiceCaptureModule: RCTEventEmitter {
     engine?.stop()
     engine = nil
 
+    recognitionGeneration += 1
     request?.endAudio()
     request = nil
 
@@ -719,6 +740,7 @@ final class VoiceCaptureModule: RCTEventEmitter {
     let text = lastTranscript
     lastTranscript = ""
     committedTranscript = ""
+    currentSegmentTranscript = ""
     heardSpeech = false
     silenceSeconds = 0
     recognitionRestartCount = 0
@@ -744,6 +766,7 @@ final class VoiceCaptureModule: RCTEventEmitter {
     if let input = engine?.inputNode { input.removeTap(onBus: 0) }
     engine?.stop()
     engine = nil
+    recognitionGeneration += 1
     request?.endAudio()
     request = nil
     task?.cancel()

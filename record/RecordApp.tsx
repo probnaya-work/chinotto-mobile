@@ -54,7 +54,7 @@ export type RecordAppProps = {
   /** False on a warm resume, so the lockup plays once per cold start and no more. */
   coldStart: boolean;
   onOpenSettings: () => void;
-  /** Tap-to-record. The circle keeps the captured audio; discard leaves no moment behind. */
+  /** Press-to-record. Release keeps it; slide up locks it; discard leaves no moment behind. */
   voice: {
     start: () => Promise<boolean>;
     stop: () => Promise<void>;
