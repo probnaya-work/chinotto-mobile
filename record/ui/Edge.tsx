@@ -41,7 +41,7 @@ export type EdgeNotice =
   | { kind: 'update'; version: string; onUpdate: () => void; onLater: () => void };
 
 export type VoiceCaptureDisplayState = {
-  phase: 'starting' | 'listening' | 'saving';
+  phase: 'starting' | 'listening' | 'saving' | 'discarding';
   seconds: number;
   transcript: string;
   /** Normalized microphone input, 0...1. This is measured audio, not decorative motion. */
@@ -76,6 +76,7 @@ export type EdgeProps = {
   voice?: boolean;
   onStartRecording: () => void;
   onStopRecording: () => void;
+  onCancelRecording: () => void;
 
   notices: EdgeNotice[];
 
@@ -155,7 +156,19 @@ export function Edge(props: EdgeProps) {
           }}
         >
           {recording ? (
-            <View style={{ flex: 1 }} />
+            <View style={{ flex: 1, alignItems: 'flex-start', justifyContent: 'flex-end' }}>
+              {props.recording?.phase === 'starting' || props.recording?.phase === 'listening' ? (
+                <Pressable
+                  onPress={props.onCancelRecording}
+                  accessibilityRole="button"
+                  accessibilityLabel="discard recording"
+                  hitSlop={12}
+                  style={{ paddingVertical: 14, paddingRight: 12 }}
+                >
+                  <Text style={type({ size: 13, width: 90, color: ink.meta })}>discard</Text>
+                </Pressable>
+              ) : null}
+            </View>
           ) : props.anchored ? (
             <Text
               onPress={props.onClearAnchor}
@@ -240,11 +253,15 @@ export function Edge(props: EdgeProps) {
           {showMic || recording ? (
             <Pressable
               onPress={recording ? props.onStopRecording : props.onStartRecording}
-              disabled={props.recording?.phase === 'saving'}
+              disabled={
+                props.recording?.phase === 'saving' || props.recording?.phase === 'discarding'
+              }
               accessibilityRole="button"
               accessibilityLabel={
                 props.recording?.phase === 'saving'
                   ? 'saving recording'
+                  : props.recording?.phase === 'discarding'
+                    ? 'discarding recording'
                   : recording
                     ? 'stop and save recording'
                     : 'start recording'
@@ -259,7 +276,8 @@ export function Edge(props: EdgeProps) {
                       alignItems: 'center',
                       justifyContent: 'center',
                     }
-                  : props.recording?.phase === 'saving'
+                  : props.recording?.phase === 'saving' ||
+                      props.recording?.phase === 'discarding'
                     ? {
                         width: edge.micRecordingSize,
                         height: edge.micRecordingSize,
@@ -354,6 +372,8 @@ function SpeakingVeil({ recording }: { recording: VoiceCaptureDisplayState }) {
   const status =
     recording.phase === 'starting'
       ? 'opening microphone…'
+      : recording.phase === 'discarding'
+        ? 'letting it go…'
       : recording.phase === 'saving'
         ? 'keeping it…'
         : recording.transcript;
@@ -402,9 +422,11 @@ function SpeakingVeil({ recording }: { recording: VoiceCaptureDisplayState }) {
             style={[type({ size: 12, width: 90, color: ink.meta }), { marginLeft: 'auto' }]}
           >
             {recording.phase === 'starting'
-              ? 'tap to cancel'
+              ? 'discard if you changed your mind'
               : recording.phase === 'saving'
                 ? 'audio is safe first'
+                : recording.phase === 'discarding'
+                  ? 'nothing will be kept'
                 : 'tap again to keep it'}
           </Text>
         </View>

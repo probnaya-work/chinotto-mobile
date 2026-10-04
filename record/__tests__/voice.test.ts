@@ -18,11 +18,12 @@ function harness(options: { filesPresent?: boolean } = {}) {
 
   const started: { audioFileName: string }[] = [];
   const deleted: string[] = [];
+  const stopped = jest.fn();
   const engine: VoiceEngine = {
     start: async (opts) => {
       started.push(opts);
     },
-    stop: () => {},
+    stop: stopped,
     subscribe: () => () => {},
   };
 
@@ -46,6 +47,7 @@ function harness(options: { filesPresent?: boolean } = {}) {
     voice,
     started,
     deleted,
+    stopped,
     tick: (ms: number) => {
       clock += ms;
     },
@@ -83,6 +85,27 @@ describe('voice capture', () => {
     // It is in the record, and it is not blank-looking nonsense: it is a recording.
     expect((await h.store.loadRecord()).map((x) => x.id)).toContain(id);
     expect(h.deleted).toEqual([]);
+    h.db.close();
+  });
+
+  it('discards the file and creates no fragment when somebody changes their mind', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const { id, audioPath } = await h.voice.start();
+
+    h.voice.cancel();
+    const outcome = await h.voice.settle(
+      'words that should disappear',
+      { path: audioPath, durationMs: 4200 },
+      undefined,
+      'on_device'
+    );
+
+    expect(outcome).toEqual({ kind: 'cancelled' });
+    expect(h.stopped).toHaveBeenCalledTimes(1);
+    expect(h.deleted).toEqual([audioPath]);
+    expect(await h.store.getFragment(id)).toBeNull();
+    expect(await h.store.loadRecord()).toEqual([]);
     h.db.close();
   });
 

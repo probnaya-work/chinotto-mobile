@@ -38,6 +38,7 @@ const defaults = {
   voice: {
     start: jest.fn(async () => false),
     stop: jest.fn(async () => {}),
+    cancel: jest.fn(async () => {}),
     state: null,
     permission: 'ask' as 'granted' | 'ask' | 'denied',
     openSystemSettings: jest.fn(),

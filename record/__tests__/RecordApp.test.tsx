@@ -42,6 +42,7 @@ const defaults = {
   voice: {
     start: jest.fn(async () => true),
     stop: jest.fn(async () => {}),
+    cancel: jest.fn(async () => {}),
     state: null,
     permission: 'granted' as const,
     openSystemSettings: jest.fn(),
@@ -252,6 +253,28 @@ describe('the record surface', () => {
     h.db.close();
   });
 
+  it('offers a quiet discard action that does not save the recording', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const voice = {
+      ...defaults.voice,
+      stop: jest.fn(async () => {}),
+      cancel: jest.fn(async () => {}),
+      state: { phase: 'listening' as const, seconds: 3, transcript: 'not this one', level: 0.4 },
+    };
+    await mount(h, { voice });
+
+    expect(screen.getByText('discard')).toBeTruthy();
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('discard recording'));
+      await Promise.resolve();
+    });
+
+    expect(voice.cancel).toHaveBeenCalledTimes(1);
+    expect(voice.stop).not.toHaveBeenCalled();
+    h.db.close();
+  });
+
   it('honours a stop tap while the microphone is still opening', async () => {
     const h = harness();
     await migrate(h.db);
@@ -304,6 +327,53 @@ describe('the record surface', () => {
     // And it is ended again, as if the release had waited — rather than running on until
     // something else was pressed.
     expect(voice.stop).toHaveBeenCalledTimes(2);
+    h.db.close();
+  });
+
+  it('marks a recording discarded even while the microphone is still opening', async () => {
+    const h = harness();
+    await migrate(h.db);
+
+    let release: (() => void) | null = null;
+    const opening = new Promise<boolean>((resolve) => {
+      release = () => resolve(true);
+    });
+    const voice = {
+      ...defaults.voice,
+      start: jest.fn(() => opening),
+      stop: jest.fn(async () => {}),
+      cancel: jest.fn(async () => {}),
+    };
+    const view = await mount(h, { voice });
+
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('start recording'));
+      await Promise.resolve();
+      view.rerender(
+        <RecordApp
+          store={h.store}
+          bridge={h.bridge}
+          {...defaults}
+          voice={{ ...voice, state: { phase: 'starting', seconds: 0, transcript: '', level: 0 } }}
+        />
+      );
+      await Promise.resolve();
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('discard recording'));
+      await Promise.resolve();
+    });
+
+    // The capture is marked discarded before native code can race back with a final file.
+    expect(voice.cancel).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      release?.();
+      await opening;
+      await Promise.resolve();
+    });
+    // And the stop is repeated once the microphone really exists.
+    expect(voice.cancel).toHaveBeenCalledTimes(2);
+    expect(voice.stop).not.toHaveBeenCalled();
     h.db.close();
   });
 

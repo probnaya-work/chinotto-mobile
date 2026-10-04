@@ -54,10 +54,11 @@ export type RecordAppProps = {
   /** False on a warm resume, so the lockup plays once per cold start and no more. */
   coldStart: boolean;
   onOpenSettings: () => void;
-  /** Tap-to-record. The second tap stops and keeps the captured audio. */
+  /** Tap-to-record. The circle keeps the captured audio; discard leaves no moment behind. */
   voice: {
     start: () => Promise<boolean>;
     stop: () => Promise<void>;
+    cancel: () => Promise<void>;
     state: VoiceCaptureDisplayState | null;
     permission: 'granted' | 'ask' | 'denied';
     openSystemSettings: () => void;
@@ -235,7 +236,7 @@ export function RecordApp(props: RecordAppProps) {
    * after `start()` settles as well.
    */
   const openingVoice = useRef<Promise<boolean> | null>(null);
-  const stopAfterOpen = useRef(false);
+  const finishAfterOpen = useRef<'keep' | 'discard' | null>(null);
 
   const startRecording = useCallback(async () => {
     if (openingVoice.current || props.voice.state) return;
@@ -262,15 +263,23 @@ export function RecordApp(props: RecordAppProps) {
     openingVoice.current = opening;
     const started = await opening;
     if (openingVoice.current === opening) openingVoice.current = null;
-    if (stopAfterOpen.current) {
-      stopAfterOpen.current = false;
-      if (started) await props.voice.stop();
+    const finish = finishAfterOpen.current;
+    finishAfterOpen.current = null;
+    if (started && finish) {
+      await (finish === 'discard' ? props.voice.cancel() : props.voice.stop());
     }
   }, [props.voice]);
 
   const stopRecording = useCallback(async () => {
-    if (openingVoice.current) stopAfterOpen.current = true;
+    if (openingVoice.current) finishAfterOpen.current = 'keep';
     await props.voice.stop();
+  }, [props.voice]);
+
+  const cancelRecording = useCallback(async () => {
+    // Mark it discarded now, before a fast native final can arrive, then repeat after a
+    // pending open so a microphone that was not live yet is also actually stopped.
+    if (openingVoice.current) finishAfterOpen.current = 'discard';
+    await props.voice.cancel();
   }, [props.voice]);
 
   /**
@@ -532,6 +541,7 @@ export function RecordApp(props: RecordAppProps) {
         voice={capabilities.voice}
         onStartRecording={() => void startRecording()}
         onStopRecording={stopRecording}
+        onCancelRecording={cancelRecording}
         notices={notices}
         keyboardInset={keyboardInset}
         onHeightChange={setEdgeHeight}

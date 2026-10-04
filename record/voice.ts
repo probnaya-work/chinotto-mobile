@@ -78,6 +78,8 @@ export type VoiceDeps = {
 
 export type VoiceOutcome =
   | { kind: 'kept'; material: Material }
+  /** Explicitly discarded before it could become a fragment. */
+  | { kind: 'cancelled' }
   /** Under 0.8s. Dropped without comment, as the prototype does. */
   | { kind: 'too-short' }
   /** Nothing reached disk and nothing was heard: there is nothing to keep. */
@@ -91,6 +93,7 @@ export function createVoiceCapture(deps: VoiceDeps) {
 
   let pendingId: string | null = null;
   let pendingPath: string | null = null;
+  let cancelledId: string | null = null;
 
   /**
    * Opens a recording. The id and the path are decided here, before the microphone is
@@ -113,12 +116,23 @@ export function createVoiceCapture(deps: VoiceDeps) {
         pendingId = null;
         pendingPath = null;
       }
+      if (cancelledId === id) cancelledId = null;
       removeFile(audioPath);
       throw error;
     }
   }
 
   function stop(): void {
+    deps.engine.stop();
+  }
+
+  /**
+   * Ends the native session but marks this capture as somebody changing their mind. The
+   * native side still closes and reports the file normally; `settle` is where that file is
+   * deleted, before any fragment can be created from it.
+   */
+  function cancel(): void {
+    if (pendingId) cancelledId = pendingId;
     deps.engine.stop();
   }
 
@@ -137,10 +151,18 @@ export function createVoiceCapture(deps: VoiceDeps) {
   ): Promise<VoiceOutcome> {
     const id = pendingId;
     const path = pendingPath;
+    const cancelled = id !== null && cancelledId === id;
     pendingId = null;
     pendingPath = null;
+    if (cancelled) cancelledId = null;
 
     if (!id) return { kind: 'nothing' };
+
+    if (cancelled) {
+      if (path) removeFile(path);
+      if (audio?.path && audio.path !== path) removeFile(audio.path);
+      return { kind: 'cancelled' };
+    }
 
     let spoken = text.trim();
     let recognitionResult = recognition;
@@ -236,7 +258,7 @@ export function createVoiceCapture(deps: VoiceDeps) {
     return false;
   }
 
-  return { start, stop, settle, verifyAudio };
+  return { start, stop, cancel, settle, verifyAudio };
 }
 
 export type VoiceCapture = ReturnType<typeof createVoiceCapture>;

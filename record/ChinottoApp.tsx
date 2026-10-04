@@ -444,7 +444,9 @@ export function ChinottoApp({ services }: { services: Services }) {
       },
       onTranscriptFinal: (text, _reason, audio, failure, recognition) => {
         setRecording((current) =>
-          current ? { ...current, phase: 'saving', level: 0 } : current
+          current && current.phase !== 'discarding'
+            ? { ...current, phase: 'saving', level: 0 }
+            : current
         );
         void voice
           .settle(text, audio, failure, recognition ?? null)
@@ -502,6 +504,13 @@ export function ChinottoApp({ services }: { services: Services }) {
       current ? { ...current, phase: 'saving', level: 0 } : current
     );
     voice.stop();
+  }, [voice]);
+
+  const cancelVoice = useCallback(async () => {
+    setRecording((current) =>
+      current ? { ...current, phase: 'discarding', level: 0 } : current
+    );
+    voice.cancel();
   }, [voice]);
 
   /* --------------------------------------------------------------------- share */
@@ -640,6 +649,7 @@ export function ChinottoApp({ services }: { services: Services }) {
         voice={{
           start: startVoice,
           stop: stopVoice,
+          cancel: cancelVoice,
           state: recording,
           permission: services.microphonePermission(),
           openSystemSettings: services.openSystemSettings,
