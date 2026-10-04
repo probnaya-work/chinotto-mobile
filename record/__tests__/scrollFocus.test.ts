@@ -1,6 +1,6 @@
 import type { ViewToken } from 'react-native';
 
-import { scrollFocusFromViewable } from '../ui/RecordList';
+import { scrollFocusFromViewable, scrollFocusMotionTarget } from '../ui/RecordList';
 import type { Row } from '../ui/rows';
 
 const moment = (key: string): Row =>
@@ -40,5 +40,12 @@ describe('scrollFocusFromViewable', () => {
         token(moment('only'), 6),
       ])
     ).toEqual({ activeKey: 'only', aboveKey: null, belowKey: null });
+  });
+
+  it('forms a visible typographic wave without a background treatment', () => {
+    expect(scrollFocusMotionTarget('active')).toEqual({ scale: 1.095, translateY: 0 });
+    expect(scrollFocusMotionTarget('above')).toEqual({ scale: 1.025, translateY: -6 });
+    expect(scrollFocusMotionTarget('below')).toEqual({ scale: 1.025, translateY: 6 });
+    expect(scrollFocusMotionTarget('none')).toEqual({ scale: 1, translateY: 0 });
   });
 });

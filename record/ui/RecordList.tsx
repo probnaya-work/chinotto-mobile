@@ -126,6 +126,20 @@ export function scrollFocusFromViewable(
 
 type ScrollFocusRole = 'none' | 'active' | 'above' | 'below';
 
+/**
+ * A typographic wave, not a selection treatment.
+ *
+ * The active thought gains roughly two visual points at the common D0/D1 sizes. Its two
+ * neighbours carry a much smaller echo and move away just enough to give the enlarged words
+ * air. Scaling from the leading edge keeps the record's left rhythm still while scrolling.
+ */
+export function scrollFocusMotionTarget(role: ScrollFocusRole) {
+  return {
+    scale: role === 'active' ? 1.095 : role === 'above' || role === 'below' ? 1.025 : 1,
+    translateY: role === 'above' ? -6 : role === 'below' ? 6 : 0,
+  };
+}
+
 function ScrollFocusMotion({
   role,
   children,
@@ -133,33 +147,39 @@ function ScrollFocusMotion({
   role: ScrollFocusRole;
   children: React.ReactNode;
 }) {
-  const scale = useRef(new Animated.Value(role === 'active' ? 1.022 : 1)).current;
-  const translateY = useRef(
-    new Animated.Value(role === 'above' ? -4 : role === 'below' ? 4 : 0)
-  ).current;
+  const initial = scrollFocusMotionTarget(role);
+  const scale = useRef(new Animated.Value(initial.scale)).current;
+  const translateY = useRef(new Animated.Value(initial.translateY)).current;
 
   useEffect(() => {
+    const target = scrollFocusMotionTarget(role);
     const spring = {
-      damping: 22,
-      stiffness: 230,
-      mass: 0.7,
+      damping: 24,
+      stiffness: 190,
+      mass: 0.65,
       useNativeDriver: true,
     } as const;
 
     Animated.parallel([
       Animated.spring(scale, {
         ...spring,
-        toValue: role === 'active' ? 1.022 : 1,
+        toValue: target.scale,
       }),
       Animated.spring(translateY, {
         ...spring,
-        toValue: role === 'above' ? -4 : role === 'below' ? 4 : 0,
+        toValue: target.translateY,
       }),
     ]).start();
   }, [role, scale, translateY]);
 
   return (
-    <Animated.View style={{ transform: [{ translateY }, { scale }] }}>
+    <Animated.View
+      style={{
+        zIndex: role === 'active' ? 1 : 0,
+        transformOrigin: 'left center',
+        transform: [{ translateY }, { scale }],
+      }}
+    >
       {children}
     </Animated.View>
   );
