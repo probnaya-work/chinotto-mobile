@@ -325,26 +325,29 @@ function Root(props: SettingsProps & { capabilities: PlatformCapabilities }) {
         <View
           style={{
             borderTopWidth: 1,
-            borderTopColor: rule.hair,
-            paddingTop: 11,
+            borderTopColor: rule.line,
+            marginTop: 5,
+            marginHorizontal: -24,
+            paddingTop: 14,
+            paddingHorizontal: 24,
             flexDirection: 'row',
-            alignItems: 'flex-end',
+            alignItems: 'center',
             justifyContent: 'space-between',
             gap: 16,
           }}
         >
           <View style={{ gap: 2 }}>
             <Text
-              style={type({ size: 9, width: 76, tracking: 0.12, color: ink.meta })}
+              style={type({ size: 9, width: 76, tracking: 0.12, color: ink.far })}
             >
               AN INSTRUMENT BY
             </Text>
             <Text
               style={type({
-                size: 15,
+                size: 17,
                 width: 76,
-                tracking: 0.13,
-                color: agency.quiet,
+                tracking: 0.11,
+                color: ink.ink,
               })}
             >
               PROBNAYA
@@ -352,7 +355,7 @@ function Root(props: SettingsProps & { capabilities: PlatformCapabilities }) {
           </View>
           <Text
             style={[
-              type({ size: 9, width: 76, lineHeight: 1.3, tracking: 0.08, color: ink.meta }),
+              type({ size: 9, width: 76, lineHeight: 1.35, tracking: 0.08, color: ink.far }),
               { flex: 1, textAlign: 'right' },
             ]}
           >
