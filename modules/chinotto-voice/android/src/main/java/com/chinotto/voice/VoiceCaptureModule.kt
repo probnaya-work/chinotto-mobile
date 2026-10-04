@@ -172,6 +172,8 @@ class VoiceCaptureModule : Module() {
     private var result: Pair<String, Long>? = null
 
     @Volatile private var heardSpeech = false
+    @Volatile private var currentSegmentHeardAudio = false
+    @Volatile private var phraseBoundaryPending = false
     @Volatile private var idleReported = false
     private val maxDuration = Runnable { finish("max_duration") }
     private var silentMs = 0L
@@ -274,12 +276,19 @@ class VoiceCaptureModule : Module() {
         }
         if (inputRms >= SPEECH_RMS) {
           heardSpeech = true
+          currentSegmentHeardAudio = true
           silentMs = 0
         } else if (!heardSpeech) {
           silentMs += chunkMs
           if (silentMs >= IDLE_NO_SPEECH_MS && !idleReported) {
             idleReported = true
             main.post { finish("idle") }
+          }
+        } else if (currentSegmentHeardAudio && inputRms < SILENCE_RMS) {
+          silentMs += chunkMs
+          if (silentMs >= PHRASE_SILENCE_MS && !phraseBoundaryPending) {
+            phraseBoundaryPending = true
+            main.post { closeRecognitionSegmentAtPause() }
           }
         }
         recordedMs += chunkMs
@@ -370,7 +379,7 @@ class VoiceCaptureModule : Module() {
       // cannot fall into the small gap while the next recogniser starts.
       synchronized(prerollLock) {
         feed = null
-        if (!finishing) {
+        if (!finishing && preroll == null) {
           preroll = mutableListOf()
           prerollBytes = 0
           prerollOverflowed = false
@@ -379,9 +388,11 @@ class VoiceCaptureModule : Module() {
       if (text.isNotBlank()) {
         if (heard.isNotEmpty()) heard.append(' ')
         heard.append(text.trim())
+        sendEvent(PARTIAL_EVENT, mapOf("text" to heard.toString()))
       }
       val noSpeech = error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT
       if (error != null && !noSpeech) recognition = "failed"
+      phraseBoundaryPending = false
 
       // A recogniser that stops at a pause is started again on the audio that follows, as
       // the iPhone restarts its task. One that broke is not: the recording carries on alone.
@@ -393,6 +404,34 @@ class VoiceCaptureModule : Module() {
       synchronized(prerollLock) { preroll = null }
       releaseRecognizer()
       markRecognitionDone()
+    }
+
+    /**
+     * Ends the recogniser's current phrase after acoustic silence without ending capture.
+     * Buffers arriving while Android produces the final phrase are retained as preroll and
+     * fed into the next on-device session, so neither text nor audio can be lost at the seam.
+     */
+    private fun closeRecognitionSegmentAtPause() {
+      if (finishing || capture !== this) {
+        phraseBoundaryPending = false
+        return
+      }
+      val s = session
+      if (s == null) {
+        phraseBoundaryPending = false
+        return
+      }
+      currentSegmentHeardAudio = false
+      silentMs = 0
+      synchronized(prerollLock) {
+        feed = null
+        if (preroll == null) {
+          preroll = mutableListOf()
+          prerollBytes = 0
+          prerollOverflowed = false
+        }
+      }
+      s.finishAudio()
     }
 
     fun finish(why: String) {
@@ -656,8 +695,10 @@ class VoiceCaptureModule : Module() {
     /** The iPhone's limits, kept the same. */
     const val MAX_DURATION_MS = 300_000L
     const val IDLE_NO_SPEECH_MS = 45_000L
-    const val MAX_RESTARTS = 48
+    const val MAX_RESTARTS = 180
     const val SPEECH_RMS = 0.022
+    const val SILENCE_RMS = 0.012
+    const val PHRASE_SILENCE_MS = 1_600L
     const val LEVEL_INTERVAL_MS = 80L
 
     const val PREROLL_MAX_BYTES = SAMPLE_RATE * 2 * 10

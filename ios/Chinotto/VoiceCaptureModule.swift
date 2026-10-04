@@ -73,6 +73,10 @@ final class VoiceCaptureModule: RCTEventEmitter {
   /// Makes callbacks from a task we just replaced harmless to the new task.
   private var recognitionGeneration = 0
   private var heardSpeech = false
+  /// Speech in the recognition segment that is currently receiving audio. This is separate
+  /// from `heardSpeech`, which means the whole recording has heard something and protects
+  /// only the initial no-speech timeout.
+  private var currentSegmentHeardAudio = false
   private var silenceSeconds: Double = 0
   private var isListening = false
   private var isStarting = false
@@ -87,7 +91,11 @@ final class VoiceCaptureModule: RCTEventEmitter {
   private let burstMaxDurationSeconds: TimeInterval = 10
   private let burstSilenceStopSeconds: TimeInterval = 1.25
   private let idleNoSpeechSeconds: TimeInterval = 45
-  private let maxRecognitionRestarts = 48
+  private let maxRecognitionRestarts = 180
+  /// Apple Speech sometimes keeps a task open across a pause, then replaces its partial
+  /// transcript with only the words spoken after that pause. Close just the recognition
+  /// segment first; the microphone and retained recording remain continuous.
+  private let continuousPhraseSilenceSeconds: TimeInterval = 1.6
   private let speechRmsThreshold: Float = 0.022
   private let silenceRmsThreshold: Float = 0.012
 
@@ -411,6 +419,7 @@ final class VoiceCaptureModule: RCTEventEmitter {
     currentSegmentTranscript = ""
     recognitionGeneration = 0
     heardSpeech = false
+    currentSegmentHeardAudio = false
     silenceSeconds = 0
     isFinalizing = false
     didEmitFinal = false
@@ -536,12 +545,18 @@ final class VoiceCaptureModule: RCTEventEmitter {
 
     if rms >= speechRmsThreshold {
       heardSpeech = true
+      currentSegmentHeardAudio = true
       silenceSeconds = 0
     } else if continuousMode {
       if !heardSpeech {
         silenceSeconds += dt
         if silenceSeconds >= idleNoSpeechSeconds {
           finalizeCapture(reason: "idle", errorToEmit: nil)
+        }
+      } else if currentSegmentHeardAudio, rms < silenceRmsThreshold {
+        silenceSeconds += dt
+        if silenceSeconds >= continuousPhraseSilenceSeconds {
+          closeRecognitionSegmentAtPause()
         }
       }
     } else if heardSpeech, rms < silenceRmsThreshold, silenceStopSeconds > 0 {
@@ -584,6 +599,7 @@ final class VoiceCaptureModule: RCTEventEmitter {
         // useful partials. Empty is not a correction: keep the last words of this segment.
         currentSegmentTranscript = live
         heardSpeech = true
+        currentSegmentHeardAudio = true
         silenceSeconds = 0
         let display = composeDisplayTranscript(live: live)
         lastTranscript = display
@@ -596,6 +612,8 @@ final class VoiceCaptureModule: RCTEventEmitter {
         if continuousMode {
           commitSegment(currentSegmentTranscript)
           currentSegmentTranscript = ""
+          currentSegmentHeardAudio = false
+          silenceSeconds = 0
           emitAccumulatedTranscript()
           if !restartRecognitionTask() {
             // A derived convenience may go away; the microphone and retained audio do not.
@@ -615,6 +633,8 @@ final class VoiceCaptureModule: RCTEventEmitter {
       // `isFinal` result. Preserve its partial words and open the next segment either way.
       commitSegment(currentSegmentTranscript)
       currentSegmentTranscript = ""
+      currentSegmentHeardAudio = false
+      silenceSeconds = 0
       emitAccumulatedTranscript()
       if continuousMode, restartRecognitionTask() {
         return
@@ -628,12 +648,38 @@ final class VoiceCaptureModule: RCTEventEmitter {
     }
   }
 
+  /// Ends only the current Speech request after a real acoustic pause. Audio capture never
+  /// stops, so thinking for a few seconds cannot erase the words before the pause or create
+  /// a hole in the retained recording.
+  private func closeRecognitionSegmentAtPause() {
+    guard
+      continuousMode,
+      isListening,
+      !isFinalizing,
+      currentSegmentHeardAudio,
+      recognizer != nil,
+      task != nil
+    else { return }
+    currentSegmentHeardAudio = false
+    silenceSeconds = 0
+    commitSegment(currentSegmentTranscript)
+    currentSegmentTranscript = ""
+    emitAccumulatedTranscript()
+    if !restartRecognitionTask() {
+      recognition = .failed
+      disableRecognition()
+    }
+  }
+
   /// Keeps mic/engine running; starts a fresh recognition request for the next phrase.
   private func restartRecognitionTask() -> Bool {
     guard continuousMode, isListening, !isFinalizing, let speechRec = recognizer else { return false }
     guard recognitionRestartCount < maxRecognitionRestarts else { return false }
     recognitionRestartCount += 1
 
+    // Invalidate the old callbacks before cancelling. `cancel()` may synchronously enqueue
+    // its terminal callback; it must not restart or clear the fresh segment.
+    recognitionGeneration += 1
     task?.cancel()
     task = nil
     request?.endAudio()
@@ -758,6 +804,7 @@ final class VoiceCaptureModule: RCTEventEmitter {
     committedTranscript = ""
     currentSegmentTranscript = ""
     heardSpeech = false
+    currentSegmentHeardAudio = false
     silenceSeconds = 0
     recognitionRestartCount = 0
 

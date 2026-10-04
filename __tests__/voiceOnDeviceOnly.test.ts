@@ -114,6 +114,10 @@ describe('iOS voice recognition stays on the device', () => {
   });
 
   it('turns a spoken pause into a fresh segment, never the end of capture', () => {
+    const audio = bodyOf('private func processAudioBuffer(');
+    expect(audio).toContain('continuousPhraseSilenceSeconds');
+    expect(audio).toContain('closeRecognitionSegmentAtPause()');
+
     const recognition = bodyOf('private func processRecognition(');
     expect(recognition).toContain('guard generation == recognitionGeneration else { return }');
     expect(recognition).toContain('if !liveTrimmed.isEmpty {');
@@ -122,6 +126,7 @@ describe('iOS voice recognition stays on the device', () => {
     expect(recognition).not.toContain('finalizeCapture(reason: "segment_end"');
 
     const restart = bodyOf('private func restartRecognitionTask()');
+    expect(restart.indexOf('recognitionGeneration += 1')).toBeLessThan(restart.indexOf('task?.cancel()'));
     expect(restart).toContain('return attached');
     const attach = bodyOf('private func attachRecognitionTask(');
     expect(attach).toContain('generation: generation');

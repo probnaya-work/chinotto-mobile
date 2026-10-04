@@ -119,12 +119,18 @@ describe('Android voice recognition stays on the device', () => {
 
   it('keeps audio between recognition segments when a pause ends one session', () => {
     const module = code('VoiceCaptureModule.kt');
+    const loop = bodyOf(module, 'private fun readLoop(');
     const handOn = bodyOf(module, 'private fun handOn(');
     const ended = bodyOf(module, 'private fun onSessionEnded(');
+    const boundary = bodyOf(module, 'private fun closeRecognitionSegmentAtPause()');
+    expect(loop).toContain('PHRASE_SILENCE_MS');
+    expect(loop).toContain('closeRecognitionSegmentAtPause()');
     expect(handOn).toContain('synchronized(prerollLock)');
     expect(ended).toContain('preroll = mutableListOf()');
     expect(ended).toContain('startSession(flushPreroll = true)');
     expect(ended).not.toContain('startSession(flushPreroll = false)');
+    expect(boundary).toContain('feed = null');
+    expect(boundary).toContain('s.finishAudio()');
   });
 
   it('asks for the microphone only when somebody taps the circle', () => {
