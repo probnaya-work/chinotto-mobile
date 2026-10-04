@@ -14,6 +14,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AppState,
+  Platform,
   Pressable,
   StatusBar,
   Text,
@@ -39,6 +40,8 @@ import { agency, frame, ink, SURFACE } from './ui/tokens';
 import { hasFoundSettings, rememberFoundSettings } from './pullHint';
 import { type } from './ui/type';
 import { useRecord } from './useRecord';
+import { recordBackStep } from './back';
+import { capabilitiesFor, type PlatformCapabilities } from './platform';
 import { displayText, firstLine, type Material } from './model/material';
 import { dayLabel, fmtTime, monthLabel } from './model/time';
 import type { RecordBridge } from './bridge';
@@ -85,10 +88,53 @@ export type RecordAppProps = {
     onUpdate: () => void;
     onLater: () => void;
   };
+  /** What this phone can do. Defaults to the platform's own answer. */
+  capabilities?: PlatformCapabilities;
+  /**
+   * Where the app's back handler reaches the record's own layers. Set on every render to a
+   * function that puts away the top-most one and says whether there was one. See `back.ts`.
+   */
+  backRef?: React.MutableRefObject<(() => boolean) | null>;
 };
 
 export function RecordApp(props: RecordAppProps) {
   const record = useRecord(props.store, props.bridge, undefined, props.audio);
+  const capabilities = props.capabilities ?? capabilitiesFor(Platform.OS);
+
+  if (props.backRef) {
+    props.backRef.current = () => {
+      const step = recordBackStep({
+        yearsOpen: record.yearsOpen,
+        focusOpen: Boolean(record.focus),
+        correcting: record.editingId !== null,
+        continuing: record.continuing,
+        anchored: Boolean(record.anchor),
+        selected: record.selectedId !== null,
+      });
+      switch (step) {
+        case 'close-years':
+          record.setYearsOpen(false);
+          return true;
+        case 'cancel-correction':
+          record.cancelCorrection();
+          return true;
+        case 'stop-continue':
+          record.stopContinue();
+          return true;
+        case 'close-focus':
+          record.setFocusId(null);
+          return true;
+        case 'clear-anchor':
+          record.clearAnchor();
+          return true;
+        case 'clear-selection':
+          record.setSelectedId(null);
+          return true;
+        default:
+          return false;
+      }
+    };
+  }
   const reducedMotion = useReducedMotion();
   const keyboardInset = useKeyboardInset();
 
@@ -184,9 +230,9 @@ export function RecordApp(props: RecordAppProps) {
   /* -------------------------------------------------------------------- voice */
 
   /**
-   * A second tap may arrive while iOS is still opening the microphone or showing its first
-   * permission prompt. `stop()` is harmless before the engine starts, but it cannot stop a
-   * future engine, so the intent is replayed after `start()` settles as well.
+   * A second tap may arrive while the phone is still opening the microphone or showing its
+   * first permission prompt. `stop()` cannot stop a future engine, so the intent is replayed
+   * after `start()` settles as well.
    */
   const openingVoice = useRef<Promise<boolean> | null>(null);
   const stopAfterOpen = useRef(false);
@@ -223,8 +269,6 @@ export function RecordApp(props: RecordAppProps) {
   }, [props.voice]);
 
   const stopRecording = useCallback(async () => {
-    // Ask now, then ask once more after a pending start. This closes the permission-prompt
-    // race without requiring somebody to notice that the circle kept listening.
     if (openingVoice.current) stopAfterOpen.current = true;
     await props.voice.stop();
   }, [props.voice]);
@@ -237,6 +281,8 @@ export function RecordApp(props: RecordAppProps) {
   useEffect(() => {
     if (!props.voiceOnOpen) return;
     props.onVoiceOnOpenHandled?.();
+    // A link asking for listening, on a phone that cannot listen, opens the edge for typing.
+    if (!capabilities.voice) return;
     const id = setTimeout(() => {
       if (props.voice.state) void stopRecording();
       else void startRecording();
@@ -253,9 +299,9 @@ export function RecordApp(props: RecordAppProps) {
       kind: 'mic',
       text:
         micNotice === 'denied'
-          ? 'chinotto can’t hear — the microphone is off for it in ios settings.'
-          : 'ios will ask once whether chinotto may hear you.',
-      // Nothing to offer while iOS is the one asking — the notice is saying what is about
+          ? `chinotto can’t hear — the microphone is off for it in ${capabilities.systemName} settings.`
+          : `${capabilities.systemName} will ask once whether chinotto may hear you.`,
+      // Nothing to offer while the system is the one asking — the notice is saying what is about
       // to happen, not standing in front of it.
       action: micNotice === 'denied' ? 'open settings ›' : undefined,
       onAction:
@@ -378,6 +424,7 @@ export function RecordApp(props: RecordAppProps) {
 
       <RecordList
         keyboardInset={keyboardInset}
+        voice={capabilities.voice}
         edgeHeight={edgeHeight}
         rows={record.rows}
         now={record.now}
@@ -482,6 +529,7 @@ export function RecordApp(props: RecordAppProps) {
         findSummary={record.findSummaryText}
         onToggleMeaning={record.toggleMeaning}
         recording={props.voice.state}
+        voice={capabilities.voice}
         onStartRecording={() => void startRecording()}
         onStopRecording={stopRecording}
         notices={notices}

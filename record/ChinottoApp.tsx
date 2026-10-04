@@ -19,7 +19,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Linking, Platform, View } from 'react-native';
+import { AppState, BackHandler, Linking, Platform, View } from 'react-native';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 
@@ -56,6 +56,8 @@ import { refreshWidgetThoughtsFromLocalDb } from '../widgets/widgetThoughtsBridg
 import { firstLine, type Material } from './model/material';
 import { dayLabel, fmtTime, monthLabel } from './model/time';
 import { urlKey } from './urlKey';
+import { appBackStep } from './back';
+import { capabilitiesFor, type PlatformCapabilities } from './platform';
 import type { RecordDb } from './db';
 
 export type Services = {
@@ -98,6 +100,8 @@ export type Services = {
   /** Payloads from the share extension, or null when the app was not opened by one. */
   incomingShare: SharePayloadLike[] | null;
   onShareHandled: () => void;
+  /** What this phone can do. Defaults to the platform's own answer. */
+  capabilities?: PlatformCapabilities;
   /** The legacy sync hooks the bridge needs. Omitted when sync is not configured. */
   legacy?: {
     enqueue: (db: RecordDb, entry: { id: string; text: string; createdAt: string }) => Promise<void>;
@@ -112,6 +116,7 @@ type Surface =
   | { kind: 'widget' };
 
 export function ChinottoApp({ services }: { services: Services }) {
+  const capabilities = services.capabilities ?? capabilitiesFor(Platform.OS);
   const [fontsReady, setFontsReady] = useState(false);
   const [surface, setSurface] = useState<Surface>({ kind: 'record' });
   const [share, setShare] = useState<ShareIntake | null>(null);
@@ -235,11 +240,12 @@ export function ChinottoApp({ services }: { services: Services }) {
 
   /**
    * Recordings waiting for words, read back on this iPhone when it can — see
-   * `record/transcripts.ts`. Only where the platform offers local recognition at all.
+   * `record/transcripts.ts`. Only where the platform offers local recognition at all —
+   * never on a phone without voice, where the native module is absent by design.
    */
   const transcripts = useMemo(() => {
     const { localStatus, transcribeFile } = services.voiceEngine;
-    if (!localStatus || !transcribeFile) return null;
+    if (!capabilities.voice || !localStatus || !transcribeFile) return null;
     return createTranscriptRetry({
       db: services.db,
       store,
@@ -247,7 +253,7 @@ export function ChinottoApp({ services }: { services: Services }) {
       transcribe: transcribeFile,
       fileExists: recordFileExists,
     });
-  }, [services.db, services.voiceEngine, store]);
+  }, [capabilities.voice, services.db, services.voiceEngine, store]);
 
   useEffect(() => {
     if (!transcripts) return;
@@ -443,11 +449,7 @@ export function ChinottoApp({ services }: { services: Services }) {
         void voice
           .settle(text, audio, failure, recognition ?? null)
           .then((outcome) => {
-            // Only when something was actually kept. A recording too short to be a thought
-            // is not a thought that landed.
             if (outcome.kind === 'kept') thoughtLanded();
-            // This iPhone just recognised locally, so anything still waiting for words need
-            // not wait out a backoff from when it could not.
             if (recognition === 'on_device' && transcripts) {
               transcripts.reset();
               void transcripts.run();
@@ -568,6 +570,53 @@ export function ChinottoApp({ services }: { services: Services }) {
     return () => sub.remove();
   }, []);
 
+  /* --------------------------------------------------------------------- back */
+
+  /**
+   * Android's back gesture puts away whatever is in front, one layer at a time: this app's
+   * overlays first, then the record's own. See `back.ts`. With nothing in front it is not
+   * consumed, and the system leaves the app as it always does.
+   *
+   * Read through a ref so the one listener always sees the current state, rather than being
+   * re-registered — and so re-ordered — on every change.
+   */
+  const recordBack = useRef<(() => boolean) | null>(null);
+  const onBack = useRef<() => boolean>(() => false);
+  onBack.current = () => {
+    const step = appBackStep({
+      syncOpen: sync.open,
+      share: share !== null,
+      surface: surface.kind,
+      settingsPage: surface.kind === 'settings' ? surface.page : null,
+    });
+    switch (step) {
+      case 'close-sync':
+        sync.setOpen(false);
+        sync.cancelConfirm();
+        account.leave();
+        return true;
+      case 'close-share':
+        setShare(null);
+        return true;
+      case 'close-widget':
+        setSurface({ kind: 'settings', page: 'root' });
+        return true;
+      case 'settings-root':
+        setSurface({ kind: 'settings', page: 'root' });
+        setDeleteArmed(false);
+        return true;
+      case 'close-settings':
+        setSurface({ kind: 'record' });
+        return true;
+      default:
+        return recordBack.current?.() ?? false;
+    }
+  };
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => onBack.current());
+    return () => sub.remove();
+  }, []);
+
   /* --------------------------------------------------------------------- gate */
 
   if (services.update.forced) {
@@ -602,7 +651,9 @@ export function ChinottoApp({ services }: { services: Services }) {
           services.onVoiceOnOpenHandled();
         }}
         changedAt={changedAt}
-        sync={{ notice: sync.notice, onOpen: openSync }}
+        capabilities={capabilities}
+        backRef={recordBack}
+        sync={{ notice: capabilities.syncSetup ? sync.notice : null, onOpen: openSync }}
         update={{
           soft: services.update.soft && !updateDismissed,
           availableVersion: services.update.availableVersion,
@@ -626,6 +677,7 @@ export function ChinottoApp({ services }: { services: Services }) {
           onOpenSync={openSync}
           sync={sync}
           services={services}
+          capabilities={capabilities}
           icon={services.icon}
           setIcon={services.onPickIcon}
           analyticsOn={analyticsOn}
@@ -739,6 +791,7 @@ function SettingsSurface(props: {
   onOpenSync: () => void;
   sync: ReturnType<typeof useSyncSurface>;
   services: Services;
+  capabilities: PlatformCapabilities;
   icon: 'dark' | 'light';
   setIcon: (v: 'dark' | 'light') => void;
   analyticsOn: boolean;
@@ -775,7 +828,7 @@ function SettingsSurface(props: {
       onOpenSync={props.onOpenSync}
       icon={props.icon}
       onPickIcon={props.setIcon}
-      micLine={settingsCopy.microphone(permission)}
+      micLine={settingsCopy.microphone(permission, props.capabilities.systemName)}
       micDenied={permission === 'denied'}
       onOpenSystemSettings={props.services.openSystemSettings}
       onSeeWidget={props.onSeeWidget}
@@ -788,13 +841,17 @@ function SettingsSurface(props: {
       onOpenManifesto={() => props.setPage('manifesto')}
       version={props.services.update.version}
       updateLine={
-        props.services.update.soft && props.services.update.availableVersion
-          ? `${props.services.update.availableVersion} is in the app store`
-          : 'up to date'
+        // Without an update check there is nothing to say about updates, so nothing is said.
+        !props.capabilities.updateGate
+          ? null
+          : props.services.update.soft && props.services.update.availableVersion
+            ? `${props.services.update.availableVersion} is in the app store`
+            : 'up to date'
       }
       deleteArmed={props.deleteArmed}
       deleteBusy={props.deleteBusy}
       deleteError={props.deleteError}
+      capabilities={props.capabilities}
       onDeleteStep={() => {
         // Armed first, then done. The second press is the one that deletes, and it runs the
         // existing v1 path — Firestore, then the Firebase user, then the local sync state.

@@ -241,6 +241,8 @@ describe('the record surface', () => {
       await Promise.resolve();
     });
 
+    // The same element, still there. Drawing the speaking state as a different Pressable
+    // unmounted the one the finger was on, and the release landed on nothing.
     expect(circle.props.accessibilityLabel).toBe('stop and save recording');
     await act(async () => {
       fireEvent.press(circle);

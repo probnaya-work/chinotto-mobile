@@ -1,5 +1,5 @@
 /**
- * Reading retained recordings back as words, later, on this iPhone only.
+ * Reading retained recordings back as words, later, on this phone only.
  *
  * A recording made while this iPhone had no local recogniser for the language — or before
  * speech recognition was allowed — keeps its audio and has no words. Nothing is sent
@@ -25,10 +25,14 @@
  */
 
 import type { RecordDb } from './db';
+import { LOCAL_READING_MODEL } from './onDeviceModel';
 import type { RecordStore } from './store';
 
-/** The only label a machine transcript made on this phone carries: recognised locally. */
-export const ON_DEVICE_MODEL = 'ios-on-device';
+/**
+ * The only label a machine transcript made on this phone carries: recognised locally.
+ * `ios-on-device` on the iPhone, `android-on-device` on Android.
+ */
+export const ON_DEVICE_MODEL = LOCAL_READING_MODEL;
 
 /**
  * What older builds wrote, which may have been recognised on Apple's servers. Transcripts

@@ -1,6 +1,7 @@
 describe('NativeVoiceCapture', () => {
   afterEach(() => {
     jest.resetModules();
+    jest.dontMock('../voiceNative');
   });
 
   it('reports unsupported off iOS or without native module', () => {
@@ -66,16 +67,19 @@ describe('NativeVoiceCapture', () => {
 
   it('forwards a bounded real microphone level', () => {
     const listeners: Record<string, (e: unknown) => void> = {};
-    jest.doMock('react-native', () => ({
-      NativeModules: { VoiceCaptureModule: { start: jest.fn() } },
-      NativeEventEmitter: jest.fn().mockImplementation(() => ({
-        addListener: (name: string, fn: (e: unknown) => void) => {
-          listeners[name] = fn;
-          return { remove: () => {} };
+    const module = { start: jest.fn() };
+    jest.doMock('../voiceNative', () => ({
+      voiceNative: () => ({
+        module,
+        emitter: {
+          addListener: (name: string, fn: (e: unknown) => void) => {
+            listeners[name] = fn;
+            return { remove: () => {} };
+          },
         },
-      })),
-      Platform: { OS: 'ios' },
+      }),
     }));
+    jest.doMock('react-native', () => ({ Platform: { OS: 'android' } }));
     const { subscribeVoiceCapture } = require('../NativeVoiceCapture') as typeof import('../NativeVoiceCapture');
     const onLevel = jest.fn();
     subscribeVoiceCapture({ onLevel });

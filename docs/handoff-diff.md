@@ -81,11 +81,13 @@ derivable offline and is not implemented. The layout holds the longest plausible
 
 ### 1.7 "apple id only" vs. shipped Google sign-in
 
-The sync sheet says *"apple id only. chinotto never sees a password"*. The shipped app signs
-in with Google on Android and supports account linking. The prototype is an iPhone prototype
-and this branch is iOS-first per `AGENTS.md`, so the copy stands **on iOS**. The Android
-provider path is untouched and its copy is not claimed to be designed. Flagged so the sentence
-is not mistaken for a cross-platform product statement.
+The sync sheet says *"apple id only. chinotto never sees a password"*. The copy stands **on
+iOS**, where Apple is the only provider. *Correction (24 sep 2026):* this entry originally said
+the shipped app signs in with Google on Android. It does not — Google sign-in and account
+linking exist only on the unmerged branch `feat/google-auth-account-linking` (5401ce2), and
+`main` has no Google provider anywhere. Android does not offer sync set-up at all; see
+`unspecified-decisions.md` §10. Flagged so the sentence is not mistaken for a cross-platform
+product statement.
 
 ### 1.8 Removal publishes before the undo window closes — **data integrity**
 

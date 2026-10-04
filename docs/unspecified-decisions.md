@@ -257,3 +257,111 @@ Recorded so neither repository drifts by accident.
 | `capture_origin` adds `widget`, `share` | adds `tray` | each platform's own sources; the column is free text on both sides |
 | Audio retained on the phone | audio retained on the Mac | same rule, and neither crosses the wire |
 | No export surface yet | `export_record` + backup | **pending**, not decided (8.1) |
+
+---
+
+## 10. Android
+
+**Opened with `feat/android-foundation` (24 sep 2026).** Android was deferred by `AGENTS.md`
+and the prototype is an iPhone prototype, so nothing in either source says what Android
+should do. What follows is what this branch chose to make the record run there, local-first,
+without redesigning anything — and what it deliberately left undecided.
+
+| # | Decision | Value | Where | Status |
+|---|---|---|---|---|
+| 10.1 | What Android can and cannot offer is one table, asked by the surface | `capabilitiesFor(Platform.OS)`; iOS answers are exactly what the shipping app assumed | `record/platform.ts` | invented |
+| 10.2 | An iOS-only feature is **hidden** on Android, not explained | no sync section, no widget row, no icon picker; the gaps live here, not in the UI | `record/ui/Settings.tsx` | **decided** |
+| 10.3 | ~~The voice circle is not drawn on Android~~ — **superseded by 10.14.** The circle is drawn with the same tap-to-start / tap-to-stop contract as iOS | | `record/ui/Edge.tsx`, `RecordList.tsx` | superseded |
+| 10.4 | Back puts away one layer at a time, top-most first, and never writes | sync · share · widget · settings page · settings · years · correction · continuation · focus · standing · selection · then the system | `record/back.ts` | invented |
+| 10.5 | The record is framed clear of the system bars by only what exceeds the design's allowance | 54 at the top, 34 at the bottom; a 48dp button bar lifts it 14 | `record/ui/systemInsets.tsx` | invented |
+| 10.6 | The keyboard inset adds back the navigation bar React Native leaves out, less the frame's lift | `ime − systemBars` is what RN reports on API 30+ | `useKeyboardInset.ts` | inferred from RN's `ReactRootView` |
+| 10.7 | Android prebuilds with no native Firebase when `google-services.json` is absent | only Remote Config is native, and a failed fetch already means "no gate" | `app.config.js`, `plugins/withFirebaseAppIosOnly.js` | invented |
+| 10.8 | Four template permissions are blocked, and Play billing with them | `SYSTEM_ALERT_WINDOW`, `WRITE_SETTINGS`, external storage read/write; `com.android.vending.BILLING`, which `react-native-purchases` declares although Android never configures it | `app.json`, `initRevenueCat.ts` | invented |
+| 10.9 | The device is called `this phone` where the platform will not name it | `Constants.deviceName` first, as on iOS | `RecordRoot.tsx` | invented |
+| 10.10 | No update surface on Android — no notice, no forced screen, no `up to date` — until a live Play Store listing exists | `updateGate: false`; settings shows the version alone | `record/platform.ts`, `RecordRoot.tsx` | **decided** |
+| 10.11 | Android loads plain-TrueType copies of the Archivo faces; iOS keeps the files it shipped | `assets/fonts/android/`, chosen by `fontAssets.android.ts` | `record/ui/fontAssets*.ts`, the generator | forced |
+| 10.12 | The Android app always runs in night mode | `AppCompatDelegate.MODE_NIGHT_YES` in `MainApplication.onCreate` | `plugins/withAndroidNightMode.js` | forced |
+| 10.13 | Android draws no default keyboard-focus highlight | `android:defaultFocusHighlightEnabled=false` on the app theme (API 26+); after a hardware key the focused record list was a grey slab until the next touch | `plugins/withAndroidNoFocusHighlight.js` | forced |
+| 10.14 | Android words come only from a recogniser the phone shows cannot reach the network | API 33+; `config_defaultOnDeviceSpeechRecognitionService` belongs to a visible system app that neither requests nor holds `INTERNET`; it lists no online languages; the language is installed. Otherwise the recording is kept, `unavailable` | `modules/chinotto-voice/…/OnDevicePolicy.kt`, `OnDeviceGate.kt` | **decided** (user, 24 sep 2026: "on-device only; save audio without words where Android cannot guarantee it") |
+| 10.15 | No language pack is downloaded on the person's behalf | an installed language, or an installed variant of the same language (`en-GB` phone, `en-US` pack) | `OnDevicePolicy.chooseLanguage` | invented |
+| 10.16 | Android records 16 kHz mono AAC in the same `.m4a` container the Record already stores | `AudioRecord` `VOICE_RECOGNITION` → `MediaCodec` → `MediaMuxer`; the same PCM goes to the recogniser through a pipe | `AacFileWriter.kt`, `PcmFeed.kt` | invented |
+| 10.17 | A read-back is thrown away if anything records while it runs | a recogniser that ignored our audio and opened the microphone would be transcribing the room | `VoiceCaptureModule.FileJob.watchMicrophone` | invented |
+| 10.18 | Android's copy names Android and describes only Android | mic notices and the settings line say `android`; privacy says the words and recordings stay on the phone and exactly when speech becomes words; *why chinotto* is the chinotto.app manifesto less the widget, sync and desktop | `record/platform.ts` | invented — the iPhone keeps its submitted copy |
+
+10.2 keeps the surface minimal: an Android settings page that lists what Android lacks would be
+an internal compatibility checklist shown to the person. The gaps are recorded below instead.
+Nothing core is removed by it — capture, the record, Find, standing, Focus, correction,
+continuation, holding, removal and undo are all unchanged.
+
+10.11 is forced, not chosen. The generated `.ttf` files are WOFF2 inside — the generator saves
+the instancer's output with the WOFF2 source's flavour. CoreText reads that; Android's
+`Typeface` does not, and instead of failing it silently draws Roboto. On an API 36 emulator
+the whole record was Roboto while `getLoadedFonts()` listed all seventeen faces. Converting
+the shared files would have changed the submitted iOS bundle, so Android gets its own
+copies — glyph-for-glyph the same outlines, verified — and Metro's `.android.ts` resolution
+keeps them out of the iOS bundle entirely.
+
+10.12: `userInterfaceStyle: "dark"` needs `expo-system-ui` to reach Android, and that module
+would also add a native iOS dependency. Without it, React Native's edge-to-edge setup takes the
+navigation bar's appearance from the phone: on a light-mode phone, a light strip with grey
+buttons under the ink field, seen with three-button navigation on the emulator. Night mode is
+set for the Android application alone; the gesture handle and the status bar follow it.
+
+10.10: every update surface names a store and offers to open it. There is no Play listing, and
+an `update` that goes nowhere — or a URL invented to fill the gap — is worse than silence. Turn
+it on only once the listing is public and its URL is in Remote Config's `androidStoreUrl`.
+
+10.5 leaves the whole geometry the prototype's. Re-deriving every surface's padding for
+Android would have been a second design; framing the whole record by the excess keeps one.
+
+### What is not on Android yet
+
+| | Why | What it would take |
+|---|---|---|
+| Words on every Android phone | recognition runs only where 10.14 passes: never below Android 13, never where the on-device service could reach the network, never without an installed language. Everywhere else a recording is kept without words | nothing from Chinotto — it follows the phone |
+| Home widget | `expo-widgets` is iOS-only | A Glance or `AppWidgetProvider` widget and a bridge equivalent to `WidgetThoughtsBridge` |
+| Alternate app icon | `AppIconModule` is Swift | Activity aliases — or nothing, since Android themes the monochrome layer itself |
+| Update notice and forced update | no live Play Store listing | the listing, then `updateGate: true` (10.10) |
+| Sync | not missing code — see below | the decisions below |
+
+### Sync on Android — pending, and not this branch's to decide
+
+The sync engine is platform-neutral (Firebase JS SDK, the SQLite outbox, the bridge), and on
+Android it stays exactly as inert as on an iPhone that never signed in: capture queues, nothing
+sends. What cannot be built without a ruling:
+
+1. **Identity.** Android has no Sign in with Apple. The branch `feat/google-auth-account-linking`
+   (5401ce2) has Google sign-in and Apple↔Google linking against the v1 UI; its credential and
+   linking functions are portable, but wiring them decides how an existing Apple user's data
+   reaches Android — sign in with Apple on Android via the web, link Google to the existing
+   `uid`, or keep separate accounts. Existing Apple `uid`s must not change whichever is chosen.
+2. **The Mac.** Desktop signs in with Apple only. An Android user on Google reaches a Mac only
+   if the Mac adds Google or the user links Apple on Android — a Mac change either way.
+3. **Entitlement.** On iOS the sync sheet runs the paywall before sign-in. Whether Android
+   sells Chinotto Pro through Google Play, whether a purchase in one store unlocks the other,
+   and whether the paywall precedes sign-in on Android, are undecided.
+
+### Voice on Android — evaluated (24 sep 2026), then built on the second row (10.14)
+
+The requirement is that the recording never leaves the phone, works offline, and becomes an
+ordinary entry. Every engine that could transcribe it trades against that or against the app:
+
+| Engine | API | Can audio leave the phone? | Offline | Record while transcribing | Size | Can it be verified here? |
+|---|---|---|---|---|---|---|
+| `SpeechRecognizer` (default) | 8+ | **yes** — `EXTRA_PREFER_OFFLINE` "may have no effect" (SDK Javadoc) | not guaranteed | no — it opens the mic itself | 0 | rejected |
+| `createOnDeviceSpeechRecognizer` | 31+ (feeding our own audio via `EXTRA_AUDIO_SOURCE`: 33+) | governed by the phone maker's on-device service, not by Chinotto; the SDK says "on-device" and nothing about the network | by contract; language packs download first (`triggerModelDownload`, 33+) | 33+ only, and only if the service supports `EXTRA_AUDIO_SOURCE` | 0 | no — the API 36 AOSP emulator has no `RecognitionService` at all; needs a physical Pixel/Samsung |
+| whisper.cpp in-process (`whisper.rn`, MIT; weights MIT) | 24+ | no — runs in Chinotto's process; checkable by per-UID traffic | yes | no live partials; transcribes after release | tiny q5_1 32 MB · base q5_1 60 MB (multilingual) | yes |
+| Vosk in-process (`react-native-vosk`, MIT; models Apache-2.0) | 21+ | no | yes | yes, streaming | 31–45 MB **per language**; small-ru WER 23–32 % | yes |
+| A model Chinotto already has | — | — | — | — | desktop has only a text-embedding model (MiniLM), no speech | — |
+
+No engine satisfied privacy, offline, size and device coverage together, so the first pass
+built nothing. The ruling that followed was the iPhone's rule: on-device only, and a
+recording without words where that cannot be guaranteed. The second row is what shipped,
+with the guarantee Android's documentation does not give checked on the phone instead
+(10.14): the network isolation the platform enforces for a package without `INTERNET` —
+which is also how Google describes Private Compute Core, where Pixel's on-device recogniser
+lives — rather than the service's name. The AOSP emulator has no recognition service, so
+there it records and never transcribes; recognition itself needs a physical phone.
+
+The two iOS facts recorded here were since fixed on `main` (on-device only; erasure at the
+permanent boundary) and merged into this branch.

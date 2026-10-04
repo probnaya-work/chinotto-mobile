@@ -18,6 +18,9 @@ expo-env.d.ts
 
 # Native: iOS project is tracked; Android still generated locally (`expo prebuild`) unless added later
 /android
+# Gradle output of local native modules (`modules/*`); their sources are tracked.
+/modules/*/android/build/
+/modules/*/android/.cxx/
 
 # Kotlin
 .kotlin/
@@ -35,6 +38,10 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 *.pem
+
+# Android Firebase config — supplied per machine, never committed. Without it Android still
+# prebuilds, with no native Firebase (see `plugins/withFirebaseAppIosOnly.js`).
+/google-services.json
 
 # Metro
 .metro-health-check*

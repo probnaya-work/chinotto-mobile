@@ -41,7 +41,14 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.chinotto.mobile"
+      "package": "com.chinotto.mobile",
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.WRITE_SETTINGS",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "com.android.vending.BILLING"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -123,6 +130,8 @@
           }
         }
       ],
+      "./plugins/withAndroidNightMode.js",
+      "./plugins/withAndroidNoFocusHighlight.js",
       [
         "./plugins/withIosSplashLogoFixedConstraints.js",
         {

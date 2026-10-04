@@ -56,26 +56,11 @@ export const FACES: Partial<Record<FaceKey, string>> = {
   '400-76-Italic': 'Archivo-400-76-Italic',
 };
 
-/** What `expo-font` loads at launch. */
-export const FONT_ASSETS: Record<string, number> = {
-  'Archivo-400-100': require('../../assets/fonts/Archivo-400-100.ttf'),
-  'Archivo-400-96': require('../../assets/fonts/Archivo-400-96.ttf'),
-  'Archivo-400-94': require('../../assets/fonts/Archivo-400-94.ttf'),
-  'Archivo-400-92': require('../../assets/fonts/Archivo-400-92.ttf'),
-  'Archivo-400-90': require('../../assets/fonts/Archivo-400-90.ttf'),
-  'Archivo-400-88': require('../../assets/fonts/Archivo-400-88.ttf'),
-  'Archivo-400-80': require('../../assets/fonts/Archivo-400-80.ttf'),
-  'Archivo-400-76': require('../../assets/fonts/Archivo-400-76.ttf'),
-  'Archivo-500-96': require('../../assets/fonts/Archivo-500-96.ttf'),
-  'Archivo-540-90': require('../../assets/fonts/Archivo-540-90.ttf'),
-  'Archivo-540-92': require('../../assets/fonts/Archivo-540-92.ttf'),
-  'Archivo-540-94': require('../../assets/fonts/Archivo-540-94.ttf'),
-  'Archivo-400-100-Italic': require('../../assets/fonts/Archivo-400-100-Italic.ttf'),
-  'Archivo-400-94-Italic': require('../../assets/fonts/Archivo-400-94-Italic.ttf'),
-  'Archivo-400-88-Italic': require('../../assets/fonts/Archivo-400-88-Italic.ttf'),
-  'Archivo-400-80-Italic': require('../../assets/fonts/Archivo-400-80-Italic.ttf'),
-  'Archivo-400-76-Italic': require('../../assets/fonts/Archivo-400-76-Italic.ttf'),
-};
+/**
+ * What `expo-font` loads at launch. Per platform — see `fontAssets.ts` and
+ * `fontAssets.android.ts` — because Android cannot read the files iOS loads.
+ */
+export { FONT_ASSETS } from './fontAssets';
 
 /**
  * Falls back one step narrower rather than failing, because a missing instance should look

@@ -70,6 +70,9 @@ export type RecordListProps = {
    */
   keyboardInset: Animated.Value;
 
+  /** Whether the edge has a circle to talk into. The empty record only offers what exists. */
+  voice?: boolean;
+
   /**
    * How much room the edge is taking right now, measured rather than assumed.
    *
@@ -208,7 +211,9 @@ export function RecordList(props: RecordListProps) {
                 color: ink.meta,
               })}
             >
-              type anything, or tap the circle and talk. tap again and it stays.
+              {props.voice === false
+                ? 'type anything. it lands here, and stays.'
+                : 'type anything, or tap the circle and talk. tap again and it stays.'}
             </Text>
           );
 

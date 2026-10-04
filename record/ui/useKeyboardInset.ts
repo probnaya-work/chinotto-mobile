@@ -31,6 +31,8 @@ import {
   type EasingFunction,
 } from 'react-native';
 
+import { useKeyboardBase } from './systemInsets';
+
 /**
  * iOS reports its own curve as an integer; the two we see in practice are 7 (the private
  * keyboard curve) and the standard ease-in-out. Both are close enough to this bezier that
@@ -40,11 +42,16 @@ const KEYBOARD_EASING: EasingFunction = Easing.bezier(0.17, 0.59, 0.4, 0.99);
 
 /** How far the bottom of the usable surface has risen. Animated, so it can drive layout. */
 export function useKeyboardInset(): Animated.Value {
+  // On Android the reported height leaves out the navigation bar under the keyboard; this is
+  // what has to be added back. Zero on iOS. See `systemInsets.tsx`.
+  const base = useKeyboardBase();
+  const shown = (height: number) => (height > 0 ? height + base : 0);
+
   // Seeded from the keyboard's current height rather than from zero. A surface that opens
   // while the keyboard is already up — Focus, reached by tapping a moment with the field
   // still in hand — is never told `keyboardWillShow`, because the keyboard did not show; it
   // was already there. Starting at zero put that surface's own bottom bar under it.
-  const inset = useRef(new Animated.Value(Keyboard.metrics()?.height ?? 0)).current;
+  const inset = useRef(new Animated.Value(shown(Keyboard.metrics()?.height ?? 0))).current;
 
   useEffect(() => {
     const animate = (toValue: number, duration: number) => {
@@ -62,7 +69,7 @@ export function useKeyboardInset(): Animated.Value {
     const subscriptions = [
       Keyboard.addListener(
         Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-        (event) => animate(event.endCoordinates.height, event.duration ?? 0)
+        (event) => animate(shown(event.endCoordinates.height), event.duration ?? 0)
       ),
       Keyboard.addListener(
         Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
@@ -85,7 +92,9 @@ export function useKeyboardInset(): Animated.Value {
     }
 
     return () => subscriptions.forEach((s) => s.remove());
-  }, [inset]);
+    // `shown` only closes over `base`, which is what the dependency is.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inset, base]);
 
   return inset;
 }

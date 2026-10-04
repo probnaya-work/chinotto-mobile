@@ -1,0 +1,6 @@
+{
+  "platforms": ["android"],
+  "android": {
+    "modules": ["com.chinotto.voice.VoiceCaptureModule", "com.chinotto.voice.AudioPlaybackModule"]
+  }
+}
