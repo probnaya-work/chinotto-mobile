@@ -1,9 +1,9 @@
 /**
  * Settings — "this iphone".
  *
- * Reached by pulling down from under the status bar, and by nothing else. Seven sections of
- * prose rather than a list of switches: each one says what is true, and where there is
- * something to change it offers a verb at the end of the sentence.
+ * Reached by pulling down from under the status bar, and by nothing else. The root is a
+ * quiet index rather than a system settings list: full-width actions make it usable, while
+ * the privacy and Chinotto sections keep the record's more editorial rhythm.
  *
  * Two sub-pages push in over it and come back with `‹ edge`: the manifesto, and deleting
  * the cloud account.
@@ -74,7 +74,7 @@ const sectionLabel = {
   fontSize: 10,
   letterSpacing: 0.6,
   textTransform: 'uppercase' as const,
-  color: ink.meta,
+  color: ink.far,
 };
 
 export function Settings(props: SettingsProps) {
@@ -123,8 +123,10 @@ export function Settings(props: SettingsProps) {
             gap: 10,
           }}
         >
-          {props.page === 'root' ? <Mark size={22} color={ink.meta} /> : null}
-          <Text style={type({ size: 12, width: 90, color: ink.meta })}>{head}</Text>
+          {props.page === 'root' ? <Mark size={24} color={agency.quiet} /> : null}
+          {props.page === 'root' ? null : (
+            <Text style={type({ size: 12, width: 90, color: ink.meta })}>{head}</Text>
+          )}
         </View>
       </View>
 
@@ -140,169 +142,182 @@ function Root(props: SettingsProps & { capabilities: PlatformCapabilities }) {
   return (
     <ScrollView
       style={{ flex: 1 }}
-      contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 30, paddingBottom: 60, gap: 32 }}
+      contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 22, paddingBottom: 60, gap: 27 }}
       showsVerticalScrollIndicator={false}
     >
+      <Text
+        style={type({ size: 26, width: 100, lineHeight: 1.12, tracking: -0.02, color: agency.quiet })}
+      >
+        {`this ${can.deviceNoun}`}
+      </Text>
+
       {/*
         Only where sync can be set up. Elsewhere — Android, until its sign-in and entitlement
         are decided (unspecified-decisions §10) — there is no sync section at all, rather than
         one explaining its own absence.
       */}
-      {can.syncSetup ? (
-        <Section label="sync">
-          <Text style={body}>
-            {`${props.syncLine} `}
-            <Text onPress={props.onOpenSync} style={{ color: agency.ink, fontFamily: face(94, { weight: agency.weight }) }}>
-              {`${props.syncVerb} ›`}
-            </Text>
-          </Text>
-        </Section>
-      ) : null}
-
-      {/*
-        One appearance, because there is one.
-
-        This used to offer `system · light · dark` and a contrast lift. None of the three
-        did anything: there is a single palette in `tokens.ts`, the prototype draws no light
-        screen, and the choice did not even survive a relaunch. A control that selects an
-        appearance the app cannot render is worse than no control — `system` in particular
-        promised to follow a phone it could not follow.
-
-        So it says what is true and offers nothing. When light is designed, this becomes a
-        choice again; see 8.9 / 8.10.
-      */}
-      <Section label="appearance" gap={10}>
-        <Text style={body}>dark.</Text>
-        <Text style={type({ size: 14, width: 90, lineHeight: 1.4, color: ink.meta })}>
-          the record has one appearance, and this is it. a light one is not designed yet, so
-          it is not offered.
-        </Text>
-      </Section>
-
-      {can.iconChoice ? (
-      <Section label="home screen icon" gap={10}>
-        <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
-          {(
-            [
-              ['dark', '#141416', '#d4d3ce', '#2a2a2e'],
-              ['light', '#f2f1ec', '#1b1b1d', '#c9c9c6'],
-            ] as const
-          ).map(([id, background, foreground, border]) => (
-            <Pressable
-              key={id}
-              onPress={() => props.onPickIcon(id)}
-              accessibilityRole="button"
-              accessibilityLabel={`${id} icon`}
-              accessibilityState={{ selected: props.icon === id }}
-              style={{ alignItems: 'center', gap: 6 }}
-            >
-              <View
-                style={{
-                  width: 60,
-                  height: 60,
-                  borderRadius: 14,
-                  backgroundColor: background,
-                  borderWidth: 1,
-                  borderColor: props.icon === id ? ink.ink : border,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Mark size={37} rung="full" color={foreground} />
-              </View>
-              <Text
-                style={type({
-                  size: 11,
-                  width: 90,
-                  color: props.icon === id ? ink.ink : ink.meta,
-                })}
-              >
-                {id}
-              </Text>
-            </Pressable>
-          ))}
-          <Text
-            style={[
-              type({ size: 12, width: 90, lineHeight: 1.4, color: ink.meta }),
-              { flex: 1 },
-            ]}
-          >
-            ios tints and android themes these two on their own.
-          </Text>
-        </View>
-      </Section>
-      ) : null}
-
-      <Section label="from elsewhere" gap={10}>
-        <Text style={body}>
-          {`share sheet · send ${can.shareKinds} to chinotto from any app. it lands dated now.`}
-        </Text>
-        {can.homeWidget ? (
-          <Text style={body}>
-            {'home widget · capture, and the last thing you left. '}
-            <Text onPress={props.onSeeWidget} style={{ color: agency.ink, fontFamily: face(94, { weight: agency.weight }) }}>
-              see it
-            </Text>
-          </Text>
+      <Section label="record" gap={0}>
+        {can.syncSetup ? (
+          <SettingRow
+            title="sync"
+            detail={props.syncLine}
+            action={`${props.syncVerb} ›`}
+            onPress={props.onOpenSync}
+          />
         ) : null}
         {can.voice ? (
-          <Text style={type({ size: 14, width: 90, lineHeight: 1.4, color: ink.far })}>
-            {`microphone · ${props.micLine} `}
-            {props.micDenied ? (
-              <Text onPress={props.onOpenSystemSettings} style={{ color: agency.ink, fontFamily: face(90, { weight: agency.weight }) }}>
-                open settings ›
+          <SettingRow
+            title="microphone"
+            detail={props.micLine}
+            action={props.micDenied ? 'settings ›' : undefined}
+            status={props.micDenied ? undefined : microphoneStatus(props.micLine)}
+            onPress={props.micDenied ? props.onOpenSystemSettings : undefined}
+          />
+        ) : null}
+        <SettingRow
+          title="from elsewhere"
+          detail={`share sheet · send ${can.shareKinds} to chinotto from any app. it lands dated now.`}
+          action={can.homeWidget ? 'see it' : undefined}
+          onPress={can.homeWidget ? props.onSeeWidget : undefined}
+          divider={false}
+        />
+      </Section>
+
+      {/* One appearance, because there is one. The absence of a light-mode switch is honest. */}
+      <Section label="appearance" gap={10}>
+        <SettingRow title="app" status="dark" divider={false} />
+        {can.iconChoice ? (
+          <View style={{ gap: 9, paddingTop: 3 }}>
+            <Text style={type({ size: 12, width: 90, color: ink.meta })}>
+              home screen icon
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 14, alignItems: 'flex-start' }}>
+              {(
+                [
+                  ['dark', '#141416', '#d4d3ce', '#2a2a2e'],
+                  ['light', '#f2f1ec', '#1b1b1d', '#c9c9c6'],
+                ] as const
+              ).map(([id, background, foreground, border]) => (
+                <Pressable
+                  key={id}
+                  onPress={() => props.onPickIcon(id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${id} icon`}
+                  accessibilityState={{ selected: props.icon === id }}
+                  hitSlop={4}
+                  style={({ pressed }) => ({
+                    minWidth: 60,
+                    minHeight: 82,
+                    alignItems: 'center',
+                    gap: 7,
+                    opacity: pressed ? 0.62 : 1,
+                  })}
+                >
+                  <View
+                    style={{
+                      width: 60,
+                      height: 60,
+                      borderRadius: 14,
+                      backgroundColor: background,
+                      borderWidth: 1,
+                      borderColor: props.icon === id ? ink.ink : border,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Mark size={37} rung="full" color={foreground} />
+                  </View>
+                  <Text
+                    style={type({
+                      size: 11,
+                      width: 90,
+                      color: props.icon === id ? ink.ink : ink.meta,
+                    })}
+                  >
+                    {id}
+                  </Text>
+                </Pressable>
+              ))}
+              <Text
+                style={[
+                  type({ size: 12, width: 90, lineHeight: 1.4, color: ink.meta }),
+                  { flex: 1, paddingTop: 4 },
+                ]}
+              >
+                ios tints and android themes these two on their own.
               </Text>
-            ) : null}
-          </Text>
+            </View>
+          </View>
         ) : null}
       </Section>
 
       <Section label="privacy" gap={10}>
-        <Text style={body}>{can.privacyLine}</Text>
-        {can.voicePrivacyLine ? (
-          <Text style={type({ size: 14, width: 90, lineHeight: 1.4, color: ink.far })}>
-            {can.voicePrivacyLine}
+        <View style={{ borderLeftWidth: 1, borderLeftColor: rule.line, paddingLeft: 13, gap: 8 }}>
+          <Text style={type({ size: 15, width: 94, lineHeight: 1.45, color: ink.near })}>
+            {can.privacyLine}
           </Text>
-        ) : null}
-        <Text style={type({ size: 14, width: 90, lineHeight: 1.4, color: ink.far })}>
-          {'anonymous usage · '}
-          <Text style={{ color: ink.near }}>{props.analyticsOn ? 'on' : 'off'}</Text>
-          {' · '}
-          <Text onPress={props.onToggleAnalytics} style={{ color: agency.ink, fontFamily: face(90, { weight: agency.weight }) }}>
-            {props.analyticsOn ? 'turn off' : 'turn on'}
+          {can.voicePrivacyLine ? (
+            <Text style={type({ size: 13, width: 90, lineHeight: 1.45, color: ink.far })}>
+              {can.voicePrivacyLine}
+            </Text>
+          ) : null}
+        </View>
+        <SettingRow
+          title="anonymous usage"
+          detail="never your words or searches"
+          action={`${props.analyticsOn ? 'on' : 'off'} ›`}
+          onPress={props.onToggleAnalytics}
+          accessibilityRole="switch"
+          checked={props.analyticsOn}
+        />
+        <Pressable
+          onPress={props.onTogglePrivacy}
+          accessibilityRole="button"
+          hitSlop={4}
+          style={({ pressed }) => ({
+            minHeight: 44,
+            alignSelf: 'flex-start',
+            justifyContent: 'center',
+            opacity: pressed ? 0.62 : 1,
+          })}
+        >
+          <Text style={type({ size: 13, width: 90, weight: agency.weight, color: agency.ink })}>
+            {props.privacyOpen ? 'hide the detail ↑' : 'what is sent? ↓'}
           </Text>
-          {' · '}
-          <Text onPress={props.onTogglePrivacy} style={{ color: agency.ink, fontFamily: face(90, { weight: agency.weight }) }}>
-            {props.privacyOpen ? 'hide' : 'what is sent?'}
-          </Text>
-        </Text>
+        </Pressable>
         {/* Expands in place. The prototype forbids the timed modal this replaces. */}
         {props.privacyOpen ? (
-          <Text style={type({ size: 14, width: 90, lineHeight: 1.45, color: ink.meta })}>
-            only event names and counts — “fragment left”, “find used · 12 results”. never the
-            words, never what you searched for, never anything that identifies you. off unless
-            you turn it on.
-          </Text>
+          <View style={{ borderLeftWidth: 1, borderLeftColor: rule.line, paddingLeft: 13 }}>
+            <Text style={type({ size: 13, width: 90, lineHeight: 1.5, color: ink.meta })}>
+              only event names and counts — “fragment left”, “find used · 12 results”. never the
+              words, never what you searched for, never anything that identifies you. off unless
+              you turn it on.
+            </Text>
+          </View>
+        ) : null}
+        {props.hasAccount ? (
+          <SettingRow
+            title="delete cloud account"
+            detail="the record stays on your devices"
+            action="continue ›"
+            onPress={props.onOpenDelete}
+            quietAction
+            divider={false}
+          />
         ) : null}
       </Section>
 
-      {props.hasAccount ? (
-        <Section label="account" gap={10}>
-          <Text style={body}>apple id · the only thing sync knows about you.</Text>
-          <Text onPress={props.onOpenDelete} style={[body, { color: agency.quiet, fontFamily: face(94, { weight: agency.weight }) }]}>
-            delete the cloud account ›
-          </Text>
-        </Section>
-      ) : null}
-
-      <Section label="about" gap={10}>
+      <Section label="chinotto" gap={10}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <Mark size={26} color={ink.ink} />
-          <Text style={type({ size: 18, width: 96, weight: 500, color: ink.ink })}>chinotto</Text>
+          <Mark size={28} color={agency.quiet} />
+          <Text style={type({ size: 19, width: 96, weight: 500, color: agency.quiet })}>chinotto</Text>
         </View>
-        <Text onPress={props.onOpenManifesto} style={[body, { color: agency.ink, fontFamily: face(94, { weight: agency.weight }) }]}>
-          why chinotto ›
-        </Text>
+        <SettingRow
+          title="why chinotto"
+          action="read ›"
+          onPress={props.onOpenManifesto}
+          divider={false}
+        />
         <Text style={type({ size: 12, width: 90, color: ink.meta })}>
           {props.updateLine === null ? props.version : `${props.version} · ${props.updateLine}`}
         </Text>
@@ -312,6 +327,84 @@ function Root(props: SettingsProps & { capabilities: PlatformCapabilities }) {
         </Text>
       </Section>
     </ScrollView>
+  );
+}
+
+function microphoneStatus(line: string): string | undefined {
+  if (line === 'allowed.') return 'allowed';
+  return undefined;
+}
+
+function SettingRow({
+  title,
+  detail,
+  action,
+  status,
+  onPress,
+  divider = true,
+  quietAction = false,
+  accessibilityRole = 'button',
+  checked,
+}: {
+  title: string;
+  detail?: string;
+  action?: string;
+  status?: string;
+  onPress?: () => void;
+  divider?: boolean;
+  quietAction?: boolean;
+  accessibilityRole?: 'button' | 'switch';
+  checked?: boolean;
+}) {
+  const content = (
+    <>
+      <View style={{ flex: 1, gap: 3 }}>
+        <Text style={type({ size: 16, width: 96, color: ink.ink })}>{title}</Text>
+        {detail ? (
+          <Text style={type({ size: 12, width: 90, lineHeight: 1.4, color: ink.meta })}>
+            {detail}
+          </Text>
+        ) : null}
+      </View>
+      {action ? (
+        <Text
+          style={type({
+            size: 13,
+            width: 90,
+            weight: agency.weight,
+            color: quietAction ? agency.quiet : agency.ink,
+          })}
+        >
+          {action}
+        </Text>
+      ) : null}
+      {status ? (
+        <Text style={type({ size: 13, width: 90, color: ink.far })}>{status}</Text>
+      ) : null}
+    </>
+  );
+  const style = {
+    minHeight: 56,
+    paddingVertical: 9,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 14,
+    borderBottomWidth: divider ? 1 : 0,
+    borderBottomColor: rule.hair,
+  };
+
+  if (!onPress) return <View style={style}>{content}</View>;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole={accessibilityRole}
+      accessibilityLabel={`${title}${action ? `, ${action}` : ''}`}
+      accessibilityState={checked === undefined ? undefined : { checked }}
+      style={({ pressed }) => [style, { opacity: pressed ? 0.62 : 1 }]}
+    >
+      {content}
+    </Pressable>
   );
 }
 

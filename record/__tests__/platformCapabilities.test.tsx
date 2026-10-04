@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { capabilitiesFor } from '../platform';
 import { Settings, settingsCopy, type SettingsProps } from '../ui/Settings';
@@ -125,8 +125,9 @@ describe('settings on android', () => {
         capabilities={capabilitiesFor('android')}
       />
     );
+    expect(screen.getByText('microphone')).toBeTruthy();
     expect(
-      screen.getByText(/microphone · not asked yet · android asks the first time you tap the circle/)
+      screen.getByText(/not asked yet · android asks the first time you tap the circle/)
     ).toBeTruthy();
     expect(screen.getByText(capabilitiesFor('android').privacyLine)).toBeTruthy();
     expect(screen.getByText(capabilitiesFor('android').voicePrivacyLine!)).toBeTruthy();
@@ -148,13 +149,14 @@ describe('settings on android', () => {
     expect(screen.queryByText(/up to date|store/)).toBeNull();
   });
 
-  it('is unchanged on iOS', () => {
+  it('keeps every iOS capability in the quieter row design', () => {
     render(<Settings {...props} capabilities={capabilitiesFor('ios')} />);
     expect(screen.getByText('this iphone')).toBeTruthy();
     expect(screen.getByText('set up ›')).toBeTruthy();
     expect(screen.getByText('home screen icon')).toBeTruthy();
     expect(screen.getByText('see it')).toBeTruthy();
-    expect(screen.getByText(/microphone · not asked yet · ios asks/)).toBeTruthy();
+    expect(screen.getByText('microphone')).toBeTruthy();
+    expect(screen.getByText(/not asked yet · ios asks/)).toBeTruthy();
     expect(
       screen.getByText(
         'the words stay on this phone unless sync is on, and then only go to your own devices.'
@@ -167,5 +169,28 @@ describe('settings on android', () => {
         'share sheet · send a page, a selection or a photo to chinotto from any app. it lands dated now.'
       )
     ).toBeTruthy();
+  });
+
+  it('makes the quiet rows full-size controls instead of inline text links', () => {
+    const onOpenSync = jest.fn();
+    const onSeeWidget = jest.fn();
+    const onToggleAnalytics = jest.fn();
+    render(
+      <Settings
+        {...props}
+        onOpenSync={onOpenSync}
+        onSeeWidget={onSeeWidget}
+        onToggleAnalytics={onToggleAnalytics}
+        capabilities={capabilitiesFor('ios')}
+      />
+    );
+
+    fireEvent.press(screen.getByLabelText('sync, set up ›'));
+    fireEvent.press(screen.getByLabelText('from elsewhere, see it'));
+    fireEvent.press(screen.getByLabelText('anonymous usage, off ›'));
+
+    expect(onOpenSync).toHaveBeenCalledTimes(1);
+    expect(onSeeWidget).toHaveBeenCalledTimes(1);
+    expect(onToggleAnalytics).toHaveBeenCalledTimes(1);
   });
 });
