@@ -59,12 +59,20 @@ const IOS: PlatformCapabilities = {
   systemName: 'ios',
   privacyLine: 'the words stay on this phone unless sync is on, and then only go to your own devices.',
   voicePrivacyLine: null,
+  // The published getchinotto.app manifesto, including the iPhone and desktop roles that
+  // are true on this platform. Keep Android's capability-safe adaptation below separate.
   manifesto: [
-    'Thinking rarely starts structured.',
-    'Most tools assume the opposite. They ask you to create a document, a folder, a workspace before you even know what the thought is.',
-    'So you name things, you organize, you plan — and the thought slips away. Sometimes you do not write it down at all because the friction is too high.',
-    'Chinotto is built for the moment the thought appears. You open it, capture it, and move on. No hierarchy to maintain. Just capture.',
-    'Structure can come later, when the thought has had time to settle. Not before.',
+    'Chinotto is for thoughts that stop mid-sentence — and for returning to them when more has gathered around them.',
+    'Most notes apps help you capture, organize, or find a note later.',
+    'Returning to an unfinished thought — with more around it — is rarer:',
+    'How do you pick up where you left off?',
+    'Most notes apps keep the file. Chinotto keeps the return — the same line, later, with more weight.',
+    'You capture without closing the thought. Structure can wait until you come back — scroll the stream, follow a trail, or jump a week on the strand.',
+    'On desktop, you continue threads — reopen unfinished entries, follow trails, use the time strand to jump across months, and share a read-only link when you want someone else to read along.',
+    'On mobile, Chinotto is the pocket — capture with widget, voice, or share-in; search or swipe into what came before when you have a minute.',
+    'Not another notes app. A place to pick up unfinished thoughts months later.',
+    'Your thoughts stay local-first on your devices until you choose otherwise. Sync is optional: Sign in with Apple when you want the same stream on desktop and mobile. On desktop, optional Spaces — Inbox, Work, Personal — filter one timeline when you want separation, without folders or a workspace to set up first. There is no Chinotto account.',
+    'A private record of thoughts, encounters, and what continues between them.',
   ],
 };
 

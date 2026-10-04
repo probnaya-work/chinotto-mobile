@@ -142,7 +142,7 @@ function Root(props: SettingsProps & { capabilities: PlatformCapabilities }) {
   return (
     <ScrollView
       style={{ flex: 1 }}
-      contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 22, paddingBottom: 60, gap: 27 }}
+      contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 18, paddingBottom: 46, gap: 21 }}
       showsVerticalScrollIndicator={false}
     >
       <Text
@@ -184,10 +184,10 @@ function Root(props: SettingsProps & { capabilities: PlatformCapabilities }) {
       </Section>
 
       {/* One appearance, because there is one. The absence of a light-mode switch is honest. */}
-      <Section label="appearance" gap={10}>
+      <Section label="appearance" gap={7}>
         <SettingRow title="app" status="dark" divider={false} />
         {can.iconChoice ? (
-          <View style={{ gap: 9, paddingTop: 3 }}>
+          <View style={{ gap: 7, paddingTop: 1 }}>
             <Text style={type({ size: 12, width: 90, color: ink.meta })}>
               home screen icon
             </Text>
@@ -207,9 +207,9 @@ function Root(props: SettingsProps & { capabilities: PlatformCapabilities }) {
                   hitSlop={4}
                   style={({ pressed }) => ({
                     minWidth: 60,
-                    minHeight: 82,
+                    minHeight: 76,
                     alignItems: 'center',
-                    gap: 7,
+                    gap: 5,
                     opacity: pressed ? 0.62 : 1,
                   })}
                 >
@@ -251,7 +251,7 @@ function Root(props: SettingsProps & { capabilities: PlatformCapabilities }) {
         ) : null}
       </Section>
 
-      <Section label="privacy" gap={10}>
+      <Section label="privacy" gap={7}>
         <View style={{ borderLeftWidth: 1, borderLeftColor: rule.line, paddingLeft: 13, gap: 8 }}>
           <Text style={type({ size: 15, width: 94, lineHeight: 1.45, color: ink.near })}>
             {can.privacyLine}
@@ -307,7 +307,7 @@ function Root(props: SettingsProps & { capabilities: PlatformCapabilities }) {
         ) : null}
       </Section>
 
-      <Section label="chinotto" gap={10}>
+      <Section label="chinotto" gap={7}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <Mark size={28} color={agency.quiet} />
           <Text style={type({ size: 19, width: 96, weight: 500, color: agency.quiet })}>chinotto</Text>
@@ -318,13 +318,47 @@ function Root(props: SettingsProps & { capabilities: PlatformCapabilities }) {
           onPress={props.onOpenManifesto}
           divider={false}
         />
-        <Text style={type({ size: 12, width: 90, color: ink.meta })}>
+        <Text style={type({ size: 11, width: 90, color: ink.meta })}>
           {props.updateLine === null ? props.version : `${props.version} · ${props.updateLine}`}
         </Text>
-        {/* Secondary maker's mark. PROBNAYA is the laboratory; Chinotto keeps its own identity. */}
-        <Text style={type({ size: 12, width: 90, color: ink.meta })}>
-          PROBNAYA · Independent Computational Laboratory
-        </Text>
+        {/* A colophon, not part of the Chinotto lockup: the instrument keeps its own name. */}
+        <View
+          style={{
+            borderTopWidth: 1,
+            borderTopColor: rule.hair,
+            paddingTop: 11,
+            flexDirection: 'row',
+            alignItems: 'flex-end',
+            justifyContent: 'space-between',
+            gap: 16,
+          }}
+        >
+          <View style={{ gap: 2 }}>
+            <Text
+              style={type({ size: 9, width: 76, tracking: 0.12, color: ink.meta })}
+            >
+              AN INSTRUMENT BY
+            </Text>
+            <Text
+              style={type({
+                size: 15,
+                width: 76,
+                tracking: 0.13,
+                color: agency.quiet,
+              })}
+            >
+              PROBNAYA
+            </Text>
+          </View>
+          <Text
+            style={[
+              type({ size: 9, width: 76, lineHeight: 1.3, tracking: 0.08, color: ink.meta }),
+              { flex: 1, textAlign: 'right' },
+            ]}
+          >
+            INDEPENDENT COMPUTATIONAL{`\n`}LABORATORY
+          </Text>
+        </View>
       </Section>
     </ScrollView>
   );
@@ -384,8 +418,8 @@ function SettingRow({
     </>
   );
   const style = {
-    minHeight: 56,
-    paddingVertical: 9,
+    minHeight: 50,
+    paddingVertical: 7,
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     gap: 14,
@@ -430,7 +464,7 @@ function Manifesto({ paragraphs }: { paragraphs: readonly string[] }) {
   return (
     <ScrollView
       style={{ flex: 1 }}
-      contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 30, paddingBottom: 60, gap: 18 }}
+      contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 52, gap: 14 }}
       showsVerticalScrollIndicator={false}
     >
       <Text
