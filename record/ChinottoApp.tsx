@@ -158,6 +158,10 @@ export function ChinottoApp({ services }: { services: Services }) {
 
   const [recording, setRecording] = useState<VoiceCaptureDisplayState | null>(null);
   const recordingStartedAt = useRef(0);
+  // A recogniser may close a phrase with an empty event after useful partials. Keep the
+  // last words independently of the rendered state so neither the veil nor persistence can
+  // be blanked by that boundary.
+  const recordingTranscript = useRef('');
 
   /**
    * Bumped whenever anything in the record changes, so the surface can read it again.
@@ -438,18 +442,22 @@ export function ChinottoApp({ services }: { services: Services }) {
         );
       },
       onTranscriptPartial: (text) => {
+        if (!text.trim()) return;
+        recordingTranscript.current = text;
         setRecording((current) =>
           current ? { ...current, transcript: text } : current
         );
       },
       onTranscriptFinal: (text, _reason, audio, failure, recognition) => {
+        const retainedText = text.trim() ? text : recordingTranscript.current;
+        recordingTranscript.current = '';
         setRecording((current) =>
           current && current.phase !== 'discarding'
             ? { ...current, phase: 'saving', level: 0 }
             : current
         );
         void voice
-          .settle(text, audio, failure, recognition ?? null)
+          .settle(retainedText, audio, failure, recognition ?? null)
           .then((outcome) => {
             if (outcome.kind === 'kept') thoughtLanded();
             if (recognition === 'on_device' && transcripts) {
@@ -459,7 +467,10 @@ export function ChinottoApp({ services }: { services: Services }) {
           })
           .finally(() => setRecording(null));
       },
-      onError: () => setRecording(null),
+      onError: () => {
+        recordingTranscript.current = '';
+        setRecording(null);
+      },
     });
   }, [services.voiceEngine, voice, transcripts]);
 
@@ -489,6 +500,7 @@ export function ChinottoApp({ services }: { services: Services }) {
   const [voiceOnOpenReady, setVoiceOnOpenReady] = useState(false);
 
   const startVoice = useCallback(async () => {
+    recordingTranscript.current = '';
     setRecording({ phase: 'starting', seconds: 0, transcript: '', level: 0 });
     try {
       await voice.start();

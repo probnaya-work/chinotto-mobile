@@ -28,11 +28,16 @@ type FinalHandler = (
   audioFailure?: string
 ) => void;
 
+type PartialHandler = (text: string) => void;
+type StateHandler = (state: 'idle' | 'listening') => void;
+
 function harness() {
   const db = openTestDb();
   let seq = 0;
   const started: { audioFileName: string }[] = [];
   let onFinal: FinalHandler | null = null;
+  let onPartial: PartialHandler | null = null;
+  let onState: StateHandler | null = null;
 
   const engine: VoiceEngine = {
     start: async (opts) => {
@@ -41,8 +46,12 @@ function harness() {
     stop: () => {},
     subscribe: (handlers) => {
       onFinal = handlers.onTranscriptFinal ?? null;
+      onPartial = handlers.onTranscriptPartial ?? null;
+      onState = handlers.onStateChange ?? null;
       return () => {
         onFinal = null;
+        onPartial = null;
+        onState = null;
       };
     },
   };
@@ -106,11 +115,45 @@ function harness() {
     store: createRecordStore(db, { newId: () => `x${++seq}` }),
     services,
     started,
+    partial: (text: string) => onPartial?.(text),
+    state: (state: 'idle' | 'listening') => onState?.(state),
     final: (...args: Parameters<FinalHandler>) => onFinal?.(...args),
   };
 }
 
 describe('a recording in flight', () => {
+  it('never lets an empty phrase boundary erase words already heard', async () => {
+    const h = harness();
+    await migrate(h.db);
+    render(<ChinottoApp services={h.services('granted')} />);
+    await act(async () => Promise.resolve());
+
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('start recording'));
+      h.state('listening');
+      h.partial('primeira parte');
+      await Promise.resolve();
+    });
+    expect(screen.getByText(/primeira parte/)).toBeTruthy();
+
+    await act(async () => {
+      h.partial('');
+      await Promise.resolve();
+    });
+    expect(screen.getByText(/primeira parte/)).toBeTruthy();
+
+    const audioPath = h.started[0].audioFileName;
+    await act(async () => {
+      h.final('', 'manual', { path: audioPath, durationMs: 4000 });
+      await Promise.resolve();
+    });
+    await waitFor(async () => {
+      const rows = await h.store.loadRecord();
+      expect(rows[0]?.body).toBe('primeira parte');
+    });
+    h.db.close();
+  });
+
   it('survives the app learning the microphone permission', async () => {
     const h = harness();
     await migrate(h.db);

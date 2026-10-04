@@ -578,21 +578,25 @@ final class VoiceCaptureModule: RCTEventEmitter {
     if let result {
       guard isListening else { return }
       let live = result.bestTranscription.formattedString
-      currentSegmentTranscript = live
-      if !live.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+      let liveTrimmed = live.trimmingCharacters(in: .whitespacesAndNewlines)
+      if !liveTrimmed.isEmpty {
+        // Speech occasionally closes a phrase with an empty final result after having sent
+        // useful partials. Empty is not a correction: keep the last words of this segment.
+        currentSegmentTranscript = live
         heardSpeech = true
         silenceSeconds = 0
-      }
-      let display = composeDisplayTranscript(live: live)
-      lastTranscript = display
-      DispatchQueue.main.async {
-        self.sendEvent(withName: Self.partialEvent, body: ["text": display])
+        let display = composeDisplayTranscript(live: live)
+        lastTranscript = display
+        DispatchQueue.main.async {
+          self.sendEvent(withName: Self.partialEvent, body: ["text": display])
+        }
       }
 
       if result.isFinal {
         if continuousMode {
-          commitSegment(live)
+          commitSegment(currentSegmentTranscript)
           currentSegmentTranscript = ""
+          emitAccumulatedTranscript()
           if !restartRecognitionTask() {
             // A derived convenience may go away; the microphone and retained audio do not.
             recognition = .failed
@@ -611,6 +615,7 @@ final class VoiceCaptureModule: RCTEventEmitter {
       // `isFinal` result. Preserve its partial words and open the next segment either way.
       commitSegment(currentSegmentTranscript)
       currentSegmentTranscript = ""
+      emitAccumulatedTranscript()
       if continuousMode, restartRecognitionTask() {
         return
       }
@@ -696,6 +701,17 @@ final class VoiceCaptureModule: RCTEventEmitter {
       committedTranscript += " " + segment
     }
     lastTranscript = committedTranscript
+  }
+
+  /// Reasserts the durable prefix at a phrase boundary. A blank result from the next
+  /// recognition task must never make already visible words disappear.
+  private func emitAccumulatedTranscript() {
+    guard !committedTranscript.isEmpty else { return }
+    let text = committedTranscript
+    lastTranscript = text
+    DispatchQueue.main.async {
+      self.sendEvent(withName: Self.partialEvent, body: ["text": text])
+    }
   }
 
   private func rmsFloat(_ buffer: AVAudioPCMBuffer) -> Float {
