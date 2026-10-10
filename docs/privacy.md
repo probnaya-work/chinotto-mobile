@@ -4,7 +4,7 @@ Chinotto Mobile is **local-first**. Your thoughts stay on your device in SQLite.
 
 ## Your data
 
-- **Entry text** is stored locally only. It is not sent to analytics or included in crash-style telemetry.
+- **Record text** is stored on the device by default. With optional sync on iOS, text is also stored in the synced copy. It is not sent to analytics or included in crash-style telemetry.
 - **Account deletion** — when signed in for sync, Settings → Account → Delete Account removes your cloud data and Firebase account. Local entries on the device are kept.
 
 ## Voice
@@ -25,6 +25,8 @@ Chinotto Mobile is **local-first**. Your thoughts stay on your device in SQLite.
 ## Optional sync
 
 When you enable sync and sign in with Apple, entries can sync with Chinotto desktop via Firebase. Sync is optional; the app remains fully usable without it.
+
+Removing a moment erases its wording, history, relationships and derived material on this device after the eight-second undo window. If sync is on, the removal reaches your other signed-in devices; original audio stays local to the device that recorded it and is erased there. The cloud copy is marked removed, but its text remains in cloud storage until you delete the cloud account.
 
 ## Analytics (opt-in)
 
