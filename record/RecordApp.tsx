@@ -648,6 +648,14 @@ function PullStrip({
         zIndex: 3,
       }}
       testID="pull-strip"
+      accessible
+      accessibilityRole="button"
+      accessibilityLabel="Settings"
+      accessibilityHint="Pull down or activate to open Settings"
+      accessibilityActions={[{ name: 'activate', label: 'Open Settings' }]}
+      onAccessibilityAction={(event) => {
+        if (event.nativeEvent.actionName === 'activate') onOpen();
+      }}
       onStartShouldSetResponder={() => true}
       onMoveShouldSetResponder={() => true}
       onResponderGrant={(e) => {

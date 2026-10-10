@@ -94,4 +94,15 @@ describe('finding settings', () => {
     // whatever the strip drew landed on top of the oldest visible material.
     expect(frame.top).toBeGreaterThanOrEqual(frame.statusBarHeight + frame.pullStripHeight);
   });
+
+  it('opens the same Settings surface through standard accessibility activation', async () => {
+    const h = await mount();
+    const strip = screen.getByTestId('pull-strip');
+    expect(strip.props.accessible).toBe(true);
+    expect(strip.props.accessibilityRole).toBe('button');
+    expect(strip.props.accessibilityLabel).toBe('Settings');
+    act(() => fireEvent(strip, 'accessibilityAction', { nativeEvent: { actionName: 'activate' } }));
+    expect(h.onOpenSettings).toHaveBeenCalledTimes(1);
+    h.db.close();
+  });
 });
