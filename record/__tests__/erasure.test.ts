@@ -222,13 +222,13 @@ describe('at the permanent boundary', () => {
     h.db.close();
   });
 
-  it('leaves a typed moment’s wording as it was — only voice content is in scope', async () => {
+  it('erases a typed moment’s wording once the undo window expires', async () => {
     const h = await harness();
     const m = await h.store.capture({ body: 'typed, not said' });
     await h.store.remove(m.id);
     h.tick(UNDO_WINDOW_MS);
     await h.flush();
-    expect((await h.store.getFragment(m.id))!.body).toBe('typed, not said');
+    expect((await h.store.getFragment(m.id))!.body).toBe('');
     expect(h.deleted).toEqual([]);
     h.db.close();
   });
@@ -299,6 +299,34 @@ describe('recordings earlier builds left behind', () => {
     const report = await sweepRemovedVoice(h.db, deps(h));
     expect(report.deletedFiles).toBe(1);
     expect(h.onDisk.has(audioPath)).toBe(false);
+    h.db.close();
+  });
+
+  it('retries a failed audio unlink from the durable queue after restart', async () => {
+    const h = await harness();
+    const { id, audioPath } = await h.voiceMoment();
+    await h.store.remove(id);
+    h.tick(UNDO_WINDOW_MS);
+    await h.flush();
+    h.onDisk.add(audioPath);
+    await h.db.runAsync('INSERT OR REPLACE INTO pending_audio_erasure (fragment_id, audio_path) VALUES (?, ?)', id, audioPath);
+    const failed = await sweepRemovedVoice(h.db, { listAudio: () => [...h.onDisk], deleteAudio: () => false });
+    expect(failed.deletedFiles).toBe(0);
+    expect(await h.count('SELECT COUNT(*) AS n FROM pending_audio_erasure WHERE fragment_id = ?', id)).toBe(1);
+    const retried = await sweepRemovedVoice(h.db, deps(h));
+    expect(retried.deletedFiles).toBe(1);
+    expect(await h.count('SELECT COUNT(*) AS n FROM pending_audio_erasure WHERE fragment_id = ?', id)).toBe(0);
+    h.db.close();
+  });
+
+  it('finishes erasing older removed typed wording on launch', async () => {
+    const h = await harness();
+    const m = await h.store.capture({ body: 'left by an older build' });
+    await h.store.remove(m.id);
+    await h.db.runAsync('DELETE FROM pending_removals WHERE fragment_id = ?', m.id);
+    const report = await sweepRemovedVoice(h.db, deps(h));
+    expect(report.erased).toBe(1);
+    expect((await h.store.getFragment(m.id))?.body).toBe('');
     h.db.close();
   });
 

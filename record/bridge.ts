@@ -33,7 +33,7 @@
  * | holds, traces, judgements, returns | decisions and caches, not material |
  */
 
-import { eraseVoiceContent } from './erasure';
+import { eraseRemovedContent, finishAudioErasure } from './erasure';
 import { NOT_BLANK } from './migrate';
 import type { RecordDb } from './db';
 
@@ -121,6 +121,7 @@ export function createBridge(db: RecordDb, options: BridgeOptions = {}) {
       `SELECT f.id FROM fragments f
          LEFT JOIN entries e ON e.id = f.id
         WHERE f.removed_at IS NULL
+          AND f.id NOT IN (SELECT id FROM firestore_ingest_suppressed_ids)
           AND ${NOT_BLANK('f.body')}
           AND (e.id IS NULL OR e.text <> TRIM(f.body))
         ORDER BY f.captured_at DESC
@@ -154,6 +155,7 @@ export function createBridge(db: RecordDb, options: BridgeOptions = {}) {
         WHERE ${NOT_BLANK('e.text')}
           AND (f.id IS NULL OR (f.removed_at IS NULL AND f.body <> e.text))
           AND e.id NOT IN (SELECT entry_id FROM sync_tombstone_outbox)
+          AND e.id NOT IN (SELECT id FROM firestore_ingest_suppressed_ids)
         ORDER BY e.created_at DESC
         LIMIT ?`,
       limit
@@ -189,6 +191,10 @@ export function createBridge(db: RecordDb, options: BridgeOptions = {}) {
     origin: string = 'desktop'
   ): Promise<'created' | 'unchanged' | 'conflict'> {
     if (!entry.text || !entry.text.trim()) return 'unchanged';
+    const suppressed = await db.getFirstAsync<{ id: string }>(
+      'SELECT id FROM firestore_ingest_suppressed_ids WHERE id = ?', entry.id
+    );
+    if (suppressed) return 'unchanged';
 
     const existing = await db.getFirstAsync<{ body: string; removed_at: string | null }>(
       'SELECT body, removed_at FROM fragments WHERE id = ?',
@@ -208,6 +214,7 @@ export function createBridge(db: RecordDb, options: BridgeOptions = {}) {
       return 'created';
     }
 
+    if (existing.removed_at !== null) return 'unchanged';
     if (existing.body === entry.text) return 'unchanged';
 
     await noticeRemoteWording(entry.id, entry.text, existing.body);
@@ -291,22 +298,6 @@ export function createBridge(db: RecordDb, options: BridgeOptions = {}) {
   }
 
   /**
-   * A removal arriving from another device soft-removes here rather than destroying, so the
-   * material is still recoverable from this phone if the removal turns out to be a mistake
-   * made somewhere else.
-   */
-  async function applyRemoteTombstone(fragmentId: string): Promise<boolean> {
-    const res = await db.runAsync(
-      'UPDATE fragments SET removed_at = ? WHERE id = ? AND removed_at IS NULL',
-      iso(now()),
-      fragmentId
-    );
-    await db.runAsync('DELETE FROM entries WHERE id = ?', fragmentId);
-    await db.runAsync('DELETE FROM pending_removals WHERE fragment_id = ?', fragmentId);
-    return res.changes > 0;
-  }
-
-  /**
    * Publishes removals whose undo window has passed.
    *
    * This is the other half of the eight seconds. Nothing reaches the network until the
@@ -337,7 +328,7 @@ export function createBridge(db: RecordDb, options: BridgeOptions = {}) {
         await db.runAsync('DELETE FROM entries WHERE id = ?', id);
         if (options.dequeue) await options.dequeue(db, id);
         if (options.tombstone) await options.tombstone(db, id);
-        done.audio = await eraseVoiceContent(db, id);
+        done.audio = await eraseRemovedContent(db, id);
         done.claimed = true;
       });
       if (!done.claimed) continue;
@@ -346,7 +337,9 @@ export function createBridge(db: RecordDb, options: BridgeOptions = {}) {
     }
     // After the commit: a file deleted for a transaction that then rolled back would be a
     // recording lost from a moment that still exists.
-    for (const path of recordings) options.deleteAudio?.(path);
+    for (const path of recordings) {
+      if (options.deleteAudio) await finishAudioErasure(db, path, options.deleteAudio);
+    }
     if (published.length) options.onPublished?.(published);
     return published.length;
   }
@@ -359,7 +352,6 @@ export function createBridge(db: RecordDb, options: BridgeOptions = {}) {
     noticeRemoteWording,
     openConflicts,
     resolveConflict,
-    applyRemoteTombstone,
     publishDueRemovals,
   };
 }

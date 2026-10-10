@@ -2,6 +2,7 @@ import { openTestDb } from '../__testsupport__/nodeSqliteDb';
 import { migrate } from '../migrate';
 import { createBridge, type LegacyEntryRow } from '../bridge';
 import { createRecordStore, UNDO_WINDOW_MS } from '../store';
+import { applyRemoteTombstonesWithDb } from '../../storage/entryRepository';
 
 const T0 = new Date('2026-09-19T17:10:00.000Z').getTime();
 
@@ -339,16 +340,53 @@ describe('removal across the bridge', () => {
     db.close();
   });
 
-  it('soft-removes rather than destroying when the removal came from elsewhere', async () => {
+  it('applies a remote removal to the current Record and blocks stale replay', async () => {
     const { db, store, bridge } = await fresh();
     const m = await store.capture({ body: 'removed on the mac' });
     await bridge.mirrorFragment(m.id);
 
-    expect(await bridge.applyRemoteTombstone(m.id)).toBe(true);
+    expect(await applyRemoteTombstonesWithDb(db, [m.id])).toBe(1);
     expect((await store.loadRecord()).map((x) => x.id)).not.toContain(m.id);
-    // Still recoverable from this phone: the material was not destroyed.
-    expect((await store.getFragment(m.id))!.body).toBe('removed on the mac');
+    expect(await store.bringBack(m.id)).toBe(false);
     expect(await entries(db)).toHaveLength(0);
+    expect(await applyRemoteTombstonesWithDb(db, [m.id])).toBe(0);
+    await db.runAsync(
+      'INSERT INTO entries (id, text, created_at) VALUES (?, ?, ?)',
+      m.id, 'stale active snapshot', new Date(T0).toISOString()
+    );
+    expect(await bridge.projectCatchUp()).toEqual({ created: 0, conflicts: 0 });
+    expect(await bridge.mirrorCatchUp()).toBe(0);
+    db.close();
+  });
+
+  it('erases associated voice content once without publishing a second tombstone', async () => {
+    const { db, store, tombstoned } = await fresh();
+    const voice = await store.capture({
+      id: 'remote-voice', body: '', method: 'voice',
+      voice: { audioPath: 'chinotto/audio/remote-voice.m4a', durationMs: 4000 },
+    });
+    await store.setTranscript(voice.id, { state: 'ok', text: 'private words' });
+    await store.correct(voice.id, 'corrected private words');
+    const related = await store.capture({ body: 'another moment' });
+    await db.runAsync(
+      "INSERT INTO returns (fragment_id, surfaced_at, reason) VALUES (?, ?, 'same_source')",
+      voice.id, new Date(T0).toISOString()
+    );
+    await db.runAsync(
+      "INSERT INTO traces (fragment_id, related_id, kind, evidence, computed_at) VALUES (?, ?, 'repeated_language', 'private words', ?)",
+      voice.id, related.id, new Date(T0).toISOString()
+    );
+    const deleted: string[] = [];
+    expect(await applyRemoteTombstonesWithDb(db, [voice.id], (path) => { deleted.push(path); return true; })).toBe(1);
+    expect(deleted).toEqual(['chinotto/audio/remote-voice.m4a']);
+    expect(await db.getFirstAsync<{ body: string }>('SELECT body FROM fragments WHERE id = ?', voice.id))
+      .toMatchObject({ body: '' });
+    for (const table of ['fragment_revisions', 'voice_captures', 'voice_transcripts', 'returns', 'traces']) {
+      expect(await db.getAllAsync(`SELECT * FROM ${table} WHERE fragment_id = ?`, voice.id)).toEqual([]);
+    }
+    expect(await applyRemoteTombstonesWithDb(db, [voice.id], (path) => { deleted.push(path); return true; })).toBe(0);
+    expect(deleted).toHaveLength(1);
+    expect(tombstoned).toEqual([]);
     db.close();
   });
 });

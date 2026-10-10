@@ -10,7 +10,7 @@ describe('the migration ladder', () => {
 
     expect(report.from).toBe(0);
     expect(report.to).toBe(TARGET_VERSION);
-    expect(report.ran).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(report.ran).toEqual([1, 2, 3, 4, 5, 6, 7]);
     expect(report.fragmentsImported).toBe(0);
     expect(await userVersion(db)).toBe(TARGET_VERSION);
     db.close();
@@ -207,7 +207,7 @@ describe('the migration ladder', () => {
 
       const report = await migrate(fx.db);
       expect(report.from).toBe(1);
-      expect(report.ran).toEqual([2, 3, 4, 5, 6]);
+      expect(report.ran).toEqual([2, 3, 4, 5, 6, 7]);
       expect(report.fragmentsImported).toBe(fx.materialEntries);
       fx.db.close();
     });

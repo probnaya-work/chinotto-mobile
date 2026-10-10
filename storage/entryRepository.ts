@@ -1,5 +1,8 @@
 import { randomUUID } from 'expo-crypto';
 
+import { eraseRemovedContent, finishAudioErasure } from '../record/erasure';
+import { deleteRecordFile } from '../record/files';
+import { tableExists, type RecordDb } from '../record/db';
 import type { Entry } from '../types/entry';
 import type { EntryTheme } from '../types/entryTheme';
 import type { MonthKey, MonthSummary } from '../types/temporal';
@@ -106,29 +109,54 @@ export async function deleteEntry(entryId: string): Promise<void> {
   });
 }
 
-/** Remote tombstones from Firestore snapshot: physical delete + cleanup queue/outbox/suppression. */
-export async function applyRemoteTombstoneDeletes(entryIds: string[]): Promise<number> {
+/**
+ * Apply the wire tombstone to both representations in one transaction. The removed fragment
+ * row is content-free for voice and prevents an old active snapshot from projecting it again.
+ * A suppression id is also kept when the tombstone arrives before the active row.
+ */
+export async function applyRemoteTombstonesWithDb(
+  db: RecordDb,
+  entryIds: string[],
+  deleteAudio: (path: string) => boolean = deleteRecordFile
+): Promise<number> {
   if (entryIds.length === 0) {
     return 0;
   }
-  return runSerializedDb(async () => {
-    const db = await getDatabase();
-    let removed = 0;
-    await db.withTransactionAsync(async () => {
-      for (const id of entryIds) {
-        await removePendingSyncItemsForEntry(db, id);
-        await db.runAsync('DELETE FROM sync_tombstone_outbox WHERE entry_id = ?', id);
-        const res = await db.runAsync('DELETE FROM entries WHERE id = ?', id);
-        if (res.changes > 0) {
-          removed += 1;
-        }
-        await db.runAsync('DELETE FROM entry_engagement WHERE entry_id = ?', id);
-        await db.runAsync('DELETE FROM entry_themes WHERE entry_id = ?', id);
-        await db.runAsync('DELETE FROM firestore_ingest_suppressed_ids WHERE id = ?', id);
+  let removed = 0;
+  const audioToDelete: string[] = [];
+  const hasEntryThemes = await tableExists(db, 'entry_themes');
+  await db.withTransactionAsync(async () => {
+    for (const id of entryIds) {
+      await removePendingSyncItemsForEntry(db, id);
+      await db.runAsync('DELETE FROM sync_tombstone_outbox WHERE entry_id = ?', id);
+      const entry = await db.runAsync('DELETE FROM entries WHERE id = ?', id);
+      const fragment = await db.runAsync(
+        'UPDATE fragments SET removed_at = COALESCE(removed_at, ?) WHERE id = ? AND removed_at IS NULL',
+        new Date().toISOString(), id
+      );
+      const pending = await db.runAsync('DELETE FROM pending_removals WHERE fragment_id = ?', id);
+      const audio = await eraseRemovedContent(db, id);
+      if (audio) audioToDelete.push(audio);
+      if (entry.changes > 0 || fragment.changes > 0 || pending.changes > 0) {
+        removed += 1;
       }
-    });
-    return removed;
+      await db.runAsync('DELETE FROM entry_engagement WHERE entry_id = ?', id);
+      if (hasEntryThemes) await db.runAsync('DELETE FROM entry_themes WHERE entry_id = ?', id);
+      await db.runAsync(
+        'INSERT OR IGNORE INTO firestore_ingest_suppressed_ids (id, suppressed_at) VALUES (?, ?)',
+        id, new Date().toISOString()
+      );
+    }
   });
+  // File deletion follows commit; the boot sweep retries a failure without endangering live audio.
+  for (const path of audioToDelete) await finishAudioErasure(db, path, deleteAudio);
+  return removed;
+}
+
+/** Remote tombstones from Firestore snapshots and backfill. */
+export async function applyRemoteTombstoneDeletes(entryIds: string[]): Promise<number> {
+  if (entryIds.length === 0) return 0;
+  return runSerializedDb(async () => applyRemoteTombstonesWithDb(await getDatabase(), entryIds));
 }
 
 export type FirestoreIngestEntryRow = Pick<Entry, 'id' | 'text' | 'createdAt'> & {

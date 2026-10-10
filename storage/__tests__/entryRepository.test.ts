@@ -407,7 +407,10 @@ describe('entryRepository', () => {
       expect(mockRemovePending).toHaveBeenCalledWith(dbHandle, 'b');
       expect(runAsync).toHaveBeenCalledWith('DELETE FROM sync_tombstone_outbox WHERE entry_id = ?', 'a');
       expect(runAsync).toHaveBeenCalledWith('DELETE FROM entries WHERE id = ?', 'a');
-      expect(runAsync).toHaveBeenCalledWith('DELETE FROM firestore_ingest_suppressed_ids WHERE id = ?', 'a');
+      expect(runAsync).toHaveBeenCalledWith(
+        'INSERT OR IGNORE INTO firestore_ingest_suppressed_ids (id, suppressed_at) VALUES (?, ?)',
+        'a', expect.any(String)
+      );
       expect(n).toBe(2);
     });
   });

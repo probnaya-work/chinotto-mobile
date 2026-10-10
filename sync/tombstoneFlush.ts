@@ -2,7 +2,6 @@ import { isSyncAccessBlocked } from '../monetization/syncAccessPolicy';
 import { getOrInitAuth } from './firebaseAuth';
 import { firebaseApplyTombstoneEntry } from './firebaseSync';
 import { isFirebaseSyncConfigured } from './firebaseConfig';
-import { clearFirestoreIngestSuppression } from './ingestSuppression';
 import { listSyncTombstoneOutbox, removeSyncTombstoneOutbox } from './tombstoneOutbox';
 
 /**
@@ -25,7 +24,7 @@ export async function flushSyncTombstoneOutbox(): Promise<void> {
     try {
       await firebaseApplyTombstoneEntry(entryId);
       await removeSyncTombstoneOutbox(entryId);
-      await clearFirestoreIngestSuppression(entryId);
+      // Keep the content-free id: an older active snapshot can arrive after this ack.
     } catch (e: unknown) {
       if (__DEV__) {
         console.warn('[ChinottoSync] tombstone flush failed, will retry', entryId, e);

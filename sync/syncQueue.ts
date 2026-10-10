@@ -1,5 +1,6 @@
 import { randomUUID } from 'expo-crypto';
 import type { SQLiteDatabase } from 'expo-sqlite';
+import type { RecordDb } from '../record/db';
 
 import type { Entry } from '../types/entry';
 import { getDatabase } from '../storage/db';
@@ -78,7 +79,7 @@ export async function clearPendingSyncQueue(): Promise<void> {
   });
 }
 
-export async function removePendingSyncItemsForEntry(db: SQLiteDatabase, entryId: string): Promise<void> {
+export async function removePendingSyncItemsForEntry(db: RecordDb, entryId: string): Promise<void> {
   const rows = await db.getAllAsync<{ id: string; payload: string }>(
     `SELECT id, payload FROM sync_queue WHERE status = 'pending'`
   );

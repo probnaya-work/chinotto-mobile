@@ -28,7 +28,7 @@ import { setUserVersion, tableExists, userVersion, type RecordDb } from './db';
 import { relabelUnconfirmedTranscripts } from './transcripts';
 
 /** Schema version this build expects. Bump when adding a step below. */
-export const TARGET_VERSION = 6;
+export const TARGET_VERSION = 7;
 
 /**
  * The v1 schema, byte-for-byte what shipped. Owned here so the boot path and the migration
@@ -174,6 +174,15 @@ export async function migrate(db: RecordDb): Promise<MigrationReport> {
   if (from < 6) {
     await step(db, 6, report, async () => {
       await db.execAsync('ALTER TABLE voice_captures ADD COLUMN audio_incomplete INTEGER NOT NULL DEFAULT 0');
+    });
+  }
+
+  if (from < 7) {
+    await step(db, 7, report, async () => {
+      await db.execAsync(`CREATE TABLE IF NOT EXISTS pending_audio_erasure (
+        fragment_id TEXT PRIMARY KEY NOT NULL,
+        audio_path TEXT NOT NULL
+      )`);
     });
   }
 

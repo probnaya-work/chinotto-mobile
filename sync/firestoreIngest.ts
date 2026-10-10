@@ -99,6 +99,32 @@ function tombstonedIdsFromDocs(docs: QueryDocumentSnapshot<DocumentData>[]): str
   return ids;
 }
 
+/** A one-shot scan beyond the live 1,000-tombstone window, including old offline removals. */
+export async function runFirestoreTombstoneBackfill(
+  coll: CollectionReference<DocumentData>,
+  onIngested: () => void,
+  shouldContinue: () => boolean
+): Promise<void> {
+  let lastDoc: QueryDocumentSnapshot<DocumentData> | undefined;
+  while (shouldContinue()) {
+    const q = lastDoc
+      ? query(coll, where('deletedAt', '!=', null), orderBy('deletedAt', 'desc'), startAfter(lastDoc), limit(TOMBSTONE_QUERY_LIMIT))
+      : query(coll, where('deletedAt', '!=', null), orderBy('deletedAt', 'desc'), limit(TOMBSTONE_QUERY_LIMIT));
+    let snap;
+    try {
+      snap = await getDocs(q);
+    } catch (e) {
+      if (__DEV__) console.error('[ChinottoSync] tombstone backfill failed', e);
+      return;
+    }
+    if (!shouldContinue() || snap.empty) return;
+    const removed = await applyRemoteTombstoneDeletes(tombstonedIdsFromDocs(snap.docs));
+    if (removed > 0) onIngested();
+    lastDoc = snap.docs[snap.docs.length - 1];
+    if (snap.docs.length < TOMBSTONE_QUERY_LIMIT) return;
+  }
+}
+
 /**
  * Paginates older Firestore docs (same ordering as the live listener) so history beyond the snapshot
  * `limit` still reaches SQLite. Inserts new ids; updates existing **`text`** (see `ingestRemoteFirestoreRows`); safe to overlap the first page.
@@ -132,6 +158,7 @@ export async function runFirestoreIngestBackfill(
     if (snap.empty) {
       break;
     }
+    if (!shouldContinue()) return;
 
     const { tombstonedIds, activeRows } = partitionFirestoreSnapshotDocs(snap.docs);
     let changed = false;
@@ -206,6 +233,7 @@ export function startMobileFirestoreIngest(onIngested: () => void): () => void {
   };
 
   const unsubAuth = onAuthStateChanged(auth, (user) => {
+    backfillGeneration += 1;
     detachFirestoreListeners();
     if (!user || user.isAnonymous) {
       return;
@@ -215,18 +243,20 @@ export function startMobileFirestoreIngest(onIngested: () => void): () => void {
     const db = getOrInitFirestore();
     const coll = collection(db, 'users', user.uid, 'entries');
     const userThemeColl = userThemesCollection(db, user.uid);
-    const backfillGen = ++backfillGeneration;
+    const backfillGen = backfillGeneration;
     const shouldContinueBackfill = () => {
       const u = auth.currentUser;
       return Boolean(u && !u.isAnonymous && u.uid === user.uid && backfillGen === backfillGeneration);
     };
 
     void runFirestoreIngestBackfill(coll, onIngested, shouldContinueBackfill);
+    void runFirestoreTombstoneBackfill(coll, onIngested, shouldContinueBackfill);
 
     const qIngest = query(coll, orderBy('createdAt', 'desc'), limit(INGEST_PAGE_SIZE));
     unsubIngest = onSnapshot(
       qIngest,
       async (snap) => {
+        if (!shouldContinueBackfill()) return;
         const { tombstonedIds, activeRows } = partitionFirestoreSnapshotDocs(snap.docs);
         let changed = false;
         if (tombstonedIds.length > 0) {
@@ -341,6 +371,7 @@ export function startMobileFirestoreIngest(onIngested: () => void): () => void {
     unsubTombstones = onSnapshot(
       qTombstones,
       async (snap) => {
+        if (!shouldContinueBackfill()) return;
         const ids = tombstonedIdsFromDocs(snap.docs);
         try {
           const removed = await applyRemoteTombstoneDeletes(ids);
@@ -363,6 +394,7 @@ export function startMobileFirestoreIngest(onIngested: () => void): () => void {
   });
 
   return () => {
+    backfillGeneration += 1;
     detachFirestoreListeners();
     unsubAuth();
   };
