@@ -39,7 +39,7 @@ import { formatStorage, retainedAudioBytes } from './storage';
 import { createTranscriptRetry } from './transcripts';
 import type { AudioPlaybackPort } from './playback';
 import { createRecordStore, type RecordStore } from './store';
-import { createVoiceCapture, type VoiceEngine } from './voice';
+import { createVoiceCapture, finalAudioFailure, type VoiceEngine } from './voice';
 import { readShare, type ShareIntake, type SharePayloadLike } from './share';
 import { useSyncSurface, type SyncPorts } from './useSyncSurface';
 import { initAnalyticsOptIn, isOptIn, setOptIn, setUmami } from '../analytics/analytics';
@@ -159,6 +159,12 @@ export function ChinottoApp({ services }: { services: Services }) {
   const [updateDismissed, setUpdateDismissed] = useState(false);
 
   const [recording, setRecording] = useState<VoiceCaptureDisplayState | null>(null);
+  const [voiceIssue, setVoiceIssue] = useState<string | null>(null);
+  useEffect(() => {
+    if (!voiceIssue) return;
+    const timeout = setTimeout(() => setVoiceIssue(null), 7000);
+    return () => clearTimeout(timeout);
+  }, [voiceIssue]);
   const recordingStartedAt = useRef(0);
   // A recogniser may close a phrase with an empty event after useful partials. Keep the
   // last words independently of the rendered state so neither the veil nor persistence can
@@ -450,7 +456,7 @@ export function ChinottoApp({ services }: { services: Services }) {
           current ? { ...current, transcript: text } : current
         );
       },
-      onTranscriptFinal: (text, _reason, audio, failure, recognition) => {
+      onTranscriptFinal: (text, reason, audio, failure, recognition) => {
         const retainedText = text.trim() ? text : recordingTranscript.current;
         recordingTranscript.current = '';
         setRecording((current) =>
@@ -459,19 +465,32 @@ export function ChinottoApp({ services }: { services: Services }) {
             : current
         );
         void voice
-          .settle(retainedText, audio, failure, recognition ?? null)
+          .settle(retainedText, audio, finalAudioFailure(reason, failure), recognition ?? null)
           .then((outcome) => {
-            if (outcome.kind === 'kept') thoughtLanded();
+            if (outcome.kind === 'kept') {
+              thoughtLanded();
+              if (outcome.audioIncomplete && !outcome.material.audioMissing) {
+                setVoiceIssue('The recording stopped before it was complete. The audio saved so far was kept; check it before relying on these words.');
+              } else if (outcome.material.audioMissing) {
+                setVoiceIssue('The words were kept, but the original audio could not be saved on this phone.');
+              } else if (outcome.transcriptWriteFailed) {
+                setVoiceIssue('The original audio was kept, but its words could not be saved. They can be read from the recording later.');
+              }
+            } else if (outcome.kind === 'nothing' && failure) {
+              setVoiceIssue('The recording could not be kept. Check free storage and try again.');
+            }
             if (recognition === 'on_device' && transcripts) {
               transcripts.reset();
               void transcripts.run();
             }
           })
+          .catch(() => setVoiceIssue('The recording could not be finished. Check the Record before trying again.'))
           .finally(() => setRecording(null));
       },
       onError: () => {
         recordingTranscript.current = '';
         setRecording(null);
+        setVoiceIssue('The recording stopped unexpectedly. Check the Record before trying again.');
       },
     });
   }, [services.voiceEngine, voice, transcripts]);
@@ -503,12 +522,14 @@ export function ChinottoApp({ services }: { services: Services }) {
 
   const startVoice = useCallback(async () => {
     recordingTranscript.current = '';
+    setVoiceIssue(null);
     setRecording({ phase: 'starting', seconds: 0, transcript: '', level: 0 });
     try {
       await voice.start();
       return true;
-    } catch {
+    } catch (error) {
       setRecording(null);
+      setVoiceIssue(error instanceof Error ? error.message : 'The recording could not start.');
       return false;
     }
   }, [voice]);
@@ -668,6 +689,7 @@ export function ChinottoApp({ services }: { services: Services }) {
           permission: services.microphonePermission(),
           openSystemSettings: services.openSystemSettings,
         }}
+        voiceIssue={voiceIssue}
         audio={services.audio}
         voiceOnOpen={voiceOnOpenReady}
         onVoiceOnOpenHandled={() => {

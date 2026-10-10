@@ -7,11 +7,11 @@
 import { openTestDb } from '../__testsupport__/nodeSqliteDb';
 import { migrate } from '../migrate';
 import { createRecordStore } from '../store';
-import { createVoiceCapture, type VoiceEngine } from '../voice';
+import { createVoiceCapture, finalAudioFailure, LowStorageWarning, type VoiceEngine } from '../voice';
 
 const T0 = new Date('2026-09-19T17:10:00.000Z').getTime();
 
-function harness(options: { filesPresent?: boolean } = {}) {
+function harness(options: { filesPresent?: boolean; fileBytes?: number; freeBytes?: number | null; directoryReady?: boolean } = {}) {
   const db = openTestDb();
   let seq = 0;
   let clock = T0;
@@ -33,8 +33,10 @@ function harness(options: { filesPresent?: boolean } = {}) {
     engine,
     newId: () => `f${++seq}`,
     now: () => clock,
-    ensureDirectory: () => true,
+    ensureDirectory: () => options.directoryReady ?? true,
+    availableBytes: () => options.freeBytes ?? null,
     fileExists: () => options.filesPresent ?? true,
+    fileSize: () => options.fileBytes ?? ((options.filesPresent ?? true) ? 1 : null),
     deleteFile: (p) => {
       deleted.push(p);
       return true;
@@ -55,6 +57,79 @@ function harness(options: { filesPresent?: boolean } = {}) {
 }
 
 describe('voice capture', () => {
+  it('treats native interruption and background final events as incomplete audio', () => {
+    expect(finalAudioFailure('manual')).toBeUndefined();
+    expect(finalAudioFailure('interruption')).toBe('interruption');
+    expect(finalAudioFailure('background')).toBe('background');
+    expect(finalAudioFailure('manual', 'ENOSPC')).toBe('ENOSPC');
+  });
+  it('reports a partial native write even when a playable file and words survive', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const { id, audioPath } = await h.voice.start();
+    const outcome = await h.voice.settle('heard before interruption', { path: audioPath, durationMs: 700 }, 'ENOSPC', 'on_device');
+    expect(outcome.kind).toBe('kept');
+    if (outcome.kind === 'kept') expect(outcome.audioIncomplete).toBe(true);
+    expect(await h.store.audioPathOf(id)).toBe(audioPath);
+    expect((await h.store.getFragment(id))?.audioMissing).toBe(false);
+    expect((await h.store.getFragment(id))?.audioIncomplete).toBe(true);
+    expect(h.deleted).toEqual([]);
+    h.db.close();
+  });
+
+  it('keeps recoverable file bytes after finalization fails without an audio result', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const { id, audioPath } = await h.voice.start();
+    const outcome = await h.voice.settle('', null, 'interrupted');
+    expect(outcome.kind).toBe('kept');
+    if (outcome.kind === 'kept') expect(outcome.audioIncomplete).toBe(true);
+    expect(await h.store.audioPathOf(id)).toBe(audioPath);
+    expect((await h.store.getFragment(id))?.audioMissing).toBe(false);
+    expect(h.deleted).toEqual([]);
+    h.db.close();
+  });
+  it('does not call an empty file saved audio after a writer failure', async () => {
+    const h = harness({ fileBytes: 0 });
+    await migrate(h.db);
+    const { id, audioPath } = await h.voice.start();
+    const outcome = await h.voice.settle('some words', { path: audioPath, durationMs: 1200 }, 'ENOSPC');
+    expect(outcome.kind).toBe('kept');
+    expect((await h.store.getFragment(id))?.audioMissing).toBe(true);
+    expect((await h.store.getFragment(id))?.audioIncomplete).toBe(true);
+    h.db.close();
+  });
+  it('warns once before low-storage capture without imposing a recording limit', async () => {
+    const h = harness({ freeBytes: 12 * 1024 ** 2 });
+    await migrate(h.db);
+    await expect(h.voice.start()).rejects.toBeInstanceOf(LowStorageWarning);
+    expect(h.started).toHaveLength(0);
+    await h.voice.start();
+    expect(h.started).toHaveLength(1);
+    h.db.close();
+  });
+
+  it('never starts the microphone when its audio directory cannot be prepared', async () => {
+    const h = harness({ directoryReady: false });
+    await migrate(h.db);
+    await expect(h.voice.start()).rejects.toThrow('Could not prepare');
+    expect(h.started).toHaveLength(0);
+    h.db.close();
+  });
+
+  it('keeps committed audio and reports a transcript persistence failure honestly', async () => {
+    const h = harness();
+    await migrate(h.db);
+    jest.spyOn(h.store, 'setTranscript').mockRejectedValueOnce(new Error('ENOSPC'));
+    const { id, audioPath } = await h.voice.start();
+    const outcome = await h.voice.settle('spoken words', { path: audioPath, durationMs: 2000 });
+    expect(outcome.kind).toBe('kept');
+    if (outcome.kind === 'kept') expect(outcome.transcriptWriteFailed).toBe(true);
+    expect(await h.store.audioPathOf(id)).toBe(audioPath);
+    expect((await h.store.getFragment(id))?.transcriptState).toBe('pending');
+    h.db.close();
+  });
+
   it('opens the recording under the fragment id, before anything is heard', async () => {
     const h = harness();
     await migrate(h.db);
@@ -183,9 +258,9 @@ describe('voice capture', () => {
   });
 
   it('keeps what was heard even when the recording could not be written', async () => {
-    const h = harness();
+    const h = harness({ filesPresent: false });
     await migrate(h.db);
-    const { id } = await h.voice.start();
+    const { id, audioPath } = await h.voice.start();
 
     // The volume was full; the recogniser still worked.
     const outcome = await h.voice.settle('the thing about the ferry', null, 'ENOSPC');
@@ -194,7 +269,8 @@ describe('voice capture', () => {
     const m = (await h.store.getFragment(id))!;
     expect(m.body).toBe('the thing about the ferry');
     expect(m.method).toBe('voice');
-    expect(await h.store.audioPathOf(id)).toBeNull();
+    expect(await h.store.audioPathOf(id)).toBe(audioPath);
+    expect(m.audioMissing).toBe(true);
     h.db.close();
   });
 

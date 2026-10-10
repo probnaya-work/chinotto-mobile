@@ -63,6 +63,7 @@ export type RecordAppProps = {
     permission: 'granted' | 'ask' | 'denied';
     openSystemSettings: () => void;
   };
+  voiceIssue?: string | null;
   /** Playing a voice moment back. Absent on a platform that cannot, and then it is not offered. */
   audio?: AudioPlaybackPort;
   /**
@@ -321,6 +322,9 @@ export function RecordApp(props: RecordAppProps) {
             }
           : undefined,
     });
+  }
+  if (props.voiceIssue) {
+    notices.push({ kind: 'mic', text: props.voiceIssue });
   }
   if (record.holdRefused) {
     notices.push({

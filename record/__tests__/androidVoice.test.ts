@@ -62,6 +62,7 @@ async function harness() {
     now: () => clock,
     ensureDirectory: () => true,
     fileExists: (p) => onDisk.has(p),
+    fileSize: (p) => (onDisk.has(p) ? 1024 : null),
     deleteFile: (p) => onDisk.delete(p),
   });
 

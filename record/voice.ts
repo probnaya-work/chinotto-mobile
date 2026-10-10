@@ -22,7 +22,7 @@
  * Everything the platform provides is injected, so this can be exercised without a device.
  */
 
-import { audioPathFor, deleteRecordFile, ensureAudioDirectory, recordFileExists } from './files';
+import { audioPathFor, deleteRecordFile, ensureAudioDirectory, recordFileExists, recordFileSize } from './files';
 import {
   ON_DEVICE_MODEL,
   TRANSCRIPT_DENIED,
@@ -32,6 +32,7 @@ import {
   type LocalStatus,
 } from './transcripts';
 import { motion } from './ui/tokens';
+import { availableDeviceBytes, storageLooksLow } from './storage';
 import type { Material } from './model/material';
 import type { RecordStore } from './store';
 
@@ -39,6 +40,10 @@ export type RetainedAudio = { path: string; durationMs: number };
 
 /** What the native side says recognition did. `null` when it did not say. */
 export type VoiceRecognition = 'on_device' | 'unavailable' | 'denied' | 'failed';
+
+export function finalAudioFailure(reason: string, nativeFailure?: string): string | undefined {
+  return nativeFailure ?? (reason === 'interruption' || reason === 'background' ? reason : undefined);
+}
 
 /** The native surface this needs, and nothing more. */
 export type VoiceEngine = {
@@ -73,11 +78,19 @@ export type VoiceDeps = {
   onCaptured?: (material: Material) => void;
   ensureDirectory?: () => boolean;
   fileExists?: (path: string) => boolean;
+  fileSize?: (path: string) => number | null;
   deleteFile?: (path: string) => boolean;
+  availableBytes?: () => number | null;
 };
 
+export class LowStorageWarning extends Error {
+  constructor() {
+    super('Device storage is low. A new recording may not be kept. Free some space, or tap again to try.');
+  }
+}
+
 export type VoiceOutcome =
-  | { kind: 'kept'; material: Material }
+  | { kind: 'kept'; material: Material; transcriptWriteFailed?: boolean; audioIncomplete: boolean }
   /** Explicitly discarded before it could become a fragment. */
   | { kind: 'cancelled' }
   /** Under 0.8s. Dropped without comment, as the prototype does. */
@@ -89,11 +102,15 @@ export function createVoiceCapture(deps: VoiceDeps) {
   const now = deps.now ?? (() => Date.now());
   const ensureDirectory = deps.ensureDirectory ?? ensureAudioDirectory;
   const fileExists = deps.fileExists ?? recordFileExists;
+  const fileSize = deps.fileSize ?? recordFileSize;
+  const hasAudioBytes = (path: string) => (fileSize(path) ?? 0) > 0;
   const removeFile = deps.deleteFile ?? deleteRecordFile;
+  const freeBytes = deps.availableBytes ?? availableDeviceBytes;
 
   let pendingId: string | null = null;
   let pendingPath: string | null = null;
   let cancelledId: string | null = null;
+  let lowStorageWarned = false;
 
   /**
    * Opens a recording. The id and the path are decided here, before the microphone is
@@ -101,9 +118,17 @@ export function createVoiceCapture(deps: VoiceDeps) {
    */
   async function start(): Promise<{ id: string; audioPath: string }> {
     if (pendingId) throw new Error('A voice capture is already active.');
+    if (storageLooksLow(freeBytes())) {
+      if (!lowStorageWarned) {
+        lowStorageWarned = true;
+        throw new LowStorageWarning();
+      }
+    } else {
+      lowStorageWarned = false;
+    }
     const id = deps.newId();
     const audioPath = audioPathFor(id);
-    ensureDirectory();
+    if (!ensureDirectory()) throw new Error('Could not prepare space for a recording.');
 
     pendingId = id;
     pendingPath = audioPath;
@@ -117,7 +142,8 @@ export function createVoiceCapture(deps: VoiceDeps) {
         pendingPath = null;
       }
       if (cancelledId === id) cancelledId = null;
-      removeFile(audioPath);
+      // Native start can fail after opening the file. Keep any bytes for orphan recovery.
+      if (!fileExists(audioPath)) removeFile(audioPath);
       throw error;
     }
   }
@@ -169,13 +195,13 @@ export function createVoiceCapture(deps: VoiceDeps) {
     const durationMs = audio?.durationMs ?? 0;
 
     // Too short to be a thought. The file goes with it; nothing is recorded anywhere.
-    if (durationMs > 0 && durationMs < motion.minRecordingMs) {
+    if (!audioFailure && durationMs > 0 && durationMs < motion.minRecordingMs) {
       if (path) removeFile(path);
       return { kind: 'too-short' };
     }
 
     // Neither heard nor recorded. Pressing the circle by accident should cost nothing.
-    if (!audio && !spoken) {
+    if (!audio && !spoken && !(audioFailure && path && hasAudioBytes(path))) {
       if (path) removeFile(path);
       return { kind: 'nothing' };
     }
@@ -209,43 +235,51 @@ export function createVoiceCapture(deps: VoiceDeps) {
       method: 'voice',
       origin: 'mobile',
       at: now(),
-      voice: audio ? { audioPath: audio.path, durationMs: audio.durationMs } : null,
+      voice: { audioPath: audio?.path ?? path ?? audioPathFor(id), durationMs: audio?.durationMs ?? 0 },
     });
+    if (audioFailure) await deps.store.markAudioIncomplete(id);
 
     // Words only ever come from a local recogniser, but the label is not inferred from
     // that: it is applied when the native side said so, and left off when it did not.
     const local = recognitionResult === 'on_device' || recognitionResult === 'failed';
-    if (spoken) {
-      await deps.store.setTranscript(id, {
-        state: 'ok',
-        text: spoken,
-        ...(local ? { model: ON_DEVICE_MODEL } : {}),
-      });
-    } else if (recognitionResult === 'unavailable' || recognitionResult === 'denied') {
-      // No recogniser ran. Left without a model, which is what keeps it retryable.
-      await deps.store.setTranscript(id, {
-        state: 'failed',
-        failure: recognitionResult === 'denied' ? TRANSCRIPT_DENIED : TRANSCRIPT_UNAVAILABLE,
-      });
-    } else {
-      await deps.store.setTranscript(id, {
-        state: 'failed',
-        failure: audioFailure ?? TRANSCRIPT_NOTHING_HEARD,
-        // A local recogniser listened to all of it and heard nothing: an answer, not a
-        // failure to ask. A recogniser that broke partway is left retryable.
-        ...(recognitionResult === 'on_device' ? { model: ON_DEVICE_MODEL } : {}),
-      });
+    let transcriptWriteFailed = false;
+    try {
+      if (spoken) {
+        await deps.store.setTranscript(id, {
+          state: 'ok',
+          text: spoken,
+          ...(local ? { model: ON_DEVICE_MODEL } : {}),
+        });
+      } else if (recognitionResult === 'unavailable' || recognitionResult === 'denied') {
+        // No recogniser ran. Left without a model, which is what keeps it retryable.
+        await deps.store.setTranscript(id, {
+          state: 'failed',
+          failure: recognitionResult === 'denied' ? TRANSCRIPT_DENIED : TRANSCRIPT_UNAVAILABLE,
+        });
+      } else {
+        await deps.store.setTranscript(id, {
+          state: 'failed',
+          failure: audioFailure ?? TRANSCRIPT_NOTHING_HEARD,
+          // A local recogniser listened to all of it and heard nothing: an answer, not a
+          // failure to ask. A recogniser that broke partway is left retryable.
+          ...(recognitionResult === 'on_device' ? { model: ON_DEVICE_MODEL } : {}),
+        });
+      }
+    } catch {
+      // The fragment and recording were already committed. Leave the transcript pending
+      // so a later local retry can read the audio rather than claiming the words were saved.
+      transcriptWriteFailed = true;
     }
 
     // A recording the file system claims to have and does not is said out loud rather than
     // discovered later by a play button that does nothing.
-    if (audio && !fileExists(audio.path)) {
+    if (!hasAudioBytes(audio?.path ?? path ?? audioPathFor(id))) {
       await deps.store.markAudioMissing(id);
     }
 
     const settled = (await deps.store.getFragment(id)) ?? material;
     deps.onCaptured?.(settled);
-    return { kind: 'kept', material: settled };
+    return { kind: 'kept', material: settled, transcriptWriteFailed, audioIncomplete: Boolean(audioFailure) };
   }
 
   /** Checks retained audio is where the database says it is, and records the truth if not. */

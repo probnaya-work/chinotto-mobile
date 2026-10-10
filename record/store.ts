@@ -90,6 +90,7 @@ type FragmentRow = {
   enrichment_state: DerivedState | null;
   duration_ms: number | null;
   audio_missing: number | null;
+  audio_incomplete: number | null;
   transcript_state: DerivedState | null;
 };
 
@@ -112,7 +113,7 @@ export function createRecordStore(db: RecordDb, options: StoreOptions = {}) {
              ORDER BY r.revision_index DESC LIMIT 1) AS prev_body,
            e.url_raw, e.url_key, e.source_app, e.selected_text,
            en.domain, en.title, en.state AS enrichment_state,
-           v.duration_ms, v.audio_missing,
+           v.duration_ms, v.audio_missing, v.audio_incomplete,
            vt.state AS transcript_state
       FROM fragments f
       LEFT JOIN line_index li ON li.fragment_id = f.id
@@ -143,6 +144,7 @@ export function createRecordStore(db: RecordDb, options: StoreOptions = {}) {
       enrichmentState: r.enrichment_state,
       durationMs: r.duration_ms,
       audioMissing: r.audio_missing === 1,
+      audioIncomplete: r.audio_incomplete === 1,
       transcriptState: r.transcript_state,
     };
   }
@@ -609,6 +611,11 @@ export function createRecordStore(db: RecordDb, options: StoreOptions = {}) {
     await db.runAsync('UPDATE voice_captures SET audio_missing = 1 WHERE fragment_id = ?', fragmentId);
   }
 
+  async function markAudioIncomplete(fragmentId: string): Promise<void> {
+    await db.runAsync('UPDATE voice_captures SET audio_incomplete = 1 WHERE fragment_id = ?', fragmentId);
+    changed(fragmentId);
+  }
+
   async function audioPathOf(fragmentId: string): Promise<string | null> {
     const row = await db.getFirstAsync<{ audio_path: string }>(
       'SELECT audio_path FROM voice_captures WHERE fragment_id = ?',
@@ -690,6 +697,7 @@ export function createRecordStore(db: RecordDb, options: StoreOptions = {}) {
     recentlyReturned,
     setTranscript,
     markAudioMissing,
+    markAudioIncomplete,
     audioPathOf,
     setEnrichment,
   };

@@ -118,8 +118,9 @@ CREATE INDEX IF NOT EXISTS encounters_key ON encounters (url_key);
 
 -- Voice. The AUDIO is the primary source and the only canonical part.
 --
--- Capture cannot fail, so a voice fragment exists the moment recording stops, whether or
--- not anything is ever transcribed. Correcting a transcript changes the fragment's body and
+-- A voice fragment is kept when recoverable audio or words survive, even if capture was interrupted.
+--
+-- A voice fragment can survive without a transcript. Correcting a transcript changes the fragment's body and
 -- its revision history; it never touches this table.
 --
 -- audio_path is relative to the app's document directory (see the file header).

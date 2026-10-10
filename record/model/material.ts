@@ -50,6 +50,7 @@ export type Material = {
   /** Voice — the audio is canonical. Null when this fragment is not a recording. */
   durationMs: number | null;
   audioMissing: boolean;
+  audioIncomplete?: boolean;
   transcriptState: DerivedState | null;
 };
 

@@ -75,6 +75,16 @@ describe('the Android voice bridge', () => {
     expect(listeners.VoiceCaptureFinal).toBeUndefined();
   });
 
+  it('forwards Android writer failure alongside retained partial audio', () => {
+    const { module, listeners } = fakeModule({ start: jest.fn() });
+    onAndroid({ ChinottoVoiceCapture: module });
+    const native = require('../NativeVoiceCapture') as typeof import('../NativeVoiceCapture');
+    const onTranscriptFinal = jest.fn();
+    native.subscribeVoiceCapture({ onTranscriptFinal });
+    listeners.VoiceCaptureFinal({ text: 'partial', reason: 'background', recognition: 'failed', audioPath: 'chinotto/audio/a.m4a', durationMs: 700, audioFailure: 'ENOSPC' });
+    expect(onTranscriptFinal).toHaveBeenCalledWith('partial', 'background', { path: 'chinotto/audio/a.m4a', durationMs: 700 }, 'ENOSPC', 'failed');
+  });
+
   it('reports a refused microphone as the iPhone does', () => {
     const { module, listeners } = fakeModule({ start: jest.fn() });
     onAndroid({ ChinottoVoiceCapture: module });

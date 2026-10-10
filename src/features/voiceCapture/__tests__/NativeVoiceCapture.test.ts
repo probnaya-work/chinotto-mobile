@@ -65,6 +65,25 @@ describe('NativeVoiceCapture', () => {
     expect(onTranscriptFinal.mock.calls[1][4]).toBeNull();
   });
 
+  it('forwards iOS partial audio and interruption without treating the file as complete', () => {
+    const listeners: Record<string, (e: unknown) => void> = {};
+    jest.doMock('react-native', () => ({
+      NativeModules: { VoiceCaptureModule: { start: jest.fn() } },
+      NativeEventEmitter: jest.fn().mockImplementation(() => ({
+        addListener: (name: string, fn: (e: unknown) => void) => {
+          listeners[name] = fn;
+          return { remove: () => {} };
+        },
+      })),
+      Platform: { OS: 'ios' },
+    }));
+    const { subscribeVoiceCapture } = require('../NativeVoiceCapture') as typeof import('../NativeVoiceCapture');
+    const onTranscriptFinal = jest.fn();
+    subscribeVoiceCapture({ onTranscriptFinal });
+    listeners.VoiceCaptureFinal({ text: 'partial', reason: 'interruption', audioPath: 'chinotto/audio/a.m4a', durationMs: 700, audioFailure: 'write failed', recognition: 'on_device' });
+    expect(onTranscriptFinal).toHaveBeenCalledWith('partial', 'interruption', { path: 'chinotto/audio/a.m4a', durationMs: 700 }, 'write failed', 'on_device');
+  });
+
   it('forwards a bounded real microphone level', () => {
     const listeners: Record<string, (e: unknown) => void> = {};
     const module = { start: jest.fn() };

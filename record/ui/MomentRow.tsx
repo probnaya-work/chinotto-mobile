@@ -139,7 +139,7 @@ export function MomentRow(props: MomentRowProps) {
       {material.transcriptState === 'failed'
         ? material.audioMissing
           ? 'couldn’t transcribe · the audio is not on this device'
-          : 'couldn’t transcribe · the audio is safe'
+          : material.audioIncomplete ? 'couldn’t transcribe · partial audio was kept' : 'couldn’t transcribe · the audio is safe'
         : 'listening back…'}
     </Text>
   ) : (
@@ -223,6 +223,10 @@ export function MomentRow(props: MomentRowProps) {
           <Text style={[metaStyle, { marginTop: 4 }]}>
             the audio is no longer on this device · these words remain
           </Text>
+        ) : null}
+
+        {voice && material.audioIncomplete && !material.audioMissing ? (
+          <Text style={[metaStyle, { marginTop: 4 }]}>recording incomplete · saved audio may be partial</Text>
         ) : null}
 
         {props.justSaved ? (

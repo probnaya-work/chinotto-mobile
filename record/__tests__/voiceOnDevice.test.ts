@@ -40,6 +40,7 @@ async function harness(engineOverrides: Partial<VoiceEngine> = {}) {
     now: () => T0,
     ensureDirectory: () => true,
     fileExists: () => true,
+    fileSize: () => 1024,
     deleteFile: (p) => {
       deleted.push(p);
       return true;
