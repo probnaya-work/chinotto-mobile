@@ -34,6 +34,8 @@ import { SURFACE } from './ui/tokens';
 import { createBridge, type RecordBridge } from './bridge';
 import { sweepRemovedVoice } from './erasure';
 import { deleteRecordFile, listRetainedAudio, recordFileExists } from './files';
+import { exportLocalRecord } from './export';
+import { formatStorage, retainedAudioBytes } from './storage';
 import { createTranscriptRetry } from './transcripts';
 import type { AudioPlaybackPort } from './playback';
 import { createRecordStore, type RecordStore } from './store';
@@ -828,6 +830,41 @@ function SettingsSurface(props: {
   onDelete: () => Promise<void>;
 }) {
   const permission = props.services.microphonePermission();
+  const [audioUsage, setAudioUsage] = useState('measuring on this phone…');
+  const [exportBusy, setExportBusy] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const exportAbort = useRef<AbortController | null>(null);
+  useEffect(() => {
+    let active = true;
+    try {
+      const bytes = retainedAudioBytes();
+      if (active) setAudioUsage(bytes === null ? 'could not measure on this phone' : `${formatStorage(bytes)} on this phone · measured`);
+    } catch {
+      if (active) setAudioUsage('could not measure on this phone');
+    }
+    return () => {
+      active = false;
+      exportAbort.current?.abort();
+    };
+  }, [props.services.db]);
+
+  const startExport = () => {
+    if (exportAbort.current) return;
+    const controller = new AbortController();
+    exportAbort.current = controller;
+    setExportBusy(true);
+    setExportError(null);
+    void exportLocalRecord(props.services.db, controller.signal)
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) {
+          setExportError(error instanceof Error ? error.message : 'The export could not be prepared.');
+        }
+      })
+      .finally(() => {
+        if (exportAbort.current === controller) exportAbort.current = null;
+        setExportBusy(false);
+      });
+  };
   return (
     <Settings
       page={props.page}
@@ -848,6 +885,11 @@ function SettingsSurface(props: {
         error: props.sync.state === 'error',
       })}
       onOpenSync={props.onOpenSync}
+      audioUsage={audioUsage}
+      exportBusy={exportBusy}
+      exportError={exportError}
+      onExport={startExport}
+      onCancelExport={() => exportAbort.current?.abort()}
       icon={props.icon}
       onPickIcon={props.setIcon}
       micLine={settingsCopy.microphone(permission, props.capabilities.systemName)}

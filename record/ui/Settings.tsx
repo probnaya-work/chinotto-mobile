@@ -8,10 +8,7 @@
  * Two sub-pages push in over it and come back with `‹ edge`: the manifesto, and deleting
  * the cloud account.
  *
- * Note what is *not* here. There is no export, because the prototype draws none — recorded
- * as pending (§8.1) rather than accepted, since it means the record cannot currently leave
- * the phone. There is no text-size control, which desktop has and the mobile prototype does
- * not.
+ * Export is deliberately user-initiated and sits with the Record, not routine capture.
  */
 
 import React from 'react';
@@ -34,6 +31,11 @@ export type SettingsProps = {
   syncLine: string;
   syncVerb: string;
   onOpenSync: () => void;
+  audioUsage?: string;
+  exportBusy?: boolean;
+  exportError?: string | null;
+  onExport?: () => void;
+  onCancelExport?: () => void;
 
 
   icon: IconChoice;
@@ -174,6 +176,9 @@ function Root(props: SettingsProps & { capabilities: PlatformCapabilities }) {
             onPress={props.micDenied ? props.onOpenSystemSettings : undefined}
           />
         ) : null}
+        {can.voice ? (
+          <SettingRow title="original audio" detail={props.audioUsage ?? 'measuring on this phone…'} />
+        ) : null}
         <SettingRow
           title="from elsewhere"
           detail={`share sheet · send ${can.shareKinds} to chinotto from any app. it lands dated now.`}
@@ -181,6 +186,15 @@ function Root(props: SettingsProps & { capabilities: PlatformCapabilities }) {
           onPress={can.homeWidget ? props.onSeeWidget : undefined}
           divider={false}
         />
+        {props.onExport ? (
+          <SettingRow
+            title="export the record"
+            detail={props.exportError ?? 'text, history and original audio · a portable copy, not a backup'}
+            action={props.exportBusy ? 'cancel ›' : 'export ›'}
+            onPress={props.exportBusy ? props.onCancelExport : props.onExport}
+            divider={false}
+          />
+        ) : null}
       </Section>
 
       {/* One appearance, because there is one. The absence of a light-mode switch is honest. */}

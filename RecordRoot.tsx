@@ -21,6 +21,7 @@ import { useIncomingShare } from 'expo-sharing';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { ChinottoApp, type Services } from './record/ChinottoApp';
+import { cleanupAbandonedExports } from './record/exportTemp';
 import { ensureThisDevice, HEARTBEAT_MS, isRevoked, type ThisDevice } from './record/devices';
 import { SURFACE } from './record/ui/tokens';
 import { SystemFrame } from './record/ui/systemInsets';
@@ -201,6 +202,9 @@ const audioPlayback: AudioPlaybackPort = {
 };
 
 export default function RecordRoot() {
+  useEffect(() => {
+    try { cleanupAbandonedExports(); } catch { /* The next launch retries. */ }
+  }, []);
   const [db, setDb] = useState<SQLiteDatabase | null>(null);
 
   // The real gate, from remote config. `forced` is the one blocking surface the product
