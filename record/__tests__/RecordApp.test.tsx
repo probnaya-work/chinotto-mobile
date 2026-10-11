@@ -930,6 +930,7 @@ describe('the record surface', () => {
     });
 
     expect(screen.getByText('chinotto')).toBeTruthy();
+    expect(screen.getByLabelText('by PROBNAYA')).toBeTruthy();
     // The field is mounted and reachable underneath it from the first frame.
     expect(screen.getByLabelText('capture')).toBeTruthy();
 
@@ -956,6 +957,12 @@ describe('the record surface', () => {
     });
     expect(screen.queryByText('chinotto')).toBeNull();
 
+    // A production cold start can spend longer than the entire animation loading fonts.
+    // That time must not consume the lockup's own hold once it finally becomes visible.
+    await act(async () => {
+      jest.advanceTimersByTime(LAUNCH_HOLD + 1_000);
+    });
+
     await act(async () => {
       view.rerender(<RecordApp store={h.store} bridge={h.bridge} {...defaults} coldStart />);
       await Promise.resolve();
@@ -965,7 +972,12 @@ describe('the record surface', () => {
     expect(screen.getByLabelText('capture')).toBeTruthy();
 
     await act(async () => {
-      jest.advanceTimersByTime(LAUNCH_HOLD + 520 + 50);
+      jest.advanceTimersByTime(LAUNCH_HOLD - 1);
+    });
+    expect(screen.getByLabelText('by PROBNAYA')).toBeTruthy();
+
+    await act(async () => {
+      jest.advanceTimersByTime(1 + 520 + 50);
     });
     await waitFor(() => expect(screen.queryByText('chinotto')).toBeNull());
 

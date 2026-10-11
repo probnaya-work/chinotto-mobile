@@ -22,7 +22,7 @@ import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, Text, View } from 'react-native';
 
 import { Mark } from './Mark';
-import { ink, motion, SURFACE } from './tokens';
+import { agency, ink, motion, SURFACE } from './tokens';
 import { type } from './type';
 
 export type LaunchProps = {
@@ -38,8 +38,8 @@ const EASE = Easing.bezier(...motion.bezier);
 const RING = { delay: 1020, duration: 900 } as const;
 /** The word is the last thing to arrive, and the lockup is not finished until it has. */
 const WORD = { delay: 1500, duration: 800 } as const;
-/** A beat to see the whole thing before the record takes over. */
-const LOCKUP_BEAT = 500;
+/** A beat to read the complete lockup — especially the maker line — before it leaves. */
+const LOCKUP_BEAT = 900;
 
 /** Where each dot comes from, and where it scatters back to. */
 const DOT_ORIGINS = [
@@ -53,6 +53,7 @@ export function Launch({ leaving, onFinished, reducedMotion }: LaunchProps) {
   const dots = useRef(DOT_ORIGINS.map(() => new Animated.Value(0))).current;
   const ring = useRef(new Animated.Value(0)).current;
   const word = useRef(new Animated.Value(0)).current;
+  const maker = useRef(new Animated.Value(0)).current;
   const out = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -60,6 +61,7 @@ export function Launch({ leaving, onFinished, reducedMotion }: LaunchProps) {
       dots.forEach((d) => d.setValue(1));
       ring.setValue(1);
       word.setValue(1);
+      maker.setValue(1);
       return;
     }
     const animations = [
@@ -86,10 +88,19 @@ export function Launch({ leaving, onFinished, reducedMotion }: LaunchProps) {
         easing: EASE,
         useNativeDriver: true,
       }),
+      // The maker is a colophon at the edge, not part of the Chinotto lockup. It arrives
+      // a little earlier than the wordmark, as it does in the desktop app.
+      Animated.timing(maker, {
+        toValue: 1,
+        duration: 650,
+        delay: 1120,
+        easing: EASE,
+        useNativeDriver: true,
+      }),
     ];
     Animated.parallel(animations).start();
     return () => animations.forEach((a) => a.stop());
-  }, [dots, ring, word, reducedMotion]);
+  }, [dots, maker, ring, word, reducedMotion]);
 
   useEffect(() => {
     if (!leaving) return;
@@ -206,6 +217,41 @@ export function Launch({ leaving, onFinished, reducedMotion }: LaunchProps) {
           chinotto
         </Animated.Text>
       </View>
+
+      {/* Authorship stays at the edge so the centred Chinotto lockup remains its own mark. */}
+      <View
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 34,
+          alignItems: 'center',
+          overflow: 'hidden',
+          paddingBottom: 3,
+        }}
+      >
+        <Animated.Text
+          accessibilityLabel="by PROBNAYA"
+          style={[
+            type({ size: 12, width: 76, lineHeight: 1, color: agency.quiet }),
+            {
+              opacity: Animated.multiply(maker, fadeOut),
+              transform: [
+                {
+                  translateY: Animated.add(
+                    maker.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }),
+                    out.interpolate({ inputRange: [0, 1], outputRange: [0, -8] })
+                  ),
+                },
+              ],
+            },
+          ]}
+        >
+          <Text style={{ letterSpacing: 0.36 }}>by</Text>
+          {'  '}
+          <Text style={{ fontWeight: '500', letterSpacing: 1.56 }}>PROBNAYA</Text>
+        </Animated.Text>
+      </View>
     </Animated.View>
   );
 }
@@ -241,16 +287,16 @@ function Dot({ index }: { index: number }) {
 /**
  * How long the lockup holds before it leaves on its own.
  *
- * The prototype's own prop default is 1.9s, and the hold is reduced by however long the app
- * has already spent loading — so a slow start never *adds* to the wait, it eats into it.
+ * This is counted from the moment the lockup is actually shown. Counting from process start
+ * lets font loading consume the whole animation on a production cold start, so the maker line
+ * can disappear before it is ever visible.
  */
 /** When the lockup has finished assembling itself, and how long it then rests. */
 export const LAUNCH_HOLD = WORD.delay + WORD.duration + LOCKUP_BEAT;
 
-export function launchHoldFor(loadedAtMs: number, now: number, reducedMotion: boolean): number {
+export function launchHoldFor(reducedMotion: boolean): number {
   // Derived rather than chosen: the hold used to be 1900, which began dismissing the lockup
   // while the word was still 83% of the way in — it was cut off mid-sentence every time.
   // Now it is however long the last thing takes to arrive, plus a beat to see it whole.
-  const full = reducedMotion ? motion.launchReducedHold : LAUNCH_HOLD;
-  return Math.max(0, full - (now - loadedAtMs));
+  return reducedMotion ? motion.launchReducedHold : LAUNCH_HOLD;
 }
