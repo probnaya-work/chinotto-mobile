@@ -120,6 +120,13 @@ writeSvg('assets/chinotto-splash-logo.svg', transparentMarkSvg({ foreground: dar
 await png(readFileSync(join(root, 'assets/chinotto-icon.svg'), 'utf8'), 'assets/icon.png', 1024, {
   background: dark.background,
 });
+// Google Play store listing artwork is a separate 512×512, 32-bit PNG. Keep the alpha
+// channel the Play Console asks for, even though every pixel in this square icon is opaque.
+await png(
+  readFileSync(join(root, 'assets/chinotto-icon.svg'), 'utf8'),
+  'assets/google-play-icon.png',
+  512
+);
 await png(
   readFileSync(join(root, 'assets/chinotto-icon-foreground.svg'), 'utf8'),
   'assets/android-icon-foreground.png',
