@@ -34,6 +34,7 @@ function services(db: RecordDb, engine: VoiceEngine, os: Phone): Services {
     onVoiceOnOpenHandled: () => {},
     openSystemSettings: () => {},
     microphonePermission: () => 'ask',
+    requestVoicePermission: async () => 'granted' as const,
     subscriptionLoaded: true,
     syncAccount: {
       paywallEnabled: () => false,

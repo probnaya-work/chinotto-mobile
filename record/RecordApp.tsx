@@ -61,6 +61,7 @@ export type RecordAppProps = {
     cancel: () => Promise<void>;
     state: VoiceCaptureDisplayState | null;
     permission: 'granted' | 'ask' | 'denied';
+    requestPermission: () => Promise<'granted' | 'denied'>;
     openSystemSettings: () => void;
   };
   voiceIssue?: string | null;
@@ -232,15 +233,15 @@ export function RecordApp(props: RecordAppProps) {
   /* -------------------------------------------------------------------- voice */
 
   /**
-   * A second tap may arrive while the phone is still opening the microphone or showing its
-   * first permission prompt. `stop()` cannot stop a future engine, so the intent is replayed
-   * after `start()` settles as well.
+   * A second tap may arrive while the phone is still opening the microphone. `stop()` cannot
+   * stop a future engine, so the intent is replayed after `start()` settles as well.
    */
   const openingVoice = useRef<Promise<boolean> | null>(null);
+  const requestingPermission = useRef<Promise<'granted' | 'denied'> | null>(null);
   const finishAfterOpen = useRef<'keep' | 'discard' | null>(null);
 
   const startRecording = useCallback(async () => {
-    if (openingVoice.current || props.voice.state) return;
+    if (openingVoice.current || requestingPermission.current || props.voice.state) return;
     // Speaking is not typing. The keyboard goes away so the recording has the
     // whole edge, which is what the veil and the level meter are drawn against.
     dismissKeyboard();
@@ -250,16 +251,25 @@ export function RecordApp(props: RecordAppProps) {
       setTimeout(() => setMicNotice(null), 7000);
       return;
     }
-    // `ask` is not a refusal, and it is the state every cold launch starts in. Tapping the
-    // circle IS the request: the native side raises both prompts on its first attempt, and
-    // answering them is what turns `ask` into `granted` or `denied`. Stopping here instead
-    // left voice unreachable for good — nothing else ever asks.
+    // A permission prompt is preparation, not a recording. Starting capture behind the
+    // system sheet meant its eventual answer inherited the original touch and silently
+    // created the first voice moment. The next deliberate tap/hold is the first recording.
     if (props.voice.permission === 'ask') {
       setMicNotice('ask');
       setTimeout(() => setMicNotice(null), 7000);
-    } else {
-      setMicNotice(null);
+      const request = props.voice.requestPermission();
+      requestingPermission.current = request;
+      const permission = await request;
+      if (requestingPermission.current === request) requestingPermission.current = null;
+      if (permission === 'denied') {
+        setMicNotice('denied');
+        setTimeout(() => setMicNotice(null), 7000);
+      } else {
+        setMicNotice(null);
+      }
+      return;
     }
+    setMicNotice(null);
     const opening = props.voice.start();
     openingVoice.current = opening;
     const started = await opening;

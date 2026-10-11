@@ -45,6 +45,7 @@ const defaults = {
     cancel: jest.fn(async () => {}),
     state: null,
     permission: 'granted' as const,
+    requestPermission: jest.fn(async () => 'granted' as const),
     openSystemSettings: jest.fn(),
   },
   sync: { notice: null, onOpen: jest.fn() },
@@ -195,12 +196,15 @@ describe('the record surface', () => {
     h.db.close();
   });
 
-  it('lets iOS do the asking, rather than waiting for an answer nobody can give', async () => {
+  it('prepares iOS permissions without turning their answer into a recording', async () => {
     const h = harness();
     await migrate(h.db);
-    // Every cold launch starts here, granted or not: the permission is only learned from
-    // what happens when recording is attempted.
-    const voice = { ...defaults.voice, permission: 'ask' as const, start: jest.fn(async () => true) };
+    const voice = {
+      ...defaults.voice,
+      permission: 'ask' as const,
+      requestPermission: jest.fn(async () => 'granted' as const),
+      start: jest.fn(async () => true),
+    };
     const view = await mount(h, { voice });
 
     await act(async () => {
@@ -208,10 +212,26 @@ describe('the record surface', () => {
       await Promise.resolve();
     });
 
-    // Tapping the circle IS the request. Refusing to start while the answer is unknown
-    // left voice unreachable for good, because nothing else ever asks.
-    expect(voice.start).toHaveBeenCalled();
-    expect(screen.getByText(/ios will ask once/)).toBeTruthy();
+    expect(voice.requestPermission).toHaveBeenCalledTimes(1);
+    expect(voice.start).not.toHaveBeenCalled();
+
+    // Once prepared, a second deliberate tap is the one that records.
+    await act(async () => {
+      view.rerender(
+        <RecordApp
+          store={h.store}
+          bridge={h.bridge}
+          {...defaults}
+          voice={{ ...voice, permission: 'granted' }}
+        />
+      );
+      await Promise.resolve();
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('start recording'));
+      await Promise.resolve();
+    });
+    expect(voice.start).toHaveBeenCalledTimes(1);
     h.db.close();
   });
 

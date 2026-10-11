@@ -133,11 +133,13 @@ describe('Android voice recognition stays on the device', () => {
     expect(boundary).toContain('s.finishAudio()');
   });
 
-  it('asks for the microphone only when somebody taps the circle', () => {
+  it('prepares the microphone separately, and start never raises a permission sheet', () => {
     const module = code('VoiceCaptureModule.kt');
     expect(count(module, 'askForPermissions(')).toBe(1);
     expect(count(module, 'askMicrophone {')).toBe(1);
-    expect(bodyOf(module, 'private fun start(')).toContain('askMicrophone {');
+    expect(bodyOf(module, 'private fun start(')).toContain('microphoneStatus {');
+    expect(bodyOf(module, 'private fun start(')).not.toContain('askMicrophone {');
+    expect(module).toContain('AsyncFunction("requestPermissions")');
     expect(bodyOf(module, 'private fun transcribeFile(')).not.toContain('askMicrophone');
     expect(bodyOf(module, 'private fun localRecognitionStatus(')).not.toContain('askMicrophone');
   });

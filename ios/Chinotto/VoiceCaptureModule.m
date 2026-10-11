@@ -9,6 +9,12 @@ RCT_EXTERN_METHOD(start:(NSDictionary *)options
 
 RCT_EXTERN_METHOD(stop)
 
+RCT_EXTERN_METHOD(permissionStatus:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(requestPermissions:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
 RCT_EXTERN_METHOD(transcribeFile:(NSString *)relativePath
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)

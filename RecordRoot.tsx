@@ -29,10 +29,12 @@ import { capabilitiesFor } from './record/platform';
 import type { VoiceEngine } from './record/voice';
 import {
   localRecognitionStatus,
+  requestVoiceCapturePermissions,
   startVoiceCapture,
   stopVoiceCapture,
   subscribeVoiceCapture,
   transcribeVoiceFile,
+  voiceCapturePermissionStatus,
 } from './src/features/voiceCapture/NativeVoiceCapture';
 import type { AudioPlaybackPort } from './record/playback';
 import {
@@ -222,12 +224,8 @@ export default function RecordRoot() {
   }, []);
 
   /**
-   * Microphone state is only ever learned by trying.
-   *
-   * There is no API that reports the permission without asking for it, so settings says
-   * "not asked yet" until a recording actually succeeds or is refused — and then says what
-   * happened. It never claims to know an answer it has not been given. (Desktop reached the
-   * same rule independently; their decision 12.6.)
+   * Permission state is read without prompting. An unanswered state remains `ask`; the
+   * circle raises the system sheet once, separately from recording, and stores its answer.
    */
   /**
    * Whether the subscription state has been read at all.
@@ -287,6 +285,15 @@ export default function RecordRoot() {
   }, [db]);
 
   const [micPermission, setMicPermission] = useState<'granted' | 'ask' | 'denied'>('ask');
+  useEffect(() => {
+    let alive = true;
+    void voiceCapturePermissionStatus().then((permission) => {
+      if (alive) setMicPermission(permission);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
   useEffect(
     () =>
       subscribeVoiceCapture({
@@ -381,10 +388,12 @@ export default function RecordRoot() {
       },
       openSystemSettings: () => void Linking.openSettings(),
 
-      // Asking IS tapping the circle: the native side raises both prompts on its first
-      // attempt, so there is nothing separate to request — and nothing separate that could
-      // quietly become a stub while the surface waited on it.
       microphonePermission: () => micPermission,
+      requestVoicePermission: async () => {
+        const permission = await requestVoiceCapturePermissions();
+        setMicPermission(permission);
+        return permission;
+      },
       subscriptionLoaded,
       syncAccount,
       deleteAccount: deleteCloudAccount,

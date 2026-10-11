@@ -89,6 +89,7 @@ export type Services = {
   onVoiceOnOpenHandled: () => void;
   openSystemSettings: () => void;
   microphonePermission: () => 'granted' | 'ask' | 'denied';
+  requestVoicePermission: () => Promise<'granted' | 'denied'>;
   /** False until the entitlement has been read at all — which is not the same as unsubscribed. */
   subscriptionLoaded: boolean;
   /** Turning sync on and off: the store, Apple, and the work that follows signing in. */
@@ -687,6 +688,7 @@ export function ChinottoApp({ services }: { services: Services }) {
           cancel: cancelVoice,
           state: recording,
           permission: services.microphonePermission(),
+          requestPermission: services.requestVoicePermission,
           openSystemSettings: services.openSystemSettings,
         }}
         voiceIssue={voiceIssue}
