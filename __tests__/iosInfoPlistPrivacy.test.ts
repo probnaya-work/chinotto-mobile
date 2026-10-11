@@ -9,10 +9,12 @@ function plistString(xml: string, key: string): string | undefined {
   return match?.[1];
 }
 
-it('Chinotto Info.plist includes NSPhotoLibraryUsageDescription (App Store privacy)', () => {
+it('does not claim photo-library use while image sharing is unsupported', () => {
   const plistPath = path.join(__dirname, '..', 'ios', 'Chinotto', 'Info.plist');
   const xml = fs.readFileSync(plistPath, 'utf8');
-  expect(xml).toContain('<key>NSPhotoLibraryUsageDescription</key>');
+  const appJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'app.json'), 'utf8'));
+  expect(xml).not.toContain('<key>NSPhotoLibraryUsageDescription</key>');
+  expect(appJson.expo.ios.infoPlist.NSPhotoLibraryUsageDescription).toBeUndefined();
 });
 
 it('Chinotto Info.plist is iPhone-only (UIDeviceFamily 1, no iPad orientation plist keys)', () => {
