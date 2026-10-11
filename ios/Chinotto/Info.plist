@@ -97,6 +97,8 @@
     <string>Expo Dev Launcher uses the local network to discover and connect to development servers running on your computer.</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>Chinotto uses the microphone so you can tap the circle and speak instead of typing. The recording itself is kept on this iPhone as part of your record, so you can hear a moment back later — not only read what was heard.</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Chinotto uses the iOS share sheet for items you explicitly choose to share. The system may request photo-library access in that flow; Chinotto does not browse your library or access photos in the background.</string>
     <key>NSSpeechRecognitionUsageDescription</key>
     <string>Chinotto turns what you say into text on this iPhone, as a first draft of the words. The recording stays on the device and remains the original.</string>
     <key>NSSupportsLiveActivities</key>
