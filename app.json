@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": false,
-      "buildNumber": "40",
+      "buildNumber": "41",
       "bundleIdentifier": "com.chinotto.mobile",
       "googleServicesFile": "./GoogleService-Info.plist",
       "associatedDomains": ["applinks:getchinotto.app"],
@@ -29,6 +29,7 @@
         "UIDeviceFamily": [1],
         "ITSAppUsesNonExemptEncryption": false,
         "NSMicrophoneUsageDescription": "Chinotto uses the microphone so you can tap the circle and speak instead of typing. The recording itself is kept on this iPhone as part of your record, so you can hear a moment back later — not only read what was heard.",
+        "NSPhotoLibraryUsageDescription": "Chinotto uses the iOS share sheet for items you explicitly choose to share. The system may request photo-library access in that flow; Chinotto does not browse your library or access photos in the background.",
         "NSSpeechRecognitionUsageDescription": "Chinotto turns what you say into text on this iPhone, as a first draft of the words. The recording stays on the device and remains the original."
       }
     },
