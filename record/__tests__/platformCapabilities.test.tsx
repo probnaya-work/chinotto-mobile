@@ -18,7 +18,7 @@ describe('capabilities', () => {
       homeWidget: true,
       iconChoice: true,
       syncSetup: true,
-      shareKinds: 'a page, a selection or a photo',
+      shareKinds: 'a page or a selection',
       systemName: 'ios',
       privacyLine:
         'the words stay on this phone unless sync is on, and then only go to your own devices.',
@@ -30,10 +30,10 @@ describe('capabilities', () => {
         'How do you pick up where you left off?',
         'Most notes apps keep the file. Chinotto keeps the return — the same line, later, with more weight.',
         'You capture without closing the thought. Structure can wait until you come back — scroll the stream, follow a trail, or jump a week on the strand.',
-        'On desktop, you continue threads — reopen unfinished entries, follow trails, use the time strand to jump across months, and share a read-only link when you want someone else to read along.',
+        'On desktop, you continue threads — reopen unfinished entries, follow trails, and use the time strand to jump across months.',
         'On mobile, Chinotto is the pocket — capture with widget, voice, or share-in; search or swipe into what came before when you have a minute.',
         'Not another notes app. A place to pick up unfinished thoughts months later.',
-        'Your thoughts stay local-first on your devices until you choose otherwise. Sync is optional: Sign in with Apple when you want the same stream on desktop and mobile. On desktop, optional Spaces — Inbox, Work, Personal — filter one timeline when you want separation, without folders or a workspace to set up first. There is no Chinotto account.',
+        'Your thoughts stay on your devices unless you choose sync. Capture needs no account. To keep the same record on your iPhone and Mac, turn on sync with Sign in with Apple.',
         'A private record of thoughts, encounters, and what continues between them.',
       ],
     });
@@ -144,7 +144,7 @@ describe('settings on android', () => {
     render(<Settings {...props} page="manifesto" capabilities={capabilitiesFor('android')} />);
     expect(screen.getByText(/thoughts that stop mid-sentence/)).toBeTruthy();
     expect(screen.getByText(/tap the circle and talk, or share in/)).toBeTruthy();
-    expect(screen.getByText(/stay on this phone. There is no Chinotto account./)).toBeTruthy();
+    expect(screen.getByText(/stay on this phone. Capture needs no account./)).toBeTruthy();
     expect(screen.queryByText(/widget|sign in with apple|sync|desktop|spaces/i)).toBeNull();
     expect(screen.queryByText('Thinking rarely starts structured.')).toBeNull();
   });
@@ -172,7 +172,7 @@ describe('settings on android', () => {
     expect(screen.getByText('2.0.0 · up to date')).toBeTruthy();
     expect(
       screen.getByText(
-        'share sheet · send a page, a selection or a photo to chinotto from any app. it lands dated now.'
+        'share sheet · send a page or a selection to chinotto from any app. it lands dated now.'
       )
     ).toBeTruthy();
   });
