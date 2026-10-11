@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": false,
-      "buildNumber": "40",
+      "buildNumber": "41",
       "bundleIdentifier": "com.chinotto.mobile",
       "googleServicesFile": "./GoogleService-Info.plist",
       "associatedDomains": ["applinks:getchinotto.app"],
