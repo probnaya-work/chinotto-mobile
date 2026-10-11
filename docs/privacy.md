@@ -5,6 +5,7 @@ Chinotto Mobile is **local-first**. Your thoughts stay on your device in SQLite.
 ## Your data
 
 - **Record text** is stored on the device by default. With optional sync on iOS, text is also stored in the synced copy. It is not sent to analytics or included in crash-style telemetry.
+- **Export** — Settings can prepare a portable ZIP of the local Record, including correction history and retained audio. It works offline and opens the system share interface. It is a copy, not a restorable app backup.
 - **Account deletion** — when signed in for sync, Settings → Account → Delete Account removes your cloud data and Firebase account. Local entries on the device are kept.
 
 ## Voice
@@ -30,7 +31,7 @@ Removing a moment erases its wording, history, relationships and derived materia
 
 ## Analytics (opt-in)
 
-Analytics are **off by default**. On first launch you may see a one-time prompt; you can change the setting later in Settings → Privacy.
+Analytics are **off by default**. You can turn them on or off in Settings → Privacy.
 
 When enabled, Chinotto sends only simple event names and numbers — for example “entry created” with the text length, or “search used” with the number of results. It never sends:
 

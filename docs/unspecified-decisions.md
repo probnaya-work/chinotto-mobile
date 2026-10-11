@@ -66,8 +66,8 @@ computed and then flattened. The surface is identical; the tree is not.
 | 4.4 | Audio paths are stored relative to the document directory | — | `record/files.ts` | invented |
 | 4.5 | A second tap under `0.8s` drops the recording silently, file and all | `0.8s` | `record/voice.ts` | revised after use: tap-to-toggle replaces hold-to-speak |
 | 4.6 | ~~Retained audio is deleted only when a removal is finally published~~ — **now does what it says.** At the publish that ends the undo window, a voice moment's recording, transcript, every wording, voice metadata, search entry, Traces and Returns that quote it are erased; the fragment row (id, `captured_at`, method, `removed_at`) and the sync outbox rows stay. See 4.17 | — | `record/erasure.ts`, `record/bridge.ts` | **product rule** (2026-09-24) |
-| 4.7 | No retention cap or budget on recorded audio | — | — | **pending** |
-| 4.8 | A recording that could not be written still yields a moment, from the transcript alone | — | `record/voice.ts` | invented |
+| 4.7 | No automatic retention cap; measured audio use appears in Settings and low free space is warned before recording | 64 MiB warning threshold, not a recording limit | `record/storage.ts`, `record/voice.ts` | **decided** for storage awareness; retention remains user-controlled |
+| 4.8 | A recording that could not be written still yields a moment from the transcript, explicitly marked `audio_missing` | — | `record/voice.ts` | revised for truthful persistence status |
 | 4.9 | A write failure mid-recording keeps what already reached disk and stops | — | `VoiceCaptureModule.swift` | invented |
 | 4.10 | Audio missing at settle time is recorded as `audio_missing` immediately | — | `record/voice.ts` | invented |
 | 4.11 | The machine transcript fills the body only while `correction_count == 0` | — | `record/store.ts` | **product rule** |
@@ -222,8 +222,8 @@ inventing an order.
 
 | # | What | Why it is open |
 |---|---|---|
-| 8.1 | **Export / backup of the Record** | Desktop has `export_record` and `back up now`. The mobile prototype draws no export, and this branch does not read that silence as "the Record may not leave the phone". The material is all in place (`archived_material`, retained audio, `fragment_revisions`); the surface is not designed. |
-| 8.2 | Retained-audio budget | See 4.7. A phone can fill up, and nothing yet tells anyone that. No number is invented here because any of them — a size cap, an age cap, "keep the last N" — is a product decision about deleting somebody's own recordings, and a canonical source should not be discarded to save space without being asked. |
+| 8.1 | **Restorable backup of the Record** | User-initiated portable export now exists (`docs/export-format.md`). Import and restore remain a separate design decision. |
+| 8.2 | Retained-audio limit | See 4.7. Usage and low-space warnings now exist. No size, age or count cap is imposed; recordings remain canonical material. |
 | 8.3 | Reading time on a shared article (`14 min`) | Not derivable offline; unresolved content in the prototype. |
 | 8.4 | Price, saving and trial copy | RevenueCat supplies them; the prototype states they are unresolved and the layout holds the longest plausible line. |
 | 8.5 | Android parity for the new surface | `AGENTS.md` defers it and the prototype is an iPhone prototype. The Android sign-in path is untouched, not redesigned. |
@@ -256,7 +256,7 @@ Recorded so neither repository drifts by accident.
 | Back gesture + drawn affordances | one global `esc` ladder | a phone has no `esc` (handoff-diff §1.3) |
 | `capture_origin` adds `widget`, `share` | adds `tray` | each platform's own sources; the column is free text on both sides |
 | Audio retained on the phone | audio retained on the Mac | same rule, and neither crosses the wire |
-| No export surface yet | `export_record` + backup | **pending**, not decided (8.1) |
+| User-initiated ZIP export; no restore | `export_record` + backup | mobile export includes history and original audio; restore remains open (8.1) |
 
 ---
 

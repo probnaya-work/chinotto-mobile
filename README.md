@@ -13,7 +13,7 @@ Capture them instantly — without projects, folders, or workspaces.
 Structure can come later — when you revisit on desktop.
 
 Local-first. Works fully offline.  
-Optional sync with Chinotto desktop — entries and recall themes (Chinotto Pro on mobile).
+Optional sync with Chinotto desktop on iOS (Chinotto Pro).
 
 ## Download (iOS)
 
@@ -24,18 +24,18 @@ Optional sync with Chinotto desktop — entries and recall themes (Chinotto Pro 
 - Capture thoughts instantly
 - One continuous stream instead of documents and folders
 - Full-text search
-- Move through your history — month scrubber and timeline map
+- Move through your history by year and month
 - Quiet recall when an older thought still matters
 - Related thoughts surface in context on the stream
-- Recall themes — optional labels to filter and revisit threads of thought
 - Share in from other apps (iOS)
 - iOS Home Widget — quick capture and recent thoughts
 - Voice capture
-- Optional sync with Chinotto desktop (entries and recall themes)
+- Optional text sync with Chinotto desktop on iOS
 
 ## Data ownership
 
-- **Local storage** — entries stay on your device in SQLite
+- **Local storage** — the Record starts on your device in SQLite
+- **Export** — a user-initiated ZIP of the Record, correction history and original audio; no account or subscription needed
 - **Account deletion** — when signed in for sync, remove cloud data from Settings → Account
 
 See [Privacy](docs/privacy.md) for local storage, optional sync, and analytics.
