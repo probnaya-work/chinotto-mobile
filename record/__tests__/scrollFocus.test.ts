@@ -1,6 +1,10 @@
 import type { ViewToken } from 'react-native';
 
-import { scrollFocusFromViewable, scrollFocusMotionTarget } from '../ui/RecordList';
+import {
+  scrollFocusFromViewable,
+  scrollFocusMotionTarget,
+  scrollFocusRoleFor,
+} from '../ui/RecordList';
 import type { Row } from '../ui/rows';
 
 const moment = (key: string): Row =>
@@ -47,5 +51,15 @@ describe('scrollFocusFromViewable', () => {
     expect(scrollFocusMotionTarget('above')).toEqual({ scale: 1.025, translateY: -6 });
     expect(scrollFocusMotionTarget('below')).toEqual({ scale: 1.025, translateY: 6 });
     expect(scrollFocusMotionTarget('none')).toEqual({ scale: 1, translateY: 0 });
+  });
+
+  it('does not scale a selected row and its action buttons past the viewport', () => {
+    const focus = { activeKey: 'active', aboveKey: 'above', belowKey: 'below' };
+    expect(scrollFocusRoleFor('active', 'active', focus)).toBe('none');
+    expect(scrollFocusMotionTarget(scrollFocusRoleFor('active', 'active', focus))).toEqual({
+      scale: 1,
+      translateY: 0,
+    });
+    expect(scrollFocusRoleFor('active', null, focus)).toBe('active');
   });
 });

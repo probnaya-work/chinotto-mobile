@@ -127,6 +127,23 @@ export function scrollFocusFromViewable(
 type ScrollFocusRole = 'none' | 'active' | 'above' | 'below';
 
 /**
+ * The typographic wave belongs to reading, not to controls. Once a row is selected its
+ * four verbs must use the viewport's real width; scaling their parent is what pushed the
+ * remove button off narrow Android screens.
+ */
+export function scrollFocusRoleFor(
+  key: string,
+  selectedId: string | null,
+  focus: ScrollFocus
+): ScrollFocusRole {
+  if (key === selectedId) return 'none';
+  if (key === focus.activeKey) return 'active';
+  if (key === focus.aboveKey) return 'above';
+  if (key === focus.belowKey) return 'below';
+  return 'none';
+}
+
+/**
  * A typographic wave, not a selection treatment.
  *
  * The active thought gains roughly two visual points at the common D0/D1 sizes. Its two
@@ -238,14 +255,7 @@ export function RecordList(props: RecordListProps) {
           );
 
         case 'moment': {
-          const focusRole: ScrollFocusRole =
-            item.key === scrollFocus.activeKey
-              ? 'active'
-              : item.key === scrollFocus.aboveKey
-                ? 'above'
-                : item.key === scrollFocus.belowKey
-                  ? 'below'
-                  : 'none';
+          const focusRole = scrollFocusRoleFor(item.key, props.selectedId, scrollFocus);
 
           return (
             <ScrollFocusMotion role={focusRole}>
