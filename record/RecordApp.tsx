@@ -171,7 +171,6 @@ export function RecordApp(props: RecordAppProps) {
   }, [changedAt]);
 
   const inputRef = useRef<TextInputType>(null);
-  const loadedAt = useRef(Date.now()).current;
 
   const [launchVisible, setLaunchVisible] = useState(props.coldStart);
   const [launchLeaving, setLaunchLeaving] = useState(false);
@@ -202,12 +201,12 @@ export function RecordApp(props: RecordAppProps) {
 
   useEffect(() => {
     if (!launchVisible) return;
-    // Counted from when the app was opened, not from when the lockup appeared: the point is
-    // to bound how long it is until the record is there, not to add to it.
-    const hold = launchHoldFor(loadedAt, Date.now(), reducedMotion);
+    // Count from when the lockup appears. On a production cold start, font loading can take
+    // longer than the whole animation; subtracting that time hid the maker line completely.
+    const hold = launchHoldFor(reducedMotion);
     const id = setTimeout(dismissLaunch, hold);
     return () => clearTimeout(id);
-  }, [launchVisible, loadedAt, reducedMotion, dismissLaunch]);
+  }, [launchVisible, reducedMotion, dismissLaunch]);
 
   /**
    * Any removal whose eight seconds elapsed while the app was closed is published now. This
