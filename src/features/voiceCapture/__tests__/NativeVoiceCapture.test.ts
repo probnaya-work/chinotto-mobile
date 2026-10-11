@@ -42,6 +42,22 @@ describe('NativeVoiceCapture', () => {
     expect(start).toHaveBeenCalledWith({ continuous: false, locale: 'en-US' });
   });
 
+  it('prepares permissions separately from starting a recording', async () => {
+    const permissionStatus = jest.fn().mockResolvedValue('ask');
+    const requestPermissions = jest.fn().mockResolvedValue('granted');
+    const start = jest.fn();
+    jest.doMock('react-native', () => ({
+      NativeModules: { VoiceCaptureModule: { start, permissionStatus, requestPermissions } },
+      NativeEventEmitter: jest.fn(),
+      Platform: { OS: 'ios' },
+    }));
+    const native = require('../NativeVoiceCapture') as typeof import('../NativeVoiceCapture');
+
+    expect(await native.voiceCapturePermissionStatus()).toBe('ask');
+    expect(await native.requestVoiceCapturePermissions()).toBe('granted');
+    expect(start).not.toHaveBeenCalled();
+  });
+
   it('passes on which recognition path a recording took, and nothing it does not know', () => {
     const listeners: Record<string, (e: unknown) => void> = {};
     jest.doMock('react-native', () => ({

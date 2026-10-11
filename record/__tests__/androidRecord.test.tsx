@@ -41,6 +41,7 @@ const defaults = {
     cancel: jest.fn(async () => {}),
     state: null,
     permission: 'ask' as 'granted' | 'ask' | 'denied',
+    requestPermission: jest.fn(async () => 'granted' as const),
     openSystemSettings: jest.fn(),
   },
   sync: { notice: null, onOpen: jest.fn() },
@@ -186,10 +187,15 @@ describe('the record on android', () => {
     h.db.close();
   });
 
-  it('asks for the microphone only when the circle is tapped, and says Android will ask', async () => {
+  it('asks on the first tap without silently recording when Android grants access', async () => {
     const h = harness();
     await migrate(h.db);
-    const voice = { ...defaults.voice, start: jest.fn(async () => true), permission: 'ask' as const };
+    const voice = {
+      ...defaults.voice,
+      start: jest.fn(async () => true),
+      requestPermission: jest.fn(async () => 'granted' as const),
+      permission: 'ask' as const,
+    };
     await mount(h, voice);
     expect(voice.start).not.toHaveBeenCalled();
 
@@ -197,8 +203,8 @@ describe('the record on android', () => {
       fireEvent.press(screen.getByLabelText('start recording'));
       await Promise.resolve();
     });
-    expect(voice.start).toHaveBeenCalledTimes(1);
-    expect(screen.getByText('android will ask once whether chinotto may hear you.')).toBeTruthy();
+    expect(voice.requestPermission).toHaveBeenCalledTimes(1);
+    expect(voice.start).not.toHaveBeenCalled();
     expect(screen.queryByText(/ios/)).toBeNull();
     h.db.close();
   });

@@ -159,34 +159,69 @@ final class VoiceCaptureModule: RCTEventEmitter {
       }
       self.isStarting = true
 
-      // The microphone is the only permission a recording needs. Speech recognition is
-      // asked for afterwards, and only decides whether this recording also gets words.
-      self.requestMicrophone { granted in
-        guard granted else {
-          let message = "Microphone access is not authorized."
-          self.workQueue.async {
-            self.isStarting = false
-            DispatchQueue.main.async {
-              reject("E_VOICE_PERMISSION", message, nil)
-              self.emitError(code: "permission_denied", message: message)
-            }
-          }
-          return
+      // Starting never raises a system sheet. The first tap prepares permissions and ends;
+      // only a later, deliberate tap is allowed to open a recording.
+      guard self.microphonePermissionIsGranted else {
+        let message = "Microphone access is not authorized."
+        self.isStarting = false
+        DispatchQueue.main.async {
+          reject("E_VOICE_PERMISSION", message, nil)
+          self.emitError(code: "permission_denied", message: message)
         }
+        return
+      }
 
-        let localeIdentifier = options?["locale"] as? String
-        let locale = localeIdentifier.map { Locale(identifier: $0) } ?? Locale.current
-        self.resolveRecognizer(locale: locale, mayAsk: true) { speechRec, status in
-          self.workQueue.async {
-            self.startSession(
-              options: options,
-              recognizer: speechRec,
-              recognition: status,
-              resolve: resolve,
-              reject: reject
-            )
-          }
+      let localeIdentifier = options?["locale"] as? String
+      let locale = localeIdentifier.map { Locale(identifier: $0) } ?? Locale.current
+      self.resolveRecognizer(locale: locale, mayAsk: false) { speechRec, status in
+        self.workQueue.async {
+          self.startSession(
+            options: options,
+            recognizer: speechRec,
+            recognition: status,
+            resolve: resolve,
+            reject: reject
+          )
         }
+      }
+    }
+  }
+
+  /// Reads the complete first-use state without raising either system sheet.
+  @objc(permissionStatus:rejecter:)
+  func permissionStatus(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    switch microphonePermissionState {
+    case "denied":
+      resolve("denied")
+    case "ask":
+      resolve("ask")
+    case "granted":
+      resolve(SFSpeechRecognizer.authorizationStatus() == .notDetermined ? "ask" : "granted")
+    default:
+      resolve("denied")
+    }
+  }
+
+  /// Requests first-use access without opening audio or creating a capture.
+  @objc(requestPermissions:rejecter:)
+  func requestPermissions(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    requestMicrophone { granted in
+      guard granted else {
+        DispatchQueue.main.async { resolve("denied") }
+        return
+      }
+
+      let finish: () -> Void = { DispatchQueue.main.async { resolve("granted") } }
+      if SFSpeechRecognizer.authorizationStatus() == .notDetermined {
+        SFSpeechRecognizer.requestAuthorization { _ in finish() }
+      } else {
+        finish()
       }
     }
   }
@@ -317,14 +352,35 @@ final class VoiceCaptureModule: RCTEventEmitter {
     }
   }
 
+  private var microphonePermissionState: String {
+    if #available(iOS 17.0, *) {
+      switch AVAudioApplication.shared.recordPermission {
+      case .undetermined: return "ask"
+      case .denied: return "denied"
+      case .granted: return "granted"
+      @unknown default: return "denied"
+      }
+    }
+    switch AVAudioSession.sharedInstance().recordPermission {
+    case .undetermined: return "ask"
+    case .denied: return "denied"
+    case .granted: return "granted"
+    @unknown default: return "denied"
+    }
+  }
+
+  private var microphonePermissionIsGranted: Bool {
+    microphonePermissionState == "granted"
+  }
+
   /// What recognition can be done for `locale`, on this iPhone.
   ///
   /// Hands back a recogniser only when speech recognition is authorised **and** the
   /// recogniser supports on-device recognition **and** is available now. Anything else is a
   /// complete answer — the recording is made either way.
   ///
-  /// `mayAsk` raises the speech prompt when nobody has answered it yet. Only a capture does
-  /// that: speech recognition is asked for when it is about to be used, never in passing.
+  /// `mayAsk` is the explicit permission boundary. Live capture and background read-back
+  /// both pass `false`; the separate first-use preparation call owns the system prompt.
   private func resolveRecognizer(
     locale: Locale,
     mayAsk: Bool,

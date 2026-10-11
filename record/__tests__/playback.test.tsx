@@ -74,6 +74,7 @@ const defaults = {
     cancel: jest.fn(async () => {}),
     state: null,
     permission: 'granted' as const,
+    requestPermission: jest.fn(async () => 'granted' as const),
     openSystemSettings: jest.fn(),
   },
   sync: { notice: null, onOpen: jest.fn() },

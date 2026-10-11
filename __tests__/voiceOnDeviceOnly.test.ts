@@ -88,14 +88,17 @@ describe('iOS voice recognition stays on the device', () => {
     expect(code).toContain('request?.append(buffer)');
   });
 
-  it('asks for speech recognition without ever making the recording depend on it', () => {
+  it('prepares both permissions without ever making the recording depend on speech', () => {
     const start = bodyOf('func start(');
-    // The microphone decides whether there is a recording.
-    expect(start).toContain('self.requestMicrophone');
-    expect(start).toContain('guard granted else');
+    // The microphone decides whether there can be a recording, but `start` never prompts.
+    expect(start).toContain('self.microphonePermissionIsGranted');
+    expect(start).not.toContain('requestMicrophone');
     // Speech decides only whether it has words: whatever `resolveRecognizer` answers, the
     // session starts.
-    expect(start).toMatch(/resolveRecognizer\(locale: locale, mayAsk: true\) \{ speechRec, status in[\s\S]*startSession\(/);
+    expect(start).toMatch(/resolveRecognizer\(locale: locale, mayAsk: false\) \{ speechRec, status in[\s\S]*startSession\(/);
+    const prepare = bodyOf('func requestPermissions(');
+    expect(prepare).toContain('requestMicrophone');
+    expect(prepare).toContain('SFSpeechRecognizer.requestAuthorization');
     const resolve = bodyOf('private func resolveRecognizer(');
     expect(resolve).not.toContain('reject(');
     expect(count('E_VOICE_PERMISSION')).toBe(1);
@@ -137,9 +140,18 @@ describe('iOS voice recognition stays on the device', () => {
     expect(bodyOf('func localRecognitionStatus(')).not.toContain('requestAuthorization');
   });
 
+  it('prepares permissions separately, and start never raises a system sheet', () => {
+    expect(bodyOf('func start(')).toContain('microphonePermissionIsGranted');
+    expect(bodyOf('func start(')).toContain('mayAsk: false');
+    expect(bodyOf('func start(')).not.toContain('requestMicrophone');
+    expect(bodyOf('func requestPermissions(')).toContain('requestMicrophone');
+  });
+
   it('is exposed to JavaScript', () => {
     const bridge = fs.readFileSync(path.join(__dirname, '..', 'ios', 'Chinotto', 'VoiceCaptureModule.m'), 'utf8');
     expect(bridge).toContain('RCT_EXTERN_METHOD(transcribeFile:(NSString *)relativePath');
     expect(bridge).toContain('RCT_EXTERN_METHOD(localRecognitionStatus:(RCTPromiseResolveBlock)resolve');
+    expect(bridge).toContain('RCT_EXTERN_METHOD(permissionStatus:(RCTPromiseResolveBlock)resolve');
+    expect(bridge).toContain('RCT_EXTERN_METHOD(requestPermissions:(RCTPromiseResolveBlock)resolve');
   });
 });

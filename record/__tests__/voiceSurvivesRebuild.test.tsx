@@ -1,11 +1,9 @@
 /**
- * The first recording of every launch used to be lost, and this is why.
+ * A recording controller must survive service-object rebuilds.
  *
- * `services` is rebuilt whenever the microphone permission becomes known — and the moment
- * it becomes known is the start of the first recording, because there is no API that
- * reports it without asking. The voice controller was rebuilt along with it, so the thing
- * holding the recording in flight was replaced by one holding nothing. When the audio
- * finished there was no pending id to attach it to: a file on disk, and no moment.
+ * Permission preparation now finishes before the first recording begins. The services
+ * object can still be rebuilt for many reasons, and doing so must not replace the controller
+ * holding an in-flight recording with one holding nothing.
  *
  * What is asserted is the rule, not the wiring: a recording that has begun survives the app
  * learning something about itself.
@@ -74,6 +72,7 @@ function harness() {
     onVoiceOnOpenHandled: () => {},
     openSystemSettings: () => {},
     microphonePermission: () => permission,
+    requestVoicePermission: async () => 'granted' as const,
     subscriptionLoaded: true,
     syncAccount: {
       paywallEnabled: () => false,
@@ -154,12 +153,11 @@ describe('a recording in flight', () => {
     h.db.close();
   });
 
-  it('survives the app learning the microphone permission', async () => {
+  it('prepares permission first, then survives a later services rebuild', async () => {
     const h = harness();
     await migrate(h.db);
 
-    // Every launch begins not knowing: there is no API that reports the permission
-    // without asking, so it is `ask` until a recording answers it.
+    // An unanswered first-use permission is prepared without opening a recording.
     const view = render(<ChinottoApp services={h.services('ask')} />);
     await act(async () => {
       await Promise.resolve();
@@ -169,11 +167,21 @@ describe('a recording in flight', () => {
       fireEvent.press(screen.getByLabelText('start recording'));
       await Promise.resolve();
     });
+    expect(h.started).toHaveLength(0);
+
+    // The answer rebuilds services before recording. The next deliberate tap starts it.
+    await act(async () => {
+      view.rerender(<ChinottoApp services={h.services('granted')} />);
+      await Promise.resolve();
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('start recording'));
+      await Promise.resolve();
+    });
     expect(h.started).toHaveLength(1);
     const audioPath = h.started[0].audioFileName;
 
-    // Tapping the circle is what answers it, so the answer lands mid-recording and the
-    // services object is rebuilt underneath. Everything downstream of it is rebuilt too.
+    // A later rebuild still cannot replace the controller holding this recording.
     await act(async () => {
       view.rerender(<ChinottoApp services={h.services('granted')} />);
       await Promise.resolve();

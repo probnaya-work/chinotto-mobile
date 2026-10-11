@@ -45,6 +45,7 @@ function services(
     onVoiceOnOpenHandled: () => {},
     openSystemSettings: () => {},
     microphonePermission: () => 'granted',
+    requestVoicePermission: async () => 'granted' as const,
     subscriptionLoaded: true,
     syncAccount: {
       paywallEnabled: () => false,

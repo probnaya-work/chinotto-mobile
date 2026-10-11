@@ -65,6 +65,26 @@ class VoiceCaptureModule : Module() {
       main.post { start(options, promise) }
     }
 
+    AsyncFunction("permissionStatus") { promise: Promise ->
+      main.post {
+        microphoneStatus { status ->
+          promise.resolve(
+            when (status) {
+              PermissionsStatus.GRANTED -> "granted"
+              PermissionsStatus.UNDETERMINED -> "ask"
+              else -> "denied"
+            }
+          )
+        }
+      }
+    }
+
+    AsyncFunction("requestPermissions") { promise: Promise ->
+      main.post {
+        askMicrophone { granted -> promise.resolve(if (granted) "granted" else "denied") }
+      }
+    }
+
     Function("stop") {
       main.post { capture?.finish("manual") }
     }
@@ -121,17 +141,19 @@ class VoiceCaptureModule : Module() {
       return
     }
     starting = true
-    askMicrophone { granted ->
+    // Starting never raises a system sheet. Permission is prepared by `requestPermissions`
+    // on the first tap; only a later, deliberate tap is allowed to begin recording.
+    microphoneStatus { status ->
       starting = false
-      if (!granted) {
+      if (status != PermissionsStatus.GRANTED) {
         val message = "Microphone access is not authorized."
         promise.reject("E_VOICE_PERMISSION", message, null)
         sendEvent(ERROR_EVENT, mapOf("code" to "permission_denied", "message" to message))
-        return@askMicrophone
+        return@microphoneStatus
       }
       if (capture != null) {
         promise.reject("E_VOICE_BUSY", "A voice capture is already active.", null)
-        return@askMicrophone
+        return@microphoneStatus
       }
       // Somebody speaking outranks a background read-back; that recording keeps waiting.
       fileJob?.cancel()

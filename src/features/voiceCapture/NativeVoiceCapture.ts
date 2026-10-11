@@ -7,6 +7,8 @@ export type VoiceCapturePhase = 'idle' | 'listening';
 type VoiceCaptureNativeType = {
   start: (options?: Record<string, unknown>) => Promise<void>;
   stop: () => void;
+  permissionStatus?: () => Promise<unknown>;
+  requestPermissions?: () => Promise<unknown>;
   transcribeFile?: (relativePath: string) => Promise<{ status?: unknown; text?: unknown }>;
   localRecognitionStatus?: () => Promise<unknown>;
   /** Present when supported; NativeEventEmitter needs it for `addListener`. */
@@ -19,6 +21,35 @@ const { module: NativeVoiceCapture, emitter } = voiceNative<VoiceCaptureNativeTy
 
 export const voiceCaptureSupported =
   (Platform.OS === 'ios' || Platform.OS === 'android') && NativeVoiceCapture != null;
+
+export type VoiceCapturePermission = 'granted' | 'ask' | 'denied';
+
+function asPermission(value: unknown): VoiceCapturePermission {
+  return value === 'granted' || value === 'denied' ? value : 'ask';
+}
+
+/** Reads the current answer without raising a system prompt. */
+export async function voiceCapturePermissionStatus(): Promise<VoiceCapturePermission> {
+  if (!NativeVoiceCapture?.permissionStatus) return 'denied';
+  try {
+    return asPermission(await NativeVoiceCapture.permissionStatus());
+  } catch {
+    return 'denied';
+  }
+}
+
+/**
+ * Raises the first-use permission prompt without opening a recording. A granted answer is
+ * deliberately only preparation: the next intentional tap or hold starts capture.
+ */
+export async function requestVoiceCapturePermissions(): Promise<'granted' | 'denied'> {
+  if (!NativeVoiceCapture?.requestPermissions) return 'denied';
+  try {
+    return (await NativeVoiceCapture.requestPermissions()) === 'granted' ? 'granted' : 'denied';
+  } catch {
+    return 'denied';
+  }
+}
 
 export type VoiceCaptureStartOptions = {
   locale?: string;

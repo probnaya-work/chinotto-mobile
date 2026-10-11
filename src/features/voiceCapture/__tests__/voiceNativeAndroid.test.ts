@@ -49,6 +49,19 @@ describe('the Android voice bridge', () => {
     expect(start).toHaveBeenCalledWith({ continuous: true, audioFileName: 'chinotto/audio/f1.m4a' });
   });
 
+  it('prepares Android microphone access without starting capture', async () => {
+    const start = jest.fn();
+    const permissionStatus = jest.fn().mockResolvedValue('ask');
+    const requestPermissions = jest.fn().mockResolvedValue('granted');
+    const { module } = fakeModule({ start, permissionStatus, requestPermissions });
+    onAndroid({ ChinottoVoiceCapture: module });
+    const native = require('../NativeVoiceCapture') as typeof import('../NativeVoiceCapture');
+
+    expect(await native.voiceCapturePermissionStatus()).toBe('ask');
+    expect(await native.requestVoiceCapturePermissions()).toBe('granted');
+    expect(start).not.toHaveBeenCalled();
+  });
+
   it('passes a recording with no words through as unavailable, audio intact', () => {
     const { module, listeners } = fakeModule({ start: jest.fn() });
     onAndroid({ ChinottoVoiceCapture: module });
