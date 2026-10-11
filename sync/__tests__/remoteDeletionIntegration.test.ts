@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import { getDocs } from 'firebase/firestore';
 import { getDatabase } from '../../storage/db';
+import { applyRemoteTombstonesWithDb } from '../../storage/entryRepository';
 import { openTestDb } from '../../record/__testsupport__/nodeSqliteDb';
 import { migrate } from '../../record/migrate';
 import { createBridge } from '../../record/bridge';
@@ -102,6 +103,28 @@ it('reaches tombstones older than the live listener window', async () => {
     await runFirestoreTombstoneBackfill({} as never, () => {}, () => true);
     expect(getDocsMock).toHaveBeenCalledTimes(2);
     expect((await store.loadRecord()).map((m) => m.id)).not.toContain('old');
+  } finally {
+    db.close();
+  }
+});
+
+it('keeps an unacknowledged local tombstone when an inbound snapshot repeats it', async () => {
+  const db = openTestDb();
+  try {
+    await migrate(db);
+    await db.runAsync(
+      'INSERT INTO entries (id, text, created_at) VALUES (?, ?, ?)',
+      'pending', 'private words', AT
+    );
+    await db.runAsync(
+      'INSERT INTO sync_tombstone_outbox (entry_id, enqueued_at) VALUES (?, ?)',
+      'pending', AT
+    );
+
+    await applyRemoteTombstonesWithDb(db, ['pending']);
+
+    expect(await db.getFirstAsync('SELECT id FROM entries WHERE id = ?', 'pending')).toBeNull();
+    expect(await db.getFirstAsync('SELECT entry_id FROM sync_tombstone_outbox WHERE entry_id = ?', 'pending')).not.toBeNull();
   } finally {
     db.close();
   }

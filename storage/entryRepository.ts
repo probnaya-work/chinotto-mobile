@@ -128,7 +128,8 @@ export async function applyRemoteTombstonesWithDb(
   await db.withTransactionAsync(async () => {
     for (const id of entryIds) {
       await removePendingSyncItemsForEntry(db, id);
-      await db.runAsync('DELETE FROM sync_tombstone_outbox WHERE entry_id = ?', id);
+      // A pending local write can appear in an inbound snapshot before server acknowledgement.
+      // Keep its durable tombstone until the outbound flush confirms the write.
       const entry = await db.runAsync('DELETE FROM entries WHERE id = ?', id);
       const fragment = await db.runAsync(
         'UPDATE fragments SET removed_at = COALESCE(removed_at, ?) WHERE id = ? AND removed_at IS NULL',

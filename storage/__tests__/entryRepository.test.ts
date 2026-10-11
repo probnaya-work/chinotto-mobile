@@ -397,7 +397,7 @@ describe('entryRepository', () => {
       expect(withTransactionAsync).not.toHaveBeenCalled();
     });
 
-    it('runs queue cleanup, outbox, entries, suppression in one transaction', async () => {
+    it('runs queue cleanup, entries and suppression in one transaction while preserving the outbox', async () => {
       runAsync.mockResolvedValue({ changes: 1, lastInsertRowId: 0 });
 
       const n = await applyRemoteTombstoneDeletes(['a', 'b']);
@@ -405,7 +405,7 @@ describe('entryRepository', () => {
       expect(withTransactionAsync).toHaveBeenCalledTimes(1);
       expect(mockRemovePending).toHaveBeenCalledWith(dbHandle, 'a');
       expect(mockRemovePending).toHaveBeenCalledWith(dbHandle, 'b');
-      expect(runAsync).toHaveBeenCalledWith('DELETE FROM sync_tombstone_outbox WHERE entry_id = ?', 'a');
+      expect(runAsync).not.toHaveBeenCalledWith('DELETE FROM sync_tombstone_outbox WHERE entry_id = ?', 'a');
       expect(runAsync).toHaveBeenCalledWith('DELETE FROM entries WHERE id = ?', 'a');
       expect(runAsync).toHaveBeenCalledWith(
         'INSERT OR IGNORE INTO firestore_ingest_suppressed_ids (id, suppressed_at) VALUES (?, ?)',
