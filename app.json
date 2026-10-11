@@ -3,7 +3,7 @@
     "name": "Chinotto",
     "owner": "bogart-labs",
     "slug": "chinotto-mobile",
-    "version": "2.0.2",
+    "version": "2.1.0",
     "scheme": "chinotto",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": false,
-      "buildNumber": "37",
+      "buildNumber": "40",
       "bundleIdentifier": "com.chinotto.mobile",
       "googleServicesFile": "./GoogleService-Info.plist",
       "associatedDomains": ["applinks:getchinotto.app"],
