@@ -55,7 +55,7 @@ const IOS: PlatformCapabilities = {
   homeWidget: true,
   iconChoice: true,
   syncSetup: true,
-  shareKinds: 'a page, a selection or a photo',
+  shareKinds: 'a page or a selection',
   systemName: 'ios',
   privacyLine: 'the words stay on this phone unless sync is on, and then only go to your own devices.',
   voicePrivacyLine: null,
@@ -68,10 +68,10 @@ const IOS: PlatformCapabilities = {
     'How do you pick up where you left off?',
     'Most notes apps keep the file. Chinotto keeps the return — the same line, later, with more weight.',
     'You capture without closing the thought. Structure can wait until you come back — scroll the stream, follow a trail, or jump a week on the strand.',
-    'On desktop, you continue threads — reopen unfinished entries, follow trails, use the time strand to jump across months, and share a read-only link when you want someone else to read along.',
+    'On desktop, you continue threads — reopen unfinished entries, follow trails, and use the time strand to jump across months.',
     'On mobile, Chinotto is the pocket — capture with widget, voice, or share-in; search or swipe into what came before when you have a minute.',
     'Not another notes app. A place to pick up unfinished thoughts months later.',
-    'Your thoughts stay local-first on your devices until you choose otherwise. Sync is optional: Sign in with Apple when you want the same stream on desktop and mobile. On desktop, optional Spaces — Inbox, Work, Personal — filter one timeline when you want separation, without folders or a workspace to set up first. There is no Chinotto account.',
+    'Your thoughts stay on your devices unless you choose sync. Capture needs no account. To keep the same record on your iPhone and Mac, turn on sync with Sign in with Apple.',
     'A private record of thoughts, encounters, and what continues between them.',
   ],
 };
@@ -110,7 +110,7 @@ const ANDROID: PlatformCapabilities = {
     'You capture without closing the thought. Structure can wait until you come back.',
     'On this phone, Chinotto is the pocket — type, tap the circle and talk, or share in from another app; find what came before when you have a minute.',
     'Not another notes app. A place to pick up unfinished thoughts months later.',
-    'Your thoughts stay on this phone. There is no Chinotto account.',
+    'Your thoughts stay on this phone. Capture needs no account.',
   ],
 };
 
