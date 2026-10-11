@@ -12,7 +12,7 @@
  */
 
 import React from 'react';
-import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 
 import { Mark } from './Mark';
 import { capabilitiesFor, type PlatformCapabilities } from '../platform';
@@ -197,6 +197,8 @@ function Root(props: SettingsProps & { capabilities: PlatformCapabilities }) {
         ) : null}
       </Section>
 
+      <Reference voice={can.voice} />
+
       {/* One appearance, because there is one. The absence of a light-mode switch is honest. */}
       <Section label="appearance" gap={7}>
         <SettingRow title="app" status="dark" divider={false} />
@@ -378,6 +380,90 @@ function Root(props: SettingsProps & { capabilities: PlatformCapabilities }) {
         </View>
       </Section>
     </ScrollView>
+  );
+}
+
+const referenceLines = [
+  { label: '/ find', detail: 'type / and words in capture; the record narrows as you type.' },
+  {
+    label: 'voice',
+    detail: 'hold and release to keep, or tap for hands-free. slide up to lock; discard cancels.',
+  },
+  { label: 'continue', detail: 'add a linked moment, dated now.' },
+  { label: 'correct', detail: 'change wording; date and earlier wording stay.' },
+  {
+    label: 'dates',
+    detail: 'type march 2024 or 2019, then Done. tap an older date label for years and months.',
+  },
+  { label: 'settings', detail: 'pull down from the mark below the status bar.' },
+] as const;
+
+function Reference({ voice }: { voice: boolean }) {
+  const [open, setOpen] = React.useState(false);
+  const { width, fontScale } = useWindowDimensions();
+  const stacked = width <= 350 || fontScale >= 1.3;
+  const lines = voice ? referenceLines : referenceLines.filter((line) => line.label !== 'voice');
+
+  return (
+    <Section label="reference" gap={0}>
+      <Pressable
+        onPress={() => setOpen((value) => !value)}
+        accessibilityRole="button"
+        accessibilityLabel="using chinotto reference"
+        accessibilityHint={open ? 'Close the interaction reference' : 'Open the interaction reference'}
+        accessibilityState={{ expanded: open }}
+        style={({ pressed }) => ({
+          minHeight: 50,
+          paddingVertical: 7,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 14,
+          borderBottomWidth: 1,
+          borderBottomColor: rule.hair,
+          opacity: pressed ? 0.62 : 1,
+        })}
+      >
+        <Text style={[type({ size: 16, width: 96, color: ink.ink }), { flex: 1 }]}>using chinotto</Text>
+        <Text style={type({ size: 13, width: 90, weight: agency.weight, color: agency.ink })}>
+          {open ? 'close ↑' : 'open ↓'}
+        </Text>
+      </Pressable>
+      {open ? (
+        <View style={{ paddingTop: 5, paddingBottom: 4 }}>
+          {lines.map((line, index) => (
+            <View
+              key={line.label}
+              accessible
+              accessibilityLabel={`${line.label}. ${line.detail}`}
+              style={{
+                flexDirection: stacked ? 'column' : 'row',
+                gap: stacked ? 3 : 13,
+                paddingVertical: 10,
+                borderBottomWidth: index === lines.length - 1 ? 0 : 1,
+                borderBottomColor: rule.hair,
+              }}
+            >
+              <Text
+                style={[
+                  type({ size: 13, width: 90, weight: agency.weight, color: agency.quiet }),
+                  stacked ? null : { width: 82 },
+                ]}
+              >
+                {line.label}
+              </Text>
+              <Text
+                style={[
+                  type({ size: 12, width: 90, lineHeight: 1.45, color: ink.far }),
+                  stacked ? null : { flex: 1 },
+                ]}
+              >
+                {line.detail}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+    </Section>
   );
 }
 

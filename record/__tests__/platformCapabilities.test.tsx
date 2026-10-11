@@ -177,6 +177,28 @@ describe('settings on android', () => {
     ).toBeTruthy();
   });
 
+  it('opens a compact interaction reference only when asked', () => {
+    render(<Settings {...props} capabilities={capabilitiesFor('ios')} />);
+    const reference = screen.getByLabelText('using chinotto reference');
+
+    expect(reference.props.accessibilityState).toEqual({ expanded: false });
+    expect(screen.queryByText('/ find')).toBeNull();
+
+    fireEvent.press(reference);
+    expect(reference.props.accessibilityState).toEqual({ expanded: true });
+    expect(screen.getByText('/ find')).toBeTruthy();
+    expect(screen.getByText(/hold and release to keep/)).toBeTruthy();
+    expect(screen.getByText(/add a linked moment, dated now/)).toBeTruthy();
+    expect(screen.getByText(/date and earlier wording stay/)).toBeTruthy();
+    expect(screen.getByText(/type march 2024 or 2019/)).toBeTruthy();
+    expect(screen.getByText(/pull down from the mark below the status bar/)).toBeTruthy();
+    expect(screen.queryByText(/by meaning/)).toBeNull();
+
+    fireEvent.press(reference);
+    expect(reference.props.accessibilityState).toEqual({ expanded: false });
+    expect(screen.queryByText('/ find')).toBeNull();
+  });
+
   it('makes the quiet rows full-size controls instead of inline text links', () => {
     const onOpenSync = jest.fn();
     const onSeeWidget = jest.fn();
