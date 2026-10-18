@@ -4,8 +4,8 @@ import { getRecentEntries } from '../storage/entryRepository';
 import type { Entry } from '../types/entry';
 
 /**
- * `createdAt` is what the widget draws as `16:42 · ` before a thought, and as the time of
- * the last one on the small tile. Optional on the Swift side, so a payload written by an
+ * `createdAt` supplies the local clock shown beside a thought or above the small preview.
+ * Optional on the Swift side, so a payload written by an
  * older build still decodes — it simply carries no time.
  */
 type WidgetThought = { id: string; text: string; createdAt: string };
@@ -54,11 +54,7 @@ function mapThoughts(entries: Entry[]): WidgetThought[] {
     }));
 }
 
-/**
- * `syncOn` is the small tile's dot. It is drawn only while sync is actually live — the dot
- * is the one place the periwinkle survives, and per the colour system it marks liveness
- * rather than success, so it must never stand in for "everything is fine".
- */
+/** `syncOn` remains in the shared payload for compatibility with older widget builds. */
 export async function syncRecentThoughtsToWidget(
   entries: Entry[],
   syncOn: boolean,

@@ -54,12 +54,12 @@ describe('refreshWidgetThoughtsFromLocalDb', () => {
     expect(payload.thoughts).toHaveLength(1);
     expect(payload.thoughts[0].id).toBe('e1');
     expect(payload.thoughts[0].text).toBe('hello');
-    // The widget draws `16:42 · ` from this, and the small tile's dot from syncOn.
+    // The widget uses this timestamp for the small preview and medium rows.
     expect(payload.thoughts[0].createdAt).toBe('2024-06-01T12:00:00.000Z');
     expect(payload.syncOn).toBe(true);
   });
 
-  it('reports sync as unlit when it is not live', async () => {
+  it('preserves sync state in the payload for older widget builds', async () => {
     setPlatformOS('ios');
     (getRecentEntries as jest.Mock).mockResolvedValueOnce([
       { id: 'e1', text: 'hello', createdAt: '2024-06-01T12:00:00.000Z' },
@@ -69,6 +69,26 @@ describe('refreshWidgetThoughtsFromLocalDb', () => {
 
     const raw = setRecentThoughts.mock.calls[0][0] as string;
     expect((JSON.parse(raw) as { syncOn: boolean }).syncOn).toBe(false);
+  });
+
+  it('provides the two newest readable previews, including long normalized text', async () => {
+    setPlatformOS('ios');
+    (getRecentEntries as jest.Mock).mockResolvedValueOnce([
+      { id: 'old', text: 'Earlier thought', createdAt: '2024-06-01T09:00:00.000Z' },
+      { id: 'new', text: `  ${'A long thought '.repeat(12)}  `, createdAt: '2024-06-01T16:42:00.000Z' },
+      { id: 'middle', text: 'A second\n thought', createdAt: '2024-06-01T12:00:00.000Z' },
+    ]);
+
+    await refreshWidgetThoughtsFromLocalDb(false);
+
+    const raw = setRecentThoughts.mock.calls[0][0] as string;
+    const { thoughts } = JSON.parse(raw) as {
+      thoughts: { id: string; text: string; createdAt: string }[];
+    };
+    expect(thoughts.slice(0, 2).map(({ id }) => id)).toEqual(['new', 'middle']);
+    expect(thoughts[0].text.length).toBeLessThanOrEqual(120);
+    expect(thoughts[0].text).toMatch(/…$/);
+    expect(thoughts[1].text).toBe('A second thought');
   });
 
   it('does not query the DB on non-iOS', async () => {

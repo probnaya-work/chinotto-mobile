@@ -4,11 +4,7 @@ import SwiftUI
 private let WIDGET_THOUGHTS_APP_GROUP_ID = "group.com.chinotto.mobile"
 private let WIDGET_THOUGHTS_KEY = "chinotto_widget_recent_thoughts_v1"
 
-/// The widget's palette, taken from "Chinotto - Identity" — the medium widget and the
-/// "small widget · 2×2" panel, which draws the light appearance too.
-///
-/// The mark carries no tint of its own and no glow: the inventory row for this file withdraws
-/// the periwinkle triple. Periwinkle survives in the product only on the sync dot.
+/// The widget's ink and paper palette in both appearances.
 private enum WidgetInk {
   /// #e6e6e3 on the dark field, #1b1b1d on paper. The mark, `capture`, the ring affordance.
   static func ink(_ scheme: ColorScheme) -> Color {
@@ -24,19 +20,18 @@ private enum WidgetInk {
       : Color(red: 143 / 255, green: 142 / 255, blue: 137 / 255)
   }
 
-  /// #5f5e5a. The `16:42 · ` prefix, a step below meta. The design draws it on dark only.
+  /// The clock and quiet metadata, a step below the thought text.
   static func faint(_ scheme: ColorScheme) -> Color {
     scheme == .light
       ? Color(red: 143 / 255, green: 143 / 255, blue: 143 / 255)
       : Color(red: 95 / 255, green: 94 / 255, blue: 90 / 255)
   }
 
-  /// The sync dot, and the only periwinkle left in the product. It marks liveness, not
-  /// success: an offline record is not an error and lights nothing.
-  static func live(_ scheme: ColorScheme) -> Color {
+  /// Hairlines between the medium widget's header and recent thoughts.
+  static func rule(_ scheme: ColorScheme) -> Color {
     scheme == .light
-      ? Color(red: 91 / 255, green: 98 / 255, blue: 160 / 255)
-      : Color(red: 154 / 255, green: 160 / 255, blue: 200 / 255)
+      ? Color(red: 214 / 255, green: 211 / 255, blue: 205 / 255)
+      : Color(red: 53 / 255, green: 53 / 255, blue: 56 / 255)
   }
 
   /// #141416 / #f2f1ec — the tile itself.
@@ -52,10 +47,9 @@ private let widgetActionTextSize: CGFloat = 17
 private let widgetSecondaryTextSize: CGFloat = 11
 private let widgetThoughtTextSize: CGFloat = 12
 
-/// The capture affordance — a ring with a dot, 1.5pt stroke. 34pt on the small tile where the
-/// whole tile answers to it, 30pt in the medium header.
-private let smallCaptureRingSize: CGFloat = 34
-private let smallCaptureRingDot: CGFloat = 8
+/// The capture affordance — a ring with a dot, 1.5pt stroke.
+private let smallCaptureRingSize: CGFloat = 28
+private let smallCaptureRingDot: CGFloat = 7
 private let mediumCaptureRingSize: CGFloat = 30
 private let mediumCaptureRingDot: CGFloat = 7
 
@@ -157,7 +151,6 @@ private struct CaptureHomeWidgetView: View {
   }
 
   private var thoughts: [WidgetThought] { state.thoughts }
-  private var syncOn: Bool { state.syncOn }
 
   var body: some View {
     let content = Group {
@@ -186,70 +179,113 @@ private struct CaptureHomeWidgetView: View {
   }
 
 
-  // MARK: Small — "Chinotto - Identity", the 2x2 panel
-  //
-  // "no record text fits here at a size worth reading, so the small widget drops it rather
-  // than truncating: the mark, the action, the time of the last one, and a tap target the
-  // whole tile answers to." The mark stays at 22pt; only the room around it shrinks.
+  // MARK: Small — a glance at the latest thought; the whole tile opens capture.
 
   private var smallLayout: some View {
     VStack(alignment: .leading, spacing: 0) {
-      HStack(alignment: .top, spacing: 0) {
-        ChinottoLogoMark(size: smallLogoSize, scheme: scheme)
-        Spacer(minLength: 0)
-        if syncOn {
-          Circle()
-            .fill(WidgetInk.live(scheme))
-            .frame(width: 6, height: 6)
-            // The design sets it 8 below the mark's top edge rather than level with it.
-            .padding(.top, 8)
-        }
+      ChinottoLogoMark(size: smallLogoSize, scheme: scheme)
+
+      VStack(alignment: .leading, spacing: 5) {
+        Text(lastThoughtLine)
+          .font(.system(size: 9, weight: .medium))
+          .tracking(0.7)
+          .foregroundStyle(WidgetInk.faint(scheme))
+          .lineLimit(1)
+
+        Text(thoughts.first?.text ?? "A thought begins here.")
+          .font(.system(size: widgetThoughtTextSize))
+          .tracking(-0.12)
+          .foregroundStyle(WidgetInk.ink(scheme))
+          .lineLimit(3)
+          .truncationMode(.tail)
+          .multilineTextAlignment(.leading)
       }
+      .padding(.top, 9)
 
       Spacer(minLength: 0)
 
-      HStack(alignment: .bottom, spacing: 10) {
-        CaptureHeading(secondary: lastThoughtLine, scheme: scheme)
-          .frame(maxWidth: .infinity, alignment: .leading)
-          .layoutPriority(1)
+      HStack(alignment: .center, spacing: 10) {
+        Text("capture")
+          .font(.system(size: 16))
+          .tracking(-0.16)
+          .foregroundStyle(WidgetInk.ink(scheme))
+          .lineLimit(1)
+        Spacer(minLength: 0)
         CaptureRing(size: smallCaptureRingSize, dot: smallCaptureRingDot, scheme: scheme)
       }
     }
   }
 
-  /// `16:42 · last`, or just `last` when the payload carries no time.
+  /// Local clock when available; older payloads may have no timestamp.
   private var lastThoughtLine: String {
-    guard let newest = thoughts.first else { return "nothing yet" }
-    guard let time = newest.clockTime else { return "last" }
-    return "\(time) · last"
+    guard let time = thoughts.first?.clockTime else { return "LAST" }
+    return "LAST · \(time)"
   }
 
-  // MARK: Medium — "Chinotto - Identity", the home-screen panel
-  //
-  // Header: the mark, `capture` over `it lands, and stays`, and the ring on the right. Under
-  // it, one recent thought at 12pt with its time in faint. gap 16 between the two.
+  // MARK: Medium — capture first, then two recent thoughts.
 
   private var mediumLayout: some View {
-    VStack(alignment: .leading, spacing: 16) {
-      HStack(alignment: .top, spacing: 12) {
+    VStack(alignment: .leading, spacing: 0) {
+      HStack(alignment: .center, spacing: 11) {
         ChinottoLogoMark(size: mediumLogoSize, scheme: scheme)
-        CaptureHeading(secondary: "it lands, and stays", scheme: scheme)
+        Text("capture")
+          .font(.system(size: widgetActionTextSize))
+          .tracking(-0.17)
+          .foregroundStyle(WidgetInk.ink(scheme))
+          .lineLimit(1)
         Spacer(minLength: 0)
         CaptureRing(size: mediumCaptureRingSize, dot: mediumCaptureRingDot, scheme: scheme)
       }
       .frame(maxWidth: .infinity, alignment: .leading)
+      .padding(.bottom, 11)
+
+      Rectangle()
+        .fill(WidgetInk.rule(scheme))
+        .frame(height: 1)
 
       if let newest = thoughts.first {
-        thoughtLine(newest)
+        mediumThoughtRow(newest)
+        if thoughts.count > 1 {
+          Rectangle()
+            .fill(WidgetInk.rule(scheme))
+            .frame(height: 1)
+          mediumThoughtRow(thoughts[1])
+        }
       } else {
         Text("nothing here yet")
           .font(.system(size: widgetThoughtTextSize))
           .foregroundStyle(WidgetInk.faint(scheme))
           .lineLimit(1)
+          .padding(.top, 8)
       }
-
-      Spacer(minLength: 0)
     }
+  }
+
+  private func mediumThoughtRow(_ thought: WidgetThought) -> some View {
+    Link(destination: URL(string: "chinotto://thought/\(thought.id)")!) {
+      HStack(alignment: .firstTextBaseline, spacing: 10) {
+        if let time = thought.clockTime {
+          Text(time)
+            .font(.system(size: 10))
+            .tracking(0.2)
+            .foregroundStyle(WidgetInk.faint(scheme))
+            .fixedSize(horizontal: true, vertical: false)
+            .frame(minWidth: 34, alignment: .leading)
+        }
+
+        Text(thought.text)
+          .font(.system(size: widgetThoughtTextSize))
+          .foregroundStyle(WidgetInk.meta(scheme))
+          .lineLimit(2)
+          .truncationMode(.tail)
+          .multilineTextAlignment(.leading)
+          .frame(maxWidth: .infinity, alignment: .leading)
+      }
+      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+      .padding(.top, 8)
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
   }
 
   /// `16:42 · the return should only come back if it can show me why` — the time a step below
@@ -318,8 +354,6 @@ private struct CaptureHomeWidgetView: View {
 
 private struct WidgetThoughtPayload: Decodable {
   let thoughts: [WidgetThought]
-  /// Absent in a payload written by an older build, which reads as "not live".
-  let syncOn: Bool?
 }
 
 private struct WidgetThought: Decodable, Identifiable {
@@ -354,12 +388,11 @@ private struct WidgetThought: Decodable, Identifiable {
   }()
 }
 
-/// What the app last wrote to the shared group: the recent thoughts, and whether sync is live.
+/// What the app last wrote to the shared group. Extra fields from older app builds are ignored.
 private struct WidgetState {
   let thoughts: [WidgetThought]
-  let syncOn: Bool
 
-  static let empty = WidgetState(thoughts: [], syncOn: false)
+  static let empty = WidgetState(thoughts: [])
 }
 
 private func readWidgetState() -> WidgetState {
@@ -376,7 +409,7 @@ private func readWidgetState() -> WidgetState {
     let thoughts = payload.thoughts.filter {
       !$0.id.isEmpty && !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
-    return WidgetState(thoughts: thoughts, syncOn: payload.syncOn ?? false)
+    return WidgetState(thoughts: thoughts)
   } catch {
     return .empty
   }

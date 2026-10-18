@@ -12,9 +12,8 @@ import * as path from 'path';
  *     <=20px one dot at stroke 6, each drawn rather than scaled;
  *   · the widget takes the two-dot rung, "because the ring's thin stroke breaks in a widget's
  *     dimmed render", and on the small tile the mark "does not shrink with the tile";
- *   · the inventory row for this file — ink and paper only, no periwinkle, no glow;
- *   · the drawn panels — lower-case `capture`, `it lands, and stays`, a ring-and-dot
- *     affordance, and a flat field.
+ *   · ink and paper only, no periwinkle or glow;
+ *   · lower-case `capture`, a ring-and-dot affordance, and a flat field.
  */
 
 const WIDGET = path.join(__dirname, '..', 'ios', 'ExpoWidgetsTarget', 'CaptureHomeWidget.swift');
@@ -83,18 +82,10 @@ describe('the widget carries the current identity treatment', () => {
     expect(source).not.toMatch(/LinearGradient|RadialGradient/);
   });
 
-  it('keeps periwinkle for the sync dot, and only there', () => {
-    // #9aa0c8 / #5b62a0 — the one place the colour system leaves it.
-    expect(source).toMatch(/154\s*\/\s*255.*160\s*\/\s*255.*200\s*\/\s*255/s);
-    expect(source).toContain('WidgetInk.live(scheme)');
-    // The mark must not reach for it.
-    expect(markBody).not.toContain('live(');
-  });
-
-  it('lights the dot from real state rather than assuming it', () => {
-    expect(source).toContain('let syncOn: Bool?');
-    expect(source).toMatch(/payload\.syncOn\s*\?\?\s*false/);
-    expect(source).toMatch(/if syncOn \{/);
+  it('does not draw the unexplained sync dot', () => {
+    expect(source).not.toContain('WidgetInk.live');
+    expect(source).not.toMatch(/if syncOn \{/);
+    expect(source).not.toMatch(/154\s*\/\s*255.*160\s*\/\s*255.*200\s*\/\s*255/s);
   });
 
   it('draws both appearances the design gives', () => {
