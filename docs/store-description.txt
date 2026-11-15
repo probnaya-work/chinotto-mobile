@@ -1,11 +1,11 @@
-Release draft — phase 6, 15 November 2026. Not submitted to App Store Connect.
+Release candidate — iPhone 2.2.0 (44), 15 November 2026. Not submitted to App Store Connect.
 Publish with the matching app release after device acceptance; plans and prices come from the app.
 
 Chinotto — iPhone description
 
 A private record of thoughts, encounters, and what continues between them.
 
-Capture a thought as it arrives. Type, speak, use the home-screen widget, or share a page or selection from another app. No folders, tags or account to set up before writing.
+Capture a thought as it arrives. Type, speak, or use the home-screen widget. Bring a page or selected text into the Record from another app. No folders, tags or account to set up before writing.
 
 Every moment keeps its date. Continue adds a new moment dated now. Correct changes the wording while keeping the original date and earlier words. Find the words you remember, follow a Line, or pick up an older thought when recent writing brings it back.
 
