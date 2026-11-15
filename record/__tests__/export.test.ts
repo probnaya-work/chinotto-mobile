@@ -1,3 +1,6 @@
+import { createHash } from 'node:crypto';
+import { prepareStoredRecord } from '../syncStorage';
+import { prepareRecordSync, type SyncSnapshot } from '../syncProtocol';
 import { openTestDb } from '../__testsupport__/nodeSqliteDb';
 import { migrate } from '../migrate';
 import { createRecordStore } from '../store';
@@ -279,4 +282,31 @@ it('retries an abandoned export when an earlier cleanup could not remove it', ()
   fsMock.__failDelete.delete(stale);
   cleanupAbandonedExports();
   expect(fsMock.__files.has(stale)).toBe(false);
+});
+
+it('exports all concurrent wording versions without sync account or queue state', async () => {
+  const db = openTestDb(); await migrate(db);
+  const store = createRecordStore(db);
+  const at = '2026-11-01T10:00:00.000Z';
+  const digest = async (s: string) => createHash('sha256').update(s).digest('hex');
+  await store.capture({ id: 'one', body: 'original', at: Date.parse(at) });
+  const root = await prepareStoredRecord(db, 'one', digest);
+  const remote: SyncSnapshot = {
+    id: 'one', body: 'remote', capturedAt: at, history: [{ body: 'original', supersededAt: at }],
+    continuation: null, state: root!.state, generation: 1, dirty: true, resolvedAt: null,
+  };
+  const packet = await prepareRecordSync(remote, digest);
+  await store.correct('one', 'local');
+  await prepareStoredRecord(db, 'one', digest, { wire: packet.wire, text: packet.body });
+  let archive: Uint8Array | undefined;
+  share.shareAsync.mockImplementation(async (uri: string) => { archive = fsMock.__files.get(uri)?.slice(); });
+  try {
+    await exportLocalRecord(db);
+    const text = new TextDecoder().decode(unzipStored(archive!).get('chinotto-record/record.jsonl'));
+    const row = JSON.parse(text.trim());
+    expect(Object.values(row.wording_versions.versions).map((w: any) => w.body))
+      .toEqual(expect.arrayContaining(['original', 'local', 'remote']));
+    expect(Object.keys(row.wording_versions).sort()).toEqual(['selected', 'versions']);
+    expect(row.sync_state).toBeUndefined();
+  } finally { db.close(); }
 });

@@ -4,6 +4,7 @@ import { backupDatabaseAsync, openDatabaseAsync, type SQLiteDatabase } from 'exp
 import * as Sharing from 'expo-sharing';
 
 import type { RecordDb } from './db';
+import type { SyncState } from './syncProtocol';
 import { isRetainedAudioPath } from './files';
 import { availableDeviceBytes } from './storage';
 import { RecordZipWriter } from './zip';
@@ -168,7 +169,7 @@ export async function exportLocalRecord(db: RecordDb, signal?: AbortSignal, snap
     for await (const page of pages(db)) {
       check(signal);
       const ids = page.map((row) => row.id);
-      const [revisions, continuations, holds, encounters, voiceCaptures, transcripts, judgements, conflicts, audioById] = await Promise.all([
+      const [revisions, continuations, holds, encounters, voiceCaptures, transcripts, judgements, conflicts, audioById, syncStates] = await Promise.all([
         children(db, 'fragment_revisions', ids),
         children(db, 'continuations', ids),
         children(db, 'holds', ids),
@@ -178,11 +179,14 @@ export async function exportLocalRecord(db: RecordDb, signal?: AbortSignal, snap
         children(db, 'trace_judgements', ids),
         children(db, 'wording_conflicts', ids),
         children(db, 'export_audio', ids),
+        children(db, 'record_sync_state', ids),
       ]);
       for (const fragment of page) {
         check(signal);
         const id = fragment.id;
         const original = audioById.get(id)?.[0] as Audio | undefined;
+        const stateJson = syncStates.get(id)?.[0]?.state;
+        const state = typeof stateJson === 'string' ? JSON.parse(stateJson) as SyncState : null;
         zip.write(encoder.encode(JSON.stringify({
           version: 1,
           ...fragment,
@@ -194,6 +198,7 @@ export async function exportLocalRecord(db: RecordDb, signal?: AbortSignal, snap
           transcript: transcripts.get(id)?.[0] ?? null,
           trace_judgements: judgements.get(id) ?? [],
           wording_conflict: conflicts.get(id)?.[0] ?? null,
+          wording_versions: state ? { selected: state.selected, versions: state.wire.wordings } : null,
           audio: original ? { path: original.archive_path, bytes: original.size } : null,
         }) + '\n'));
       }
