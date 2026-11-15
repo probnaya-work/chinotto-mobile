@@ -219,10 +219,14 @@ capture did not survive that process restart; it currently lives only in React s
 does not establish draft retention across ordinary backgrounding or isolate the theme-switch
 step; those remain covered by the existing mocked tests, not this device sequence.
 
+The owner separately confirmed that Face ID works on this iPhone. This records the reported
+basic authentication path; cancellation, device-code fallback, lockout and app-switcher
+privacy have not yet been individually verified on the device.
+
 Screenshots are saved in the sibling `product-phase6-artifacts`: `iphone-light-settings.png`,
 `iphone-light-line.png` (only the two test phrases) and `iphone-light-capture-keyboard.png`
 (cropped to exclude private Record contents). Enlarged-text/daylight, ordinary backgrounding,
-widget/share deep links and authentication acceptance remain pending.
+widget/share deep links and the remaining authentication cases above remain pending.
 Regression verification: 127 Jest suites, 841 passed / one existing skipped;
 TypeScript and signed Release device build passed. Scene configuration is checked for drift
 between committed native and Expo configuration.
