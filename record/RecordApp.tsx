@@ -40,6 +40,7 @@ import { agency, frame, ink, LIVE, SURFACE } from './ui/tokens';
 import { hasFoundSettings, rememberFoundSettings } from './pullHint';
 import { type } from './ui/type';
 import { useRecord } from './useRecord';
+import { LockedCapture } from './ui/LockedCapture';
 import { recordBackStep } from './back';
 import { capabilitiesFor, type PlatformCapabilities } from './platform';
 import { displayText, firstLine, type Material } from './model/material';
@@ -50,6 +51,7 @@ import type { RecordStore } from './store';
 
 export type RecordAppProps = {
   store: RecordStore;
+  privacy?: { locked: boolean; busy: boolean; error: string | null; onUnlock: () => void };
   bridge: RecordBridge;
   /** False on a warm resume, so the lockup plays once per cold start and no more. */
   coldStart: boolean;
@@ -101,7 +103,7 @@ export type RecordAppProps = {
 };
 
 export function RecordApp(props: RecordAppProps) {
-  const record = useRecord(props.store, props.bridge, undefined, props.audio);
+  const record = useRecord(props.store, props.bridge, undefined, props.audio, !props.privacy?.locked);
   const capabilities = props.capabilities ?? capabilitiesFor(Platform.OS);
 
   if (props.backRef) {
@@ -395,6 +397,15 @@ export function RecordApp(props: RecordAppProps) {
     },
     [record]
   );
+
+  if (props.privacy?.locked) return <LockedCapture
+    words={record.captureInput} change={record.setCaptureInput}
+    capture={(body) => props.store.capture({ body, origin: 'mobile' })}
+    onUnlock={props.privacy.onUnlock} busy={props.privacy.busy} error={props.privacy.error}
+    onSettings={props.onOpenSettings}
+    voice={{ recording: props.voice.state, voice: capabilities.voice,
+      onStartRecording: () => void startRecording(), onStopRecording: stopRecording,
+      onCancelRecording: cancelRecording }} />;
 
   return (
     <View

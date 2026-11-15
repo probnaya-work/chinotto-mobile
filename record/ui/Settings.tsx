@@ -32,6 +32,7 @@ export type SettingsProps = {
   syncVerb: string;
   onOpenSync: () => void;
   audioUsage?: string;
+  protection?: { enabled: boolean; busy: boolean; error: string | null; onToggle: () => void };
   exportBusy?: boolean;
   exportError?: string | null;
   onExport?: () => void;
@@ -196,6 +197,14 @@ function Root(props: SettingsProps & { capabilities: PlatformCapabilities }) {
           />
         ) : null}
       </Section>
+
+      {props.protection ? <Section label="device protection" gap={7}>
+        <SettingRow title="Face ID / Touch ID"
+          detail={props.protection.error ?? 'protect reading with your device code or biometrics. capture stays open. widgets show capture only. this does not encrypt the database or exported copies.'}
+          action={props.protection.busy ? 'authenticating…' : props.protection.enabled ? 'turn off ›' : 'turn on ›'}
+          status={props.protection.enabled ? 'on' : 'off'}
+          onPress={props.protection.busy ? undefined : props.protection.onToggle} divider={false} />
+      </Section> : null}
 
       <Reference voice={can.voice} />
 

@@ -1,6 +1,7 @@
 import AVFoundation
 import Foundation
 import React
+import UIKit
 
 /// Playing back retained voice audio.
 ///
@@ -25,6 +26,17 @@ final class AudioPlaybackModule: RCTEventEmitter, AVAudioPlayerDelegate {
   /// What the current player belongs to, so a finish can say which moment stopped.
   private var playingId: String?
 
+  private var backgroundObserver: NSObjectProtocol?
+  override init() {
+    super.init()
+    backgroundObserver = NotificationCenter.default.addObserver(
+      forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main
+    ) { [weak self] _ in
+      if RecordPrivacyGuard.shared.enabled { self?.stop() }
+    }
+  }
+  deinit { if let backgroundObserver { NotificationCenter.default.removeObserver(backgroundObserver) } }
+
   override static func requiresMainQueueSetup() -> Bool { true }
 
   override func supportedEvents() -> [String]! {
@@ -46,6 +58,8 @@ final class AudioPlaybackModule: RCTEventEmitter, AVAudioPlayerDelegate {
       reject("E_AUDIO_PLAYBACK", "play needs an id and a path", nil)
       return
     }
+
+    guard !RecordPrivacyGuard.shared.locked else { resolve(false); return }
 
     // Whatever was playing stops without an event: it was replaced, not finished, and the
     // surface already knows because it asked for this one.

@@ -15,6 +15,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFindInput } from './useFindInput';
+import { RecordLocked } from './privacy';
 
 import { bandsFor, lastMonthWithData, yearsSummary, type Anchor } from './model/bands';
 import { parseAnchor, resolveAnchor } from './model/anchors';
@@ -43,14 +44,15 @@ export function useRecord(
   store: RecordStore,
   bridge: RecordBridge,
   nowFn = Date.now,
-  audio: AudioPlaybackPort = NO_PLAYBACK
+  audio: AudioPlaybackPort = NO_PLAYBACK,
+  readEnabled = true
 ) {
   const [material, setMaterial] = useState<Material[]>([]);
   const [heldIds, setHeldIds] = useState<Set<string>>(new Set());
   const [judgements, setJudgements] = useState<Record<string, 'confirmed' | 'rejected'>>({});
   const [ready, setReady] = useState(false);
 
-  const { input, inputNow, setInput, startFind, leaveFind, finding } = useFindInput();
+  const { input, inputNow, setInput, startFind, leaveFind, finding, captureInput, setCaptureInput } = useFindInput();
   const [inputFocused, setInputFocused] = useState(false);
   const [anchor, setAnchor] = useState<Anchor | null>(null);
 
@@ -119,15 +121,26 @@ export function useRecord(
 
   const now = nowFn();
 
+  const readNow = useRef(readEnabled);
+  readNow.current = readEnabled;
+  const readGeneration = useRef(0);
+  const previousRead = useRef(readEnabled);
+  if (previousRead.current !== readEnabled) { ++readGeneration.current; previousRead.current = readEnabled; }
+
   const reload = useCallback(async () => {
-    const [rows, held, judged] = await Promise.all([
-      store.loadRecord(),
-      store.heldIds(),
-      store.traceJudgements(),
-    ]);
-    setMaterial(rows);
-    setHeldIds(new Set(held));
-    setJudgements(judged);
+    if (!readNow.current) return;
+    const generation = readGeneration.current;
+    try {
+      const [rows, held, judged] = await Promise.all([
+        store.loadRecord(),
+        store.heldIds(),
+        store.traceJudgements(),
+      ]);
+      if (!readNow.current || generation !== readGeneration.current) return;
+      setMaterial(rows);
+      setHeldIds(new Set(held));
+      setJudgements(judged);
+    } catch (error) { if (!(error instanceof RecordLocked)) throw error; }
   }, [store]);
 
   /* ------------------------------------------------------------------- playback */
@@ -191,14 +204,18 @@ export function useRecord(
     return () => {
       alive = false;
     };
-  }, [reload]);
+  }, [reload, readEnabled]);
+
+  useEffect(() => {
+    if (!readEnabled) { audio.stop(); setPlayingId(null); }
+  }, [audio, readEnabled]);
 
   /* ------------------------------------------------------------------ the Return */
 
   const fieldBusy = input.length > 0;
 
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || !readEnabled) return;
     if (ret) {
       const stillValid = !heldIds.has(ret.material.id) && resumeReturn({
         id: retRowId!, fragmentId: ret.material.id, reason: ret.reason, evidence: ret.evidence,
@@ -238,7 +255,7 @@ export function useRecord(
       })().catch(() => { /* Capture remains available; the next material change retries. */ });
     }, RETURN_DELAY_MS);
     return () => { alive = false; clearTimeout(timer); };
-  }, [ready, material, heldIds, ret, retRowId, store, nowFn, fieldBusy, anchor, focusId, yearsOpen]);
+  }, [ready, readEnabled, material, heldIds, ret, retRowId, store, nowFn, fieldBusy, anchor, focusId, yearsOpen]);
 
   const closeReturn = useCallback(
     (outcome: 'opened' | 'continued' | 'let_go') => {
@@ -528,6 +545,7 @@ export function useRecord(
     heldIds,
 
     input,
+    captureInput, setCaptureInput,
     setInput,
     startFind,
     leaveFind,

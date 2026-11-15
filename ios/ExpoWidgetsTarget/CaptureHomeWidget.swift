@@ -398,6 +398,7 @@ private struct WidgetState {
 private func readWidgetState() -> WidgetState {
   guard
     let defaults = UserDefaults(suiteName: WIDGET_THOUGHTS_APP_GROUP_ID),
+    !defaults.bool(forKey: "chinotto_record_protection_v1"),
     let raw = defaults.string(forKey: WIDGET_THOUGHTS_KEY),
     let data = raw.data(using: .utf8)
   else {

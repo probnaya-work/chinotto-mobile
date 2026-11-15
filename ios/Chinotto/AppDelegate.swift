@@ -23,6 +23,7 @@ class AppDelegate: ExpoAppDelegate {
 
 #if os(iOS) || os(tvOS)
     window = UIWindow(frame: UIScreen.main.bounds)
+    RecordPrivacyGuard.shared.window = window
 // @generated begin @react-native-firebase/app-didFinishLaunchingWithOptions - expo prebuild (DO NOT MODIFY) sync-10e8520570672fd76b2403b7e1e27f5198a6349a
 FirebaseApp.configure()
 // @generated end @react-native-firebase/app-didFinishLaunchingWithOptions
@@ -33,6 +34,16 @@ FirebaseApp.configure()
 #endif
 
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  public override func applicationWillResignActive(_ application: UIApplication) {
+    RecordPrivacyGuard.shared.conceal()
+    super.applicationWillResignActive(application)
+  }
+
+  public override func applicationDidEnterBackground(_ application: UIApplication) {
+    RecordPrivacyGuard.shared.background()
+    super.applicationDidEnterBackground(application)
   }
 
   // Linking API

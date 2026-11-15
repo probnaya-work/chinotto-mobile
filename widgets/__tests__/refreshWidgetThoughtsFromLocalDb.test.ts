@@ -91,6 +91,14 @@ describe('refreshWidgetThoughtsFromLocalDb', () => {
     expect(thoughts[1].text).toBe('A second thought');
   });
 
+  it('does not read or republish previews when native protection is enabled', async () => {
+    setPlatformOS('ios');
+    NativeModules.WidgetThoughtsBridge = { setRecentThoughts, protectionEnabled: async () => true };
+    await refreshWidgetThoughtsFromLocalDb(false);
+    expect(getRecentEntries).not.toHaveBeenCalled();
+    expect(setRecentThoughts).not.toHaveBeenCalled();
+  });
+
   it('does not query the DB on non-iOS', async () => {
     setPlatformOS('android');
 

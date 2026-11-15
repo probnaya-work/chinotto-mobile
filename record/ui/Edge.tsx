@@ -60,6 +60,7 @@ export type VoiceCaptureDisplayState = {
 
 export type EdgeProps = {
   input: string;
+  captureOnly?: boolean;
   onChangeInput: (text: string) => void;
   onSubmit: () => void;
   inputRef?: React.RefObject<TextInput | null>;
@@ -120,7 +121,7 @@ export function Edge(props: EdgeProps) {
   const micDisabled =
     props.recording?.phase === 'saving' || props.recording?.phase === 'discarding';
   const showCaret = !props.input && !props.focused && !props.anchored && !recording;
-  const showSend = Boolean(props.input) && !props.input.startsWith('/') && !props.anchored;
+  const showSend = Boolean(props.input) && (props.captureOnly || !props.input.startsWith('/')) && !props.anchored;
   const showMic = props.voice !== false && !props.input && !props.anchored;
 
   useEffect(() => {

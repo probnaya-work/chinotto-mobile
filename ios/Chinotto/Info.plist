@@ -95,6 +95,8 @@
     </array>
     <key>NSLocalNetworkUsageDescription</key>
     <string>Expo Dev Launcher uses the local network to discover and connect to development servers running on your computer.</string>
+    <key>NSFaceIDUsageDescription</key>
+    <string>Chinotto uses Face ID to open your protected Record. You can always capture a new thought without unlocking.</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>Chinotto uses the microphone so you can tap the circle and speak instead of typing. The recording itself is kept on this iPhone as part of your record, so you can hear a moment back later — not only read what was heard.</string>
     <key>NSPhotoLibraryUsageDescription</key>

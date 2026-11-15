@@ -16,6 +16,7 @@ import { migrate } from '../migrate';
 import { createBridge } from '../bridge';
 import { createRecordStore } from '../store';
 import { RecordApp } from '../RecordApp';
+import { protectRecordStore } from '../privacy';
 import { LAUNCH_HOLD } from '../ui/Launch';
 
 const T0 = new Date('2026-09-19T17:10:00.000Z').getTime();
@@ -1090,4 +1091,49 @@ describe('first-week Returns on the real Record', () => {
     view.unmount(); h.db.close();
   });
 
+});
+
+
+describe('protected Record', () => {
+  it.each(['new locked capture', '/new locked capture'])('keeps cold history unread while saving %s without disclosure', async (wording) => {
+    const h = harness(); await migrate(h.db);
+    await h.store.capture({ body: 'private history' });
+    const read = jest.spyOn(h.store, 'loadRecord');
+    const store = protectRecordStore(h.store, () => false);
+    const onUnlock = jest.fn();
+    await mount(h, { store, privacy: { locked: true, busy: false, error: null, onUnlock } });
+    expect(read).not.toHaveBeenCalled();
+    expect(screen.queryByText('private history')).toBeNull();
+    fireEvent.changeText(screen.getByLabelText('capture'), wording);
+    await act(async () => { fireEvent.press(screen.getByLabelText('leave it')); });
+    expect(screen.getByText('saved on this phone.')).toBeTruthy();
+    expect(screen.queryByText(wording)).toBeNull();
+    fireEvent.press(screen.getByLabelText('open the record'));
+    expect(onUnlock).toHaveBeenCalledTimes(1);
+    expect((await h.store.loadRecord()).map((m) => m.body)).toContain(wording);
+    h.db.close();
+  });
+
+  it('preserves capture and Find wording across locking and authentication', async () => {
+    const h = harness(); await migrate(h.db);
+    await h.store.capture({ body: 'private history' });
+    let open = true;
+    const store = protectRecordStore(h.store, () => open);
+    const view = await mount(h, { store });
+    fireEvent.changeText(screen.getByLabelText('capture'), 'unfinished capture');
+    fireEvent.press(screen.getByLabelText('Find in the Record'));
+    fireEvent.changeText(screen.getByLabelText('capture'), '/private');
+    open = false;
+    view.rerender(<RecordApp {...defaults} store={store} bridge={h.bridge}
+      privacy={{ locked: true, busy: false, error: null, onUnlock: () => {} }} />);
+    expect(screen.queryByText('private history')).toBeNull();
+    expect(screen.getByLabelText('capture').props.value).toBe('unfinished capture');
+    fireEvent.changeText(screen.getByLabelText('capture'), 'unfinished capture, later');
+    open = true;
+    await act(async () => { view.rerender(<RecordApp {...defaults} store={store} bridge={h.bridge} />); });
+    expect(screen.getByLabelText('capture').props.value).toBe('/private');
+    fireEvent.press(screen.getByLabelText('back to capture'));
+    expect(screen.getByLabelText('capture').props.value).toBe('unfinished capture, later');
+    h.db.close();
+  });
 });

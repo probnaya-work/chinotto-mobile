@@ -24,6 +24,8 @@ import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 
 import { RecordApp } from './RecordApp';
+import { protectRecordStore, type RecordPrivacy } from './privacy';
+import { usePrivacy } from './usePrivacy';
 import type { VoiceCaptureDisplayState } from './ui/Edge';
 import { Settings, settingsCopy, type SettingsPage } from './ui/Settings';
 import { ShareSurface, metBeforeLabel } from './ui/ShareSurface';
@@ -64,6 +66,7 @@ import type { RecordDb } from './db';
 
 export type Services = {
   db: RecordDb;
+  privacy?: RecordPrivacy;
   voiceEngine: VoiceEngine;
   syncPorts: SyncPorts;
   newId: () => string;
@@ -119,6 +122,8 @@ type Surface =
   | { kind: 'widget' };
 
 export function ChinottoApp({ services }: { services: Services }) {
+  const protection = usePrivacy(services.privacy);
+  const readAllowed = protection.ready && !protection.locked;
   const capabilities = services.capabilities ?? capabilitiesFor(Platform.OS);
   const [fontsReady, setFontsReady] = useState(false);
   const [surface, setSurface] = useState<Surface>({ kind: 'record' });
@@ -196,6 +201,17 @@ export function ChinottoApp({ services }: { services: Services }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [services.db, services.newId]
   );
+
+  const surfaceStore = useMemo(() => services.privacy
+    ? protectRecordStore(store, services.privacy.canRead, () => { const current = services.privacy!.snapshot(); return current.enabled ? current.epoch : 0; })
+    : store, [store, services.privacy]);
+
+  useEffect(() => {
+    if (readAllowed) return;
+    services.audio?.stop();
+    setSurface({ kind: 'record' });
+    setShareMetBefore('');
+  }, [readAllowed, services.audio]);
 
   const bridge: RecordBridge = useMemo(
     () =>
@@ -563,17 +579,17 @@ export function ChinottoApp({ services }: { services: Services }) {
     setShareWords('');
 
     // "you met this site before" is read from the record, offline, before the surface draws.
-    if (intake.url) {
+    if (intake.url && (!services.privacy || services.privacy.canRead())) {
       void (async () => {
-        const met = await store.encountersOf(urlKey(intake.url!));
+        const met = await surfaceStore.encountersOf(urlKey(intake.url!));
         setShareMetBefore(
           metBeforeLabel(met.map((m) => monthLabel(m.at, Date.now(), true)))
         );
-      })();
+      })().catch(() => setShareMetBefore(''));
     } else {
-      setShareMetBefore('first time here');
+      setShareMetBefore(!services.privacy || services.privacy.canRead() ? 'first time here' : '');
     }
-  }, [services.incomingShare, services.onShareHandled, store]);
+  }, [services.incomingShare, services.onShareHandled, surfaceStore, services.privacy]);
 
   const leaveShare = useCallback(async () => {
     if (!share) return;
@@ -678,7 +694,9 @@ export function ChinottoApp({ services }: { services: Services }) {
   return (
     <View style={{ flex: 1, backgroundColor: SURFACE }}>
       <RecordApp
-        store={store}
+        store={surfaceStore}
+        privacy={{ locked: !readAllowed, busy: protection.busy, error: protection.error,
+          onUnlock: () => void services.privacy?.request('unlock') }}
         bridge={bridge}
         coldStart={coldStart && fontsReady}
         onOpenSettings={() => setSurface({ kind: 'settings', page: 'root' })}
@@ -726,6 +744,8 @@ export function ChinottoApp({ services }: { services: Services }) {
           sync={sync}
           services={services}
           capabilities={capabilities}
+          protection={protection}
+          privacy={services.privacy}
           icon={services.icon}
           setIcon={services.onPickIcon}
           analyticsOn={analyticsOn}
@@ -759,15 +779,15 @@ export function ChinottoApp({ services }: { services: Services }) {
         />
       ) : null}
 
-      {surface.kind === 'widget' ? (
+      {surface.kind === 'widget' && readAllowed ? (
         <WidgetLive
-          store={store}
+          store={surfaceStore}
           onClose={() => setSurface({ kind: 'settings', page: 'root' })}
           onCapture={() => setSurface({ kind: 'record' })}
         />
       ) : null}
 
-      {sync.open ? (
+      {sync.open && readAllowed ? (
         <SyncSheet
           state={account.phase === 'idle' ? sync.state : account.phase}
           offline={sync.offline}
@@ -841,6 +861,8 @@ function SettingsSurface(props: {
   sync: ReturnType<typeof useSyncSurface>;
   services: Services;
   capabilities: PlatformCapabilities;
+  protection: ReturnType<typeof usePrivacy>;
+  privacy?: RecordPrivacy;
   icon: 'dark' | 'light';
   setIcon: (v: 'dark' | 'light') => void;
   analyticsOn: boolean;
@@ -879,7 +901,16 @@ function SettingsSurface(props: {
     exportAbort.current = controller;
     setExportBusy(true);
     setExportError(null);
-    void exportLocalRecord(props.services.db, controller.signal)
+    void (async () => {
+      if (props.privacy?.snapshot().enabled && !await props.privacy.request('unlock')) return;
+      if (controller.signal.aborted) return;
+      const epoch = props.privacy?.snapshot().epoch;
+      const unsubscribe = props.privacy?.subscribe(() => {
+        if (!props.privacy!.canRead() || (props.privacy!.snapshot().enabled && props.privacy!.snapshot().epoch !== epoch)) controller.abort();
+      });
+      try { await exportLocalRecord(props.services.db, controller.signal); }
+      finally { unsubscribe?.(); }
+    })()
       .catch((error: unknown) => {
         if (!controller.signal.aborted) {
           setExportError(error instanceof Error ? error.message : 'The export could not be prepared.');
@@ -911,6 +942,10 @@ function SettingsSurface(props: {
       })}
       onOpenSync={props.onOpenSync}
       audioUsage={audioUsage}
+      protection={props.privacy ? {
+        enabled: props.protection.enabled, busy: props.protection.busy, error: props.protection.error,
+        onToggle: () => void props.privacy!.request(props.protection.enabled ? 'disable' : 'enable'),
+      } : undefined}
       exportBusy={exportBusy}
       exportError={exportError}
       onExport={startExport}

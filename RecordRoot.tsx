@@ -21,6 +21,7 @@ import { useIncomingShare } from 'expo-sharing';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { ChinottoApp, type Services } from './record/ChinottoApp';
+import { nativeRecordPrivacy } from './record/nativePrivacy';
 import { cleanupAbandonedExports } from './record/exportTemp';
 import { ensureThisDevice, HEARTBEAT_MS, isRevoked, type ThisDevice } from './record/devices';
 import { SURFACE } from './record/ui/tokens';
@@ -204,6 +205,7 @@ const audioPlayback: AudioPlaybackPort = {
 };
 
 export default function RecordRoot() {
+  const privacy = useMemo(() => CAPABILITIES.systemName === 'ios' ? nativeRecordPrivacy() : undefined, []);
   useEffect(() => {
     try { cleanupAbandonedExports(); } catch { /* The next launch retries. */ }
   }, []);
@@ -369,6 +371,7 @@ export default function RecordRoot() {
 
     return {
       db: asRecordDb,
+      privacy,
       voiceEngine,
       newId: randomUUID,
       deviceName: () => deviceName(),

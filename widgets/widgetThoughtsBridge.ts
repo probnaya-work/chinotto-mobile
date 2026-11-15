@@ -12,6 +12,7 @@ type WidgetThought = { id: string; text: string; createdAt: string };
 
 type WidgetThoughtsNativeModule = {
   setRecentThoughts(json: string): Promise<void>;
+  protectionEnabled?(): Promise<boolean>;
 };
 
 /** Large widget shows up to 5; payload is shared across sizes. */
@@ -88,6 +89,8 @@ export async function refreshWidgetThoughtsFromLocalDb(syncOn: boolean): Promise
     return;
   }
   try {
+    const mod = NativeModules.WidgetThoughtsBridge as WidgetThoughtsNativeModule | undefined;
+    if (await mod?.protectionEnabled?.()) return;
     const entries = await getRecentEntries(WIDGET_THOUGHTS_SYNC_LIMIT);
     await syncRecentThoughtsToWidget(entries, syncOn);
   } catch (err) {
