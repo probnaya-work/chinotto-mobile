@@ -14,6 +14,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useFindInput } from './useFindInput';
 
 import { bandsFor, lastMonthWithData, yearsSummary, type Anchor } from './model/bands';
 import { parseAnchor, resolveAnchor } from './model/anchors';
@@ -51,25 +52,7 @@ export function useRecord(
   const [judgements, setJudgements] = useState<Record<string, 'confirmed' | 'rejected'>>({});
   const [ready, setReady] = useState(false);
 
-  const [inputState, setInputState] = useState('');
-
-  /**
-   * What is in the field right now, as opposed to what the last render was told.
-   *
-   * Return arrives as its own native event, immediately after the keystroke before it. The
-   * submit handler is a closure over state, and state is a render behind — so pressing Return
-   * straight after the last letter submitted the text *without that letter*. Typed `back`,
-   * kept `bac`.
-   *
-   * Nothing about capture is allowed to be a render behind, so the value is mirrored here
-   * synchronously and submit reads this rather than the render's copy.
-   */
-  const inputNow = useRef('');
-  const input = inputState;
-  const setInput = useCallback((text: string) => {
-    inputNow.current = text;
-    setInputState(text);
-  }, []);
+  const { input, inputNow, setInput, startFind, leaveFind, finding } = useFindInput();
   const [inputFocused, setInputFocused] = useState(false);
   const [anchor, setAnchor] = useState<Anchor | null>(null);
 
@@ -537,6 +520,9 @@ export function useRecord(
 
     input,
     setInput,
+    startFind,
+    leaveFind,
+    finding,
     inputFocused,
     setInputFocused,
     submit,

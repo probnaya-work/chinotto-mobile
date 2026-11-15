@@ -49,6 +49,7 @@ export type RecordBackState = {
   anchored: boolean;
   /** A D0 moment selected, with its verbs open. */
   selected: boolean;
+  finding?: boolean;
 };
 
 export type RecordBackStep =
@@ -57,7 +58,8 @@ export type RecordBackStep =
   | 'stop-continue'
   | 'close-focus'
   | 'clear-anchor'
-  | 'clear-selection';
+  | 'clear-selection'
+  | 'leave-find';
 
 export function recordBackStep(s: RecordBackState): RecordBackStep | null {
   if (s.yearsOpen) return 'close-years';
@@ -66,6 +68,7 @@ export function recordBackStep(s: RecordBackState): RecordBackStep | null {
     if (s.continuing) return 'stop-continue';
     return 'close-focus';
   }
+  if (s.finding) return 'leave-find';
   if (s.anchored) return 'clear-anchor';
   if (s.selected) return 'clear-selection';
   return null;

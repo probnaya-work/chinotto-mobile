@@ -1019,3 +1019,28 @@ describe('the record surface', () => {
     h.db.close();
   });
 });
+
+describe('visible Find', () => {
+  beforeEach(() => { jest.useFakeTimers(); jest.setSystemTime(T0); });
+  afterEach(() => jest.useRealTimers());
+  it('borrows the capture field and restores a draft without saving the query', async () => {
+    const h = harness(); await migrate(h.db);
+    const backRef = { current: null } as React.MutableRefObject<(() => boolean) | null>;
+    const view = await mount(h, { backRef });
+    const field = screen.getByLabelText('capture');
+    await act(async () => { fireEvent.changeText(field, 'unfinished thought'); });
+    await act(async () => { fireEvent.press(screen.getByLabelText('Find in the Record')); });
+    expect(screen.getByLabelText('capture').props.value).toBe('/');
+    await act(async () => {
+      fireEvent.changeText(screen.getByLabelText('capture'), '/query');
+      fireEvent(screen.getByLabelText('capture'), 'submitEditing');
+    });
+    expect(await h.store.loadRecord()).toEqual([]);
+    await act(async () => { fireEvent.press(screen.getByLabelText('back to capture')); });
+    expect(screen.getByLabelText('capture').props.value).toBe('unfinished thought');
+    await act(async () => { fireEvent.press(screen.getByLabelText('Find in the Record')); });
+    await act(async () => { expect(backRef.current?.()).toBe(true); });
+    expect(screen.getByLabelText('capture').props.value).toBe('unfinished thought');
+    view.unmount(); h.db.close();
+  });
+});

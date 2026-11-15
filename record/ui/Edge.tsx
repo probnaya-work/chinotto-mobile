@@ -76,6 +76,8 @@ export type EdgeProps = {
 
   /** Find: the count of literal matches actually shown in the record. */
   findSummary: string | null;
+  onFind?: () => void;
+  onLeaveFind?: () => void;
 
   recording: VoiceCaptureDisplayState | null;
   /**
@@ -242,6 +244,21 @@ export function Edge(props: EdgeProps) {
             {props.notices.map((n) => (
               <Notice key={n.kind} notice={n} />
             ))}
+          </View>
+        ) : null}
+
+        {!recording && !props.anchored && props.onFind ? (
+          <View style={{ alignItems: 'flex-end' }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={props.input.startsWith('/') ? 'back to capture' : 'Find in the Record'}
+              onPress={props.input.startsWith('/') ? props.onLeaveFind : props.onFind}
+              style={{ minHeight: 44, minWidth: 88, alignItems: 'flex-end', justifyContent: 'center' }}
+            >
+              <Text style={type({ size: 13, width: 90, color: agency.quiet })}>
+                {props.input.startsWith('/') ? '‹ capture' : 'find /'}
+              </Text>
+            </Pressable>
           </View>
         ) : null}
 

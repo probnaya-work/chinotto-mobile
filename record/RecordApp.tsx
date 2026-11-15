@@ -113,6 +113,7 @@ export function RecordApp(props: RecordAppProps) {
         continuing: record.continuing,
         anchored: Boolean(record.anchor),
         selected: record.selectedId !== null,
+        finding: record.finding,
       });
       switch (step) {
         case 'close-years':
@@ -126,6 +127,9 @@ export function RecordApp(props: RecordAppProps) {
           return true;
         case 'close-focus':
           record.setFocusId(null);
+          return true;
+        case 'leave-find':
+          record.leaveFind();
           return true;
         case 'clear-anchor':
           record.clearAnchor();
@@ -551,6 +555,8 @@ export function RecordApp(props: RecordAppProps) {
         anchored={Boolean(record.anchor)}
         onClearAnchor={record.clearAnchor}
         findSummary={record.findSummaryText}
+        onFind={() => { record.startFind(); inputRef.current?.focus(); }}
+        onLeaveFind={() => { record.leaveFind(); inputRef.current?.focus(); }}
         recording={props.voice.state}
         voice={capabilities.voice}
         onStartRecording={() => void startRecording()}
