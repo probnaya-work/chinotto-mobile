@@ -394,3 +394,18 @@ Audio and derived/personal state are not included. Oversized metadata stays pend
 than losing history. Live updates use `updatedAt` so edits to old moments remain visible. Multiple
 children of one parent belong to the same Line. The wire format, bounds, compatibility and required
 cloud release checks are recorded in [Record continuity sync](record-sync.md).
+
+
+### Find and first-week Returns — phase 3, 15 November 2026
+
+Visible Find borrows the existing capture field and preserves an unfinished capture verbatim.
+Leaving search restores that capture; no new navigation screen, onboarding gate or stored query
+is added. Continue and Correct keep distinct promises at their actions.
+
+The approved first-week phase replaces the former 180-day mobile / 30-day desktop Return age
+with seven full days on both. A cause must be in the previous 48 hours, with at least three
+shared words, an exact source key or a recent Line addition. An old quiet Line alone is not a
+cause. Timing is shared: 20 hours globally, 30 days for the same moment, at most one open Return.
+Held and removed moments are excluded; an open Return is withdrawn if its evidence disappears.
+Selection waits for an idle visible edge and does not run behind Find or an unfinished capture.
+The limits, retrieval differences and validation are recorded in `docs/product-improvements.md`.
