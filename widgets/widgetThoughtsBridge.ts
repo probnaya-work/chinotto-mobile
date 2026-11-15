@@ -15,8 +15,8 @@ type WidgetThoughtsNativeModule = {
   protectionEnabled?(): Promise<boolean>;
 };
 
-/** Large widget shows up to 5; payload is shared across sizes. */
-export const WIDGET_THOUGHTS_SYNC_LIMIT = 5;
+/** Candidates for large; the widget displays as many complete rows as fit. */
+export const WIDGET_THOUGHTS_SYNC_LIMIT = 12;
 
 const MAX_WIDGET_TEXT_LEN = 120;
 
