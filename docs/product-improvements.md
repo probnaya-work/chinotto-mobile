@@ -211,14 +211,27 @@ entries and 198 fragments matched the pre-install backup exactly.
 
 The owner switched to light in Settings while QuickTime displayed the actual phone. Warm
 surfaces, graphite labels, separators, selected appearance and the dark status-bar content
-render correctly at the current text size. A Settings screenshot is saved in the sibling
-`product-phase6-artifacts/iphone-light-settings.png`; private Record contents are not included
-in the shared artifact. Keyboard, enlarged-text/daylight and authentication acceptance remain
-pending. Regression verification: 127 Jest suites, 841 passed / one existing skipped;
+render correctly at the current text size. Two owner-entered test moments and their Line also
+rendered correctly. The Russian system keyboard follows light appearance; the capture field,
+caret and save action remain above it without overlap. The owner then changed dark → light,
+force-quit by swiping away the app card, and reopened: light appearance persisted. The unsaved
+capture did not survive that process restart; it currently lives only in React state. This
+does not establish draft retention across ordinary backgrounding or isolate the theme-switch
+step; those remain covered by the existing mocked tests, not this device sequence.
+
+Screenshots are saved in the sibling `product-phase6-artifacts`: `iphone-light-settings.png`,
+`iphone-light-line.png` (only the two test phrases) and `iphone-light-capture-keyboard.png`
+(cropped to exclude private Record contents). Enlarged-text/daylight, ordinary backgrounding,
+widget/share deep links and authentication acceptance remain pending.
+Regression verification: 127 Jest suites, 841 passed / one existing skipped;
 TypeScript and signed Release device build passed. Scene configuration is checked for drift
 between committed native and Expo configuration.
 
 ## Later candidates
+
+Recover an unfinished capture locally after process death or force-quit. Device testing exposed
+that unsaved text currently lives only in memory; a future draft must remain distinct from a
+saved moment, stay off sync, restore without gating capture and never overwrite fresh typing.
 
 Manual joining of existing moments, recent-line re-entry, Shortcuts/Action Button capture and local OCR stay candidates after these phases. They are not prerequisites for the current improvement cycle.
 
