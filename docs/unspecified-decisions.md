@@ -365,3 +365,18 @@ there it records and never transcribes; recognition itself needs a physical phon
 
 The two iOS facts recorded here were since fixed on `main` (on-device only; erasure at the
 permanent boundary) and merged into this branch.
+
+## 11. Product review follow-up — 15 November 2026
+
+The owner requested phased product improvements and optional Face ID / Touch ID protection.
+The sequence and acceptance criteria are recorded in [Product improvement phases](product-improvements.md).
+
+Word matching deliberately extends the original prototype to Unicode letters and combining
+marks. English suffix heuristics do not run over non-ASCII words; common Russian and
+Portuguese function words are excluded from evidence. Phrase highlighting must not consume
+intervening letters as punctuation. The original English corpus parity remains checked.
+
+Mobile Find remains literal search. Its supplementary suggestions require shared-word
+evidence and are named as such. The prototype's unrelated fallback and cosmetic meaning
+toggle are removed; no candidate is a valid result. These are implementation choices under
+the approved search-quality phase, not a claim of multilingual semantic search.
