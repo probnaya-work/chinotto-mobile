@@ -22,6 +22,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { ChinottoApp, type Services } from './record/ChinottoApp';
 import { nativeRecordPrivacy } from './record/nativePrivacy';
+import { recoverInterruptedRestores, cleanupAbandonedRestores } from './record/nativeRestore';
 import { cleanupAbandonedExports } from './record/exportTemp';
 import { ensureThisDevice, HEARTBEAT_MS, isRevoked, type ThisDevice } from './record/devices';
 import { SURFACE } from './record/ui/tokens';
@@ -207,7 +208,7 @@ const audioPlayback: AudioPlaybackPort = {
 export default function RecordRoot() {
   const privacy = useMemo(() => CAPABILITIES.systemName === 'ios' ? nativeRecordPrivacy() : undefined, []);
   useEffect(() => {
-    try { cleanupAbandonedExports(); } catch { /* The next launch retries. */ }
+    try { cleanupAbandonedRestores(); cleanupAbandonedExports(); } catch { /* The next launch retries. */ }
   }, []);
   const [db, setDb] = useState<SQLiteDatabase | null>(null);
 
@@ -350,6 +351,7 @@ export default function RecordRoot() {
       // `getDatabase` runs the ladder. Nothing renders before it resolves, because a
       // surface drawn against the wrong schema would be worse than a blank field.
       const opened = await getDatabase();
+      await recoverInterruptedRestores(opened);
       if (!alive) return;
       setDb(opened);
       const registered = await ensureThisDevice(opened as unknown as RecordDb, {

@@ -37,6 +37,7 @@ import { createBridge, type RecordBridge } from './bridge';
 import { sweepRemovedVoice } from './erasure';
 import { deleteRecordFile, listRetainedAudio, recordFileExists } from './files';
 import { exportLocalRecord } from './export';
+import { RestoreArchive } from './ui/RestoreArchive';
 import { formatStorage, retainedAudioBytes } from './storage';
 import { createTranscriptRetry } from './transcripts';
 import type { AudioPlaybackPort } from './playback';
@@ -737,6 +738,7 @@ export function ChinottoApp({ services }: { services: Services }) {
       {surface.kind === 'settings' ? (
         <SettingsSurface
           page={surface.page}
+          onRestored={() => setChangedAt((n) => n + 1)}
           setPage={(page) => setSurface({ kind: 'settings', page })}
           onClose={() => setSurface({ kind: 'record' })}
           onSeeWidget={() => setSurface({ kind: 'widget' })}
@@ -853,6 +855,7 @@ export function ChinottoApp({ services }: { services: Services }) {
 
 /** Settings, with everything it needs to say what is true read from the real state. */
 function SettingsSurface(props: {
+  onRestored: () => void;
   page: SettingsPage;
   setPage: (page: SettingsPage) => void;
   onClose: () => void;
@@ -942,6 +945,11 @@ function SettingsSurface(props: {
       })}
       onOpenSync={props.onOpenSync}
       audioUsage={audioUsage}
+      restoreContent={<RestoreArchive db={props.services.db} privacy={props.privacy} onRestored={() => {
+        props.onRestored();
+        const bytes = retainedAudioBytes();
+        setAudioUsage(bytes === null ? 'could not measure on this phone' : `${formatStorage(bytes)} on this phone · measured`);
+      }} />}
       protection={props.privacy ? {
         enabled: props.protection.enabled, busy: props.protection.busy, error: props.protection.error,
         onToggle: () => void props.privacy!.request(props.protection.enabled ? 'disable' : 'enable'),

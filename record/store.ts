@@ -105,6 +105,8 @@ export function createRecordStore(db: RecordDb, options: StoreOptions = {}) {
 
   /* ------------------------------------------------------------------ reading */
 
+  // A moment has one row in the stream even when an archive retains several sources.
+  // Its earliest encounter represents it here; encountersOf keeps every source available.
   const SELECT = `
     SELECT f.id, f.body, f.captured_at, f.capture_method, f.capture_origin,
            f.corrected_at, f.correction_count, f.removed_at,
@@ -118,7 +120,7 @@ export function createRecordStore(db: RecordDb, options: StoreOptions = {}) {
            vt.state AS transcript_state
       FROM fragments f
       LEFT JOIN line_index li ON li.fragment_id = f.id
-      LEFT JOIN encounters e ON e.fragment_id = f.id
+      LEFT JOIN encounters e ON e.id = (SELECT id FROM encounters WHERE fragment_id=f.id ORDER BY id LIMIT 1)
       LEFT JOIN encounter_enrichment en ON en.encounter_id = e.id
       LEFT JOIN voice_captures v ON v.fragment_id = f.id
       LEFT JOIN voice_transcripts vt ON vt.fragment_id = f.id

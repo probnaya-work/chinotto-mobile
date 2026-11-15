@@ -32,6 +32,7 @@ export type SettingsProps = {
   syncVerb: string;
   onOpenSync: () => void;
   audioUsage?: string;
+  restoreContent?: React.ReactNode;
   protection?: { enabled: boolean; busy: boolean; error: string | null; onToggle: () => void };
   exportBusy?: boolean;
   exportError?: string | null;
@@ -190,12 +191,13 @@ function Root(props: SettingsProps & { capabilities: PlatformCapabilities }) {
         {props.onExport ? (
           <SettingRow
             title="export the record"
-            detail={props.exportError ?? 'text, history and original audio · a portable copy, not a backup'}
+            detail={props.exportError ?? 'text, history and original audio · a portable, restorable copy'}
             action={props.exportBusy ? 'cancel ›' : 'export ›'}
             onPress={props.exportBusy ? props.onCancelExport : props.onExport}
             divider={false}
           />
         ) : null}
+        {props.restoreContent}
       </Section>
 
       {props.protection ? <Section label="device protection" gap={7}>

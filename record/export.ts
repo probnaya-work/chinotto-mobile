@@ -1,10 +1,10 @@
-import { randomUUID } from 'expo-crypto';
+import { randomUUID, digestStringAsync, CryptoDigestAlgorithm } from 'expo-crypto';
 import { File, Paths } from 'expo-file-system';
 import { backupDatabaseAsync, openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 import * as Sharing from 'expo-sharing';
 
 import type { RecordDb } from './db';
-import type { SyncState } from './syncProtocol';
+import { prepareRecordSync, type SyncState } from './syncProtocol';
 import { isRetainedAudioPath } from './files';
 import { availableDeviceBytes } from './storage';
 import { RecordZipWriter } from './zip';
@@ -24,6 +24,8 @@ type Fragment = {
   correction_count: number;
   legacy_entry_id: string | null;
   legacy_edit_count: number;
+  legacy_continuation_offset: number | null;
+  legacy_continuation_at: string | null;
 };
 type Audio = { fragment_id: string; audio_path: string; size: number; modified: number | null; archive_path: string };
 
@@ -96,7 +98,7 @@ async function* pages(db: RecordDb): AsyncGenerator<Fragment[]> {
   for (;;) {
     const rows = await db.getAllAsync<Fragment>(
       `SELECT id, body, captured_at, capture_method, capture_origin, corrected_at,
-              correction_count, legacy_entry_id, legacy_edit_count
+              correction_count, legacy_entry_id, legacy_edit_count, legacy_continuation_offset, legacy_continuation_at
          FROM fragments WHERE removed_at IS NULL
            AND (captured_at > ? OR (captured_at = ? AND id > ?))
         ORDER BY captured_at, id LIMIT ?`, lastAt, lastAt, lastId, PAGE
@@ -139,7 +141,7 @@ export async function exportLocalRecord(db: RecordDb, signal?: AbortSignal, snap
         audioBytes += fingerprint.size;
         await db.runAsync('INSERT INTO export_audio (fragment_id, audio_path, size, modified, archive_path) VALUES (?, ?, ?, ?, ?)',
           row.fragment_id, row.audio_path, fingerprint.size, fingerprint.modified,
-          `chinotto-record/audio/${encodeURIComponent(row.fragment_id).replace(/\./g, '%2E')}.m4a`);
+          `chinotto-record/audio/${encodeURIComponent(row.fragment_id).replace(/\./g, '%2E')}.${row.audio_path.endsWith('.caf') ? 'caf' : 'm4a'}`);
       }
       lastAudioId = rows[rows.length - 1].fragment_id;
     }
@@ -161,8 +163,11 @@ export async function exportLocalRecord(db: RecordDb, signal?: AbortSignal, snap
     const zip = new RecordZipWriter(handle);
     zip.start('chinotto-record/README.txt');
     zip.write(encoder.encode(
-      'Chinotto Record export\n\nrecord.txt is readable in date order. record.jsonl contains one JSON object per moment, including correction history, relationships, source metadata and audio filenames. audio/ contains original retained recordings. archived.jsonl contains older user-authored material preserved through migration. This archive is not a restorable Chinotto backup. It contains private material; keep it somewhere you trust.\n'
+      'Chinotto Record export\n\nrecord.txt is readable in date order. record.jsonl contains one JSON object per moment, including correction history, relationships, source metadata and audio filenames. audio/ contains original retained recordings. archived.jsonl contains older user-authored material preserved through migration. Restore this archive in a current Chinotto build to add its moments without replacing an existing Record. It contains private material; keep it somewhere you trust.\n'
     ));
+    zip.end();
+    zip.start('chinotto-record/manifest.json');
+    zip.write(encoder.encode(JSON.stringify({ format: 'chinotto-record', version: 1 })));
     zip.end();
 
     zip.start('chinotto-record/record.jsonl');
@@ -181,19 +186,33 @@ export async function exportLocalRecord(db: RecordDb, signal?: AbortSignal, snap
         children(db, 'export_audio', ids),
         children(db, 'record_sync_state', ids),
       ]);
+      const pendingLinks = await children(db, 'record_sync_links', ids);
+      const enrichment = await db.getAllAsync<Record<string, unknown>>(
+        `SELECT x.* FROM encounter_enrichment x JOIN encounters e ON e.id=x.encounter_id WHERE e.fragment_id IN (${ids.map(() => '?').join(',')})`, ...ids);
+      const enrichmentById = new Map(enrichment.map((row) => [row.encounter_id, row]));
       for (const fragment of page) {
         check(signal);
         const id = fragment.id;
         const original = audioById.get(id)?.[0] as Audio | undefined;
         const stateJson = syncStates.get(id)?.[0]?.state;
-        const state = typeof stateJson === 'string' ? JSON.parse(stateJson) as SyncState : null;
+        let state = typeof stateJson === 'string' ? JSON.parse(stateJson) as SyncState : null;
+        if (state && fragment.body.trim()) {
+          const prepared = await prepareRecordSync({
+            id, body: fragment.body, capturedAt: fragment.captured_at, state: stateJson as string,
+            history: (revisions.get(id) ?? []).map((r) => ({ body: String(r.body), supersededAt: String(r.superseded_at) })),
+            continuation: state.wire.continuation, generation: 0, dirty: true,
+            resolvedAt: (conflicts.get(id)?.[0]?.resolved_at as string | null) ?? null,
+          }, (value) => digestStringAsync(CryptoDigestAlgorithm.SHA256, value));
+          if (prepared.body !== fragment.body) throw new Error('The Record wording could not be archived consistently. Open the Record and try again.');
+          state = JSON.parse(prepared.state) as SyncState;
+        }
         zip.write(encoder.encode(JSON.stringify({
           version: 1,
           ...fragment,
           revisions: revisions.get(id) ?? [],
-          continuations: continuations.get(id) ?? [],
+          continuations: continuations.get(id) ?? pendingLinks.get(id) ?? [],
           holds: holds.get(id) ?? [],
-          encounters: encounters.get(id) ?? [],
+          encounters: (encounters.get(id) ?? []).map((row) => ({ ...row, enrichment: enrichmentById.get(row.id) ?? null })),
           voice_capture: voiceCaptures.get(id)?.[0] ?? null,
           transcript: transcripts.get(id)?.[0] ?? null,
           trace_judgements: judgements.get(id) ?? [],

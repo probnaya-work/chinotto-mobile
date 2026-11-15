@@ -29,7 +29,7 @@ import { relabelUnconfirmedTranscripts } from './transcripts';
 import { RECORD_SYNC_SCHEMA } from './syncSchema';
 
 /** Schema version this build expects. Bump when adding a step below. */
-export const TARGET_VERSION = 8;
+export const TARGET_VERSION = 9;
 
 /**
  * The v1 schema, byte-for-byte what shipped. Owned here so the boot path and the migration
@@ -189,6 +189,13 @@ export async function migrate(db: RecordDb): Promise<MigrationReport> {
 
   if (from < 8) {
     await step(db, 8, report, async () => db.execAsync(RECORD_SYNC_SCHEMA));
+  }
+
+  if (from < 9) {
+    await step(db, 9, report, async () => db.execAsync(`
+      ALTER TABLE fragments ADD COLUMN legacy_continuation_offset INTEGER;
+      ALTER TABLE fragments ADD COLUMN legacy_continuation_at TEXT;
+    `));
   }
 
   // Data, not schema, so it is not a step: a build that has run it must still be openable
