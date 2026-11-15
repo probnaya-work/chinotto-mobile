@@ -219,6 +219,13 @@ describe('Find', () => {
     const guesses = guessFor('cabinet filing garden', corpus, NOW);
     expect(guesses.length).toBeLessThanOrEqual(3);
     expect(guesses.every((g) => g.when.length > 0)).toBe(true);
+    expect(guesses.every((g) => g.overlap > 0)).toBe(true);
+  });
+
+  it('offers nothing when no words support a suggestion', () => {
+    expect(guessFor('qzvmpk73019', corpus, NOW)).toEqual([]);
+    expect(guessFor('the and и это para com', corpus, NOW)).toEqual([]);
+    expect(guessFor('', corpus, NOW)).toEqual([]);
   });
 
   it('forgets nothing but honours "not this" within the session', () => {
@@ -230,8 +237,8 @@ describe('Find', () => {
     expect(after.map((g) => g.material.id)).not.toContain(first[0].material.id);
   });
 
-  it('names which reading it is doing', () => {
-    expect(findSummary(12, false)).toBe('12 · in words');
-    expect(findSummary(12, true)).toBe('12 · by meaning');
+  it('counts literal matches without claiming semantic search', () => {
+    expect(findSummary(12)).toBe('12 · in words');
+    expect(findSummary(0)).toBe('0 · in words');
   });
 });

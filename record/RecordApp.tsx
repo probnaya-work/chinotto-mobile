@@ -503,7 +503,9 @@ export function RecordApp(props: RecordAppProps) {
         renderFindEmpty={() => (
           <View style={{ gap: 16, marginBottom: 22 }}>
             <Text style={type({ size: 16, width: 90, lineHeight: 1.4, color: ink.far })}>
-              nothing with those words. close in meaning, maybe:
+              {record.guesses.length
+                ? 'nothing with those words. shared words, maybe:'
+                : 'nothing with those words.'}
             </Text>
             {record.guesses.map((g) => (
               <View key={g.material.id} style={{ flexDirection: 'row', gap: 12 }}>
@@ -522,7 +524,7 @@ export function RecordApp(props: RecordAppProps) {
                   <Text
                     style={[type({ size: 12, width: 90, color: ink.meta }), { marginTop: 2 }]}
                   >
-                    {g.when}
+                    {g.when} · {g.overlap} shared {g.overlap === 1 ? 'word' : 'words'}
                   </Text>
                 </Pressable>
                 <Text
@@ -549,7 +551,6 @@ export function RecordApp(props: RecordAppProps) {
         anchored={Boolean(record.anchor)}
         onClearAnchor={record.clearAnchor}
         findSummary={record.findSummaryText}
-        onToggleMeaning={record.toggleMeaning}
         recording={props.voice.state}
         voice={capabilities.voice}
         onStartRecording={() => void startRecording()}

@@ -74,9 +74,8 @@ export type EdgeProps = {
   anchored: boolean;
   onClearAnchor: () => void;
 
-  /** Find: `12 · in words`, with the reading it is doing. */
+  /** Find: the count of literal matches actually shown in the record. */
   findSummary: string | null;
-  onToggleMeaning: () => void;
 
   recording: VoiceCaptureDisplayState | null;
   /**
@@ -309,23 +308,11 @@ export function Edge(props: EdgeProps) {
               />
 
               {props.findSummary ? (
-                // The reading is a verb, not a label — pressing it changes what Find does —
-                // so the whole summary is the target rather than two words of 12pt type.
-                <Pressable
-                  onPress={props.onToggleMeaning}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${props.findSummary} · change the reading`}
-                  hitSlop={{ top: 14, bottom: 14, left: 10, right: 10 }}
-                  style={{ paddingBottom: 22 }}
-                >
+                <View style={{ paddingBottom: 22 }}>
                   <Text style={type({ size: 12, width: 90, color: ink.meta })} numberOfLines={1}>
-                    {props.findSummary.split(' · ')[0]}
-                    {' · '}
-                    <Text style={{ color: agency.ink, fontFamily: face(90, { weight: agency.weight }) }}>
-                      {props.findSummary.split(' · ')[1]}
-                    </Text>
+                    {props.findSummary}
                   </Text>
-                </Pressable>
+                </View>
               ) : null}
 
               {showSend ? (

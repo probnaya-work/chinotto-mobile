@@ -83,7 +83,6 @@ export function useRecord(
   useEffect(() => {
     if (anchor) setInputFocused(false);
   }, [anchor]);
-  const [byMeaning, setByMeaning] = useState(false);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [focusId, setFocusId] = useState<string | null>(null);
@@ -557,9 +556,7 @@ export function useRecord(
 
     query,
     findCount,
-    findSummaryText: query ? findSummary(findCount, byMeaning) : null,
-    byMeaning,
-    toggleMeaning: () => setByMeaning((v) => !v),
+    findSummaryText: query ? findSummary(findCount) : null,
     guesses,
     rejectGuess: (m: Material) =>
       setRejectedGuesses((r) => ({ ...r, [m.id]: true })),

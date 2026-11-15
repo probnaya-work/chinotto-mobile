@@ -781,7 +781,7 @@ describe('the record surface', () => {
     h.db.close();
   });
 
-  it('turns the field into Find with a slash, and says which reading it is doing', async () => {
+  it('turns the field into Find and reports literal matches without a cosmetic mode switch', async () => {
     const h = harness();
     await migrate(h.db);
     await h.store.capture({ body: 'the shared folder has three versions' });
@@ -793,16 +793,12 @@ describe('the record surface', () => {
       fireEvent.changeText(field, '/folder');
     });
 
-    await waitFor(() => expect(screen.getByText('in words')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('1 · in words')).toBeTruthy());
     expect(screen.getByText('the shared folder has three versions')).toBeTruthy();
     expect(screen.queryByText('ferry back is 16:40')).toBeNull();
 
-    // The reading is a verb: pressing it changes what Find is doing, and it says so.
-    await act(async () => {
-      fireEvent.press(screen.getByLabelText(/change the reading/));
-      await Promise.resolve();
-    });
-    await waitFor(() => expect(screen.getByText('by meaning')).toBeTruthy());
+    expect(screen.queryByLabelText(/change the reading/)).toBeNull();
+    expect(screen.queryByText('by meaning')).toBeNull();
     h.db.close();
   });
 
@@ -819,14 +815,35 @@ describe('the record surface', () => {
 
     // "filing work" is not a substring of anything, so the words find nothing.
     await waitFor(() =>
-      expect(screen.getByText('nothing with those words. close in meaning, maybe:')).toBeTruthy()
+      expect(screen.getByText('nothing with those words. shared words, maybe:')).toBeTruthy()
     );
     expect(screen.getByText('not this')).toBeTruthy();
+    expect(screen.getByText(/2 shared words/)).toBeTruthy();
 
     await act(async () => {
       fireEvent.press(screen.getByText('not this'));
     });
     await waitFor(() => expect(screen.queryByText('not this')).toBeNull());
+    expect(screen.getByText('nothing with those words.')).toBeTruthy();
+    h.db.close();
+  });
+
+  it('leaves an unrelated search empty instead of presenting arbitrary private material', async () => {
+    const h = harness();
+    await migrate(h.db);
+    await h.store.capture({ body: 'a long unrelated thought kept in the record' });
+    await mount(h);
+
+    await act(async () => {
+      fireEvent.changeText(screen.getByLabelText('capture'), '/qzvmpk73019');
+    });
+
+    await waitFor(() => expect(screen.getByText('nothing with those words.')).toBeTruthy());
+    expect(screen.queryByText('a long unrelated thought kept in the record')).toBeNull();
+    expect(screen.queryByText('not this')).toBeNull();
+    expect((await h.store.loadRecord()).map((m) => m.body)).toEqual([
+      'a long unrelated thought kept in the record',
+    ]);
     h.db.close();
   });
 
