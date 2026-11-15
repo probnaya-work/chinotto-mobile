@@ -71,6 +71,21 @@ describe('refreshWidgetThoughtsFromLocalDb', () => {
     expect((JSON.parse(raw) as { syncOn: boolean }).syncOn).toBe(false);
   });
 
+  it('supplies older rows for large when they fit, with a bounded preview cache', async () => {
+    setPlatformOS('ios');
+    const candidates = Array.from({ length: 14 }, (_, i) => ({
+      id: `e${i}`, text: `thought ${i}`, createdAt: new Date(Date.UTC(2026, 0, i + 1)).toISOString(),
+    }));
+    (getRecentEntries as jest.Mock).mockResolvedValueOnce(candidates);
+
+    await refreshWidgetThoughtsFromLocalDb(false);
+
+    const { thoughts } = JSON.parse(setRecentThoughts.mock.calls[0][0]);
+    expect(getRecentEntries).toHaveBeenCalledWith(12);
+    expect(thoughts.map(({ id }: { id: string }) => id))
+      .toEqual(candidates.slice(2).reverse().map(({ id }) => id));
+  });
+
   it('provides the two newest readable previews, including long normalized text', async () => {
     setPlatformOS('ios');
     (getRecentEntries as jest.Mock).mockResolvedValueOnce([

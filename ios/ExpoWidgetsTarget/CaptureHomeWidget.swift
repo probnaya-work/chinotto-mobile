@@ -185,7 +185,7 @@ private struct CaptureHomeWidgetView: View {
     VStack(alignment: .leading, spacing: 0) {
       ChinottoLogoMark(size: smallLogoSize, scheme: scheme)
 
-      VStack(alignment: .leading, spacing: 5) {
+      VStack(alignment: .leading, spacing: 3) {
         Text(lastThoughtLine)
           .font(.system(size: 9, weight: .medium))
           .tracking(0.7)
@@ -196,13 +196,13 @@ private struct CaptureHomeWidgetView: View {
           .font(.system(size: widgetThoughtTextSize))
           .tracking(-0.12)
           .foregroundStyle(WidgetInk.ink(scheme))
-          .lineLimit(3)
+          .lineLimit(4)
           .truncationMode(.tail)
           .multilineTextAlignment(.leading)
       }
-      .padding(.top, 9)
+      .padding(.top, 5)
 
-      Spacer(minLength: 0)
+      Spacer(minLength: 4)
 
       HStack(alignment: .center, spacing: 10) {
         Text("capture")
@@ -237,19 +237,19 @@ private struct CaptureHomeWidgetView: View {
         CaptureRing(size: mediumCaptureRingSize, dot: mediumCaptureRingDot, scheme: scheme)
       }
       .frame(maxWidth: .infinity, alignment: .leading)
-      .padding(.bottom, 11)
+      .padding(.bottom, 7)
 
-      Rectangle()
-        .fill(WidgetInk.rule(scheme))
-        .frame(height: 1)
+      thoughtDivider
 
       if let newest = thoughts.first {
-        mediumThoughtRow(newest)
         if thoughts.count > 1 {
-          Rectangle()
-            .fill(WidgetInk.rule(scheme))
-            .frame(height: 1)
-          mediumThoughtRow(thoughts[1])
+          ViewThatFits(in: .vertical) {
+            mediumThoughtRows(newest, thoughts[1], lineLimit: 3)
+              .fixedSize(horizontal: false, vertical: true)
+            mediumThoughtRows(newest, thoughts[1], lineLimit: 2)
+          }
+        } else {
+          mediumThoughtRow(newest, lineLimit: 4)
         }
       } else {
         Text("nothing here yet")
@@ -261,7 +261,19 @@ private struct CaptureHomeWidgetView: View {
     }
   }
 
-  private func mediumThoughtRow(_ thought: WidgetThought) -> some View {
+  private var thoughtDivider: some View {
+    Rectangle().fill(WidgetInk.rule(scheme)).frame(height: 1)
+  }
+
+  private func mediumThoughtRows(_ first: WidgetThought, _ second: WidgetThought, lineLimit: Int) -> some View {
+    VStack(alignment: .leading, spacing: 0) {
+      mediumThoughtRow(first, lineLimit: lineLimit)
+      thoughtDivider
+      mediumThoughtRow(second, lineLimit: lineLimit)
+    }
+  }
+
+  private func mediumThoughtRow(_ thought: WidgetThought, lineLimit: Int) -> some View {
     Link(destination: URL(string: "chinotto://thought/\(thought.id)")!) {
       HStack(alignment: .firstTextBaseline, spacing: 10) {
         if let time = thought.clockTime {
@@ -276,13 +288,13 @@ private struct CaptureHomeWidgetView: View {
         Text(thought.text)
           .font(.system(size: widgetThoughtTextSize))
           .foregroundStyle(WidgetInk.meta(scheme))
-          .lineLimit(2)
+          .lineLimit(lineLimit)
           .truncationMode(.tail)
           .multilineTextAlignment(.leading)
           .frame(maxWidth: .infinity, alignment: .leading)
       }
-      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-      .padding(.top, 8)
+      .padding(.vertical, 4)
+      .frame(maxWidth: .infinity, minHeight: 36, alignment: .leading)
       .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
@@ -317,7 +329,7 @@ private struct CaptureHomeWidgetView: View {
   // Nothing here invents a treatment the design does not state.
 
   private var largeLayout: some View {
-    VStack(alignment: .leading, spacing: 16) {
+    VStack(alignment: .leading, spacing: 12) {
       HStack(alignment: .top, spacing: 12) {
         ChinottoLogoMark(size: largeLogoSize, scheme: scheme)
         CaptureHeading(secondary: "it lands, and stays", scheme: scheme)
@@ -332,14 +344,31 @@ private struct CaptureHomeWidgetView: View {
           .foregroundStyle(WidgetInk.faint(scheme))
           .lineLimit(1)
       } else {
-        VStack(alignment: .leading, spacing: 12) {
-          ForEach(thoughts.prefix(5)) { thought in
-            thoughtLine(thought, lineLimit: 2)
-          }
+        ViewThatFits(in: .vertical) {
+          fittingLargeRows(12)
+          fittingLargeRows(11)
+          fittingLargeRows(10)
+          fittingLargeRows(9)
+          fittingLargeRows(8)
+          fittingLargeRows(7)
+          fittingLargeRows(6)
+          fittingLargeRows(5)
+          largeThoughtRows(limit: 5, lineLimit: 2)
         }
       }
+    }
+  }
 
-      Spacer(minLength: 0)
+  private func fittingLargeRows(_ limit: Int) -> some View {
+    // Measure full rows so the widget drops an older thought instead of clipping it.
+    largeThoughtRows(limit: limit, lineLimit: 3).fixedSize(horizontal: false, vertical: true)
+  }
+
+  private func largeThoughtRows(limit: Int, lineLimit: Int) -> some View {
+    VStack(alignment: .leading, spacing: 10) {
+      ForEach(thoughts.prefix(limit)) { thought in
+        thoughtLine(thought, lineLimit: lineLimit)
+      }
     }
   }
 
