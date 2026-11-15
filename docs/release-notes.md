@@ -1,4 +1,4 @@
-# iOS 2.2.0 (build 44) — Waiting for Review
+# iOS 2.2.0 (build 45) — Waiting for Review
 
 Submitted on 15 November 2026 with manual release. Remaining device acceptance is tracked in `product-improvements.md`.
 
@@ -9,6 +9,7 @@ Submitted on 15 November 2026 with manual release. Remaining device acceptance i
 - Find remembered words from a visible entrance at capture. Search handles Cyrillic and accented words more accurately.
 - Revisit older moments when recent writing gives them a reason to return, starting in the first week.
 - Improve compatibility with the iOS scene lifecycle.
+- Home Screen widgets fit more of your recent thoughts while keeping the original layout.
 
 # iOS 2.1.0 (build 43) — previous App Store release
 

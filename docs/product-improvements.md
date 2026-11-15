@@ -454,6 +454,20 @@ Verification:
   Existing App Store Connect binaries contain the pre-fix code and must be replaced before
   any future resubmission. The earlier untested release gates remain open.
 
+### Replacement iPhone App Store build — 15 November 2026
+
+The owner authorized TestFlight delivery and App Review. iPhone 2.2.0 (build 45)
+was signed by EAS from commit `5d7fa4d`; the IPA signature and build numbers of the
+app and its two extensions were verified, and Apple validated the archive.
+TypeScript and 846 Jest tests passed, with one existing skip. The installed widgets
+were checked in Simulator with the original mark, capture ring and text sizes: large
+fits more complete rows when there is room, with seven visible in the test fixture.
+
+Build `7e995f25-59e0-46d9-a4c8-7753d9503b1d` is available to the internal Team (Expo)
+group in TestFlight. App Store Connect confirms it replaced build 44 on 2.2.0 and is
+**Waiting for Review**. The promotional text matches 2.0.2, the screenshots were
+retained, and release remains manual.
+
 ## Later candidates
 
 Recover an unfinished capture locally after process death or force-quit. Device testing exposed
