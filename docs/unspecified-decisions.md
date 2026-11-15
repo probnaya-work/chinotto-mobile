@@ -380,3 +380,17 @@ Mobile Find remains literal search. Its supplementary suggestions require shared
 evidence and are named as such. The prototype's unrelated fallback and cosmetic meaning
 toggle are removed; no candidate is a valid result. These are implementation choices under
 the approved search-quality phase, not a claim of multilingual semantic search.
+
+
+### Record continuity — phase 2
+
+Under the approved second phase, authored history and continuation edges travel in an additive
+`record` field beside the existing text contract. Content-addressed immutable wordings preserve
+causal ancestry and concurrent alternatives without trusting device clocks. A durable generation
+protects an edit made during upload. Existing account IDs, entitlement and revocation checks stay
+in place. Old-client edits with unknown history remain independent wordings; no revision is invented.
+
+Audio and derived/personal state are not included. Oversized metadata stays pending locally rather
+than losing history. Live updates use `updatedAt` so edits to old moments remain visible. Multiple
+children of one parent belong to the same Line. The wire format, bounds, compatibility and required
+cloud release checks are recorded in [Record continuity sync](record-sync.md).

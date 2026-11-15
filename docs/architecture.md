@@ -16,7 +16,7 @@ The current Record stores **fragments** with immutable capture time, correction 
 
 SQLite on your device is the source of truth for capture and search. Entry text is not sent to analytics.
 
-**Optional sync on iOS:** when Firebase is configured and you sign in with Apple, text can sync with Chinotto desktop. Original audio and correction history remain local. Android has no sync setup.
+**Optional sync on iOS:** when Firebase is configured and you sign in with Apple, text can sync with Chinotto desktop. Current clients also sync correction history and continuation links through additive [Record metadata](record-sync.md). Original audio remains local. Android has no sync setup.
 
 ## Project layout
 
@@ -31,7 +31,7 @@ Maintainer-only specs and release checklists stay local (not in the public tree)
 
 ## Capture and sync
 
-The UI saves fragments locally first. The bridge mirrors text into legacy entries for optional sync. Sync runs in the background and never blocks typing.
+The UI saves fragments locally first. The bridge mirrors text into legacy entries for optional sync. The durable metadata channel carries authored history and links beside that legacy text. Sync runs in the background and never blocks typing.
 
 ## Updates
 
