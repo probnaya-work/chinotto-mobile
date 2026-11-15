@@ -22,9 +22,9 @@ import { suggestContinuation, type ContinuationOffer } from './model/continuatio
 import { findSummary, readField, guessFor, type Guess } from './model/find';
 import { lineOf } from './model/lines';
 import { firstLine, type Material } from './model/material';
-import { returnFor, type RecordReturn } from './model/returns';
+import { returnFor, resumeReturn, RETURN_COOLDOWN_MS, SAME_FRAGMENT_COOLDOWN_MS, type RecordReturn } from './model/returns';
 import { traces, type Trace } from './model/traces';
-import { monthLabel, MS_DAY } from './model/time';
+import { monthLabel } from './model/time';
 import { flattenRecord, type Row } from './ui/rows';
 import { motion } from './ui/tokens';
 import { thoughtLanded } from './feedback';
@@ -32,8 +32,6 @@ import { NO_PLAYBACK, type AudioPlaybackPort } from './playback';
 import type { RecordBridge } from './bridge';
 import { HoldLimitReached, MAX_HELD, type RecordStore } from './store';
 
-/** Do not press the same thing again within this. */
-const RETURN_COOLDOWN_MS = 7 * MS_DAY;
 /** How long after launch the Return is allowed to arrive. Capture comes first. */
 const RETURN_DELAY_MS = 1600;
 
@@ -197,39 +195,50 @@ export function useRecord(
 
   /* ------------------------------------------------------------------ the Return */
 
+  const fieldBusy = input.length > 0;
+
   useEffect(() => {
     if (!ready) return;
+    if (ret) {
+      const stillValid = !heldIds.has(ret.material.id) && resumeReturn({
+        id: retRowId!, fragmentId: ret.material.id, reason: ret.reason, evidence: ret.evidence,
+      }, material, nowFn());
+      if (!stillValid) {
+        if (retRowId !== null) void store.closeReturn(retRowId, 'expired');
+        setRet(null); setRetRowId(null); setRetLeaving(false);
+      } else if (ret.material !== stillValid.material || ret.because !== stillValid.because) {
+        setRet(stillValid);
+      }
+      return;
+    }
+    if (fieldBusy || anchor || focusId || yearsOpen) return;
     let alive = true;
-    const timer = setTimeout(async () => {
-      const recent = await store.recentlyReturned(RETURN_COOLDOWN_MS);
-      if (!alive) return;
-      const candidate = returnFor({
-        material,
-        now: nowFn(),
-        recentlyReturned: recent,
-        held: Object.fromEntries([...heldIds].map((id) => [id, true])),
-      });
-      if (!candidate || !alive) return;
-      // A Return is written down with its evidence the moment it is shown, so what came
-      // back and why is recoverable afterwards — including by the person, in focus.
-      const id = await store.recordReturn(candidate.material.id, candidate.reason, {
-        kind: candidate.evidence.kind,
-        detail: candidate.evidence.detail,
-        occurredAt: candidate.evidence.occurredAt,
-        relatedId: candidate.evidence.relatedId,
-      });
-      if (!alive) return;
-      setRet(candidate);
-      setRetRowId(id);
+    const timer = setTimeout(() => {
+      void (async () => {
+        const status = await store.returnStatus();
+        if (!alive) return;
+        if (status.open) {
+          const resumed = !heldIds.has(status.open.fragmentId)
+            ? resumeReturn(status.open, material, nowFn()) : null;
+          if (resumed) { setRet(resumed); setRetRowId(status.open.id); }
+          else await store.closeReturn(status.open.id, 'expired');
+          return;
+        }
+        if (status.lastAt !== null && nowFn() - status.lastAt < RETURN_COOLDOWN_MS) return;
+        const recent = await store.recentlyReturned(SAME_FRAGMENT_COOLDOWN_MS);
+        if (!alive) return;
+        const candidate = returnFor({
+          material, now: nowFn(), recentlyReturned: recent,
+          held: Object.fromEntries([...heldIds].map((id) => [id, true])),
+        });
+        if (!candidate || !alive) return;
+        const id = await store.recordReturn(candidate.material.id, candidate.reason, candidate.evidence);
+        if (!alive || id === 0) return;
+        setRet(candidate); setRetRowId(id);
+      })().catch(() => { /* Capture remains available; the next material change retries. */ });
     }, RETURN_DELAY_MS);
-    return () => {
-      alive = false;
-      clearTimeout(timer);
-    };
-    // Deliberately runs once the record is first loaded, not on every change: a Return that
-    // re-evaluated as you typed would flicker in and out while you were working.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready]);
+    return () => { alive = false; clearTimeout(timer); };
+  }, [ready, material, heldIds, ret, retRowId, store, nowFn, fieldBusy, anchor, focusId, yearsOpen]);
 
   const closeReturn = useCallback(
     (outcome: 'opened' | 'continued' | 'let_go') => {
@@ -488,7 +497,7 @@ export function useRecord(
     () =>
       flattenRecord({
         bands,
-        showReturn: Boolean(ret) && !anchor && !query,
+        showReturn: Boolean(ret) && !anchor && !fieldBusy,
         held: anchor || query ? [] : held,
         isEmptyRecord: ready && live.length === 0 && !query,
         findFoundNothing: Boolean(query) && findCount === 0,
@@ -497,7 +506,7 @@ export function useRecord(
         anchor,
         now,
       }),
-    [bands, ret, anchor, query, held, ready, live.length, findCount, oldest, now]
+    [bands, ret, anchor, query, fieldBusy, held, ready, live.length, findCount, oldest, now]
   );
 
   const highlight = useMemo(() => {

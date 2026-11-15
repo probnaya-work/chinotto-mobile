@@ -16,6 +16,7 @@
  * a real SQLite engine with a deterministic world, rather than against a fake database.
  */
 
+import { RETURN_COOLDOWN_MS, type SavedReturn } from './model/returns';
 import { rebuildLineIndex } from './lineIndex';
 import { NOT_BLANK } from './migrate';
 import { domainOf, soleUrlIn, urlKey } from './urlKey';
@@ -511,8 +512,13 @@ export function createRecordStore(db: RecordDb, options: StoreOptions = {}) {
     reason: string,
     evidence: { kind: string; detail: string; occurredAt: number; relatedId: string }
   ): Promise<number> {
+    if (!['repeated_language', 'same_source', 'line_continued'].includes(reason)) {
+      throw new Error('unsupported Return reason');
+    }
     let returnId = 0;
     await db.withTransactionAsync(async () => {
+      const status = await returnStatus();
+      if (status.open || (status.lastAt !== null && now() - status.lastAt < RETURN_COOLDOWN_MS)) return;
       const res = await db.runAsync(
         'INSERT INTO returns (fragment_id, surfaced_at, reason) VALUES (?, ?, ?)',
         fragmentId,
@@ -545,6 +551,23 @@ export function createRecordStore(db: RecordDb, options: StoreOptions = {}) {
       iso(now()),
       returnId
     );
+  }
+
+  async function returnStatus(): Promise<{ open: SavedReturn | null; lastAt: number | null }> {
+    const last = await db.getFirstAsync<{ at: string | null }>('SELECT MAX(surfaced_at) AS at FROM returns');
+    const row = await db.getFirstAsync<{
+      id: number; fragment_id: string; reason: string; kind: 'shared_phrase' | 'url' | 'continuation';
+      detail: string; occurred_at: string; related_id: string;
+    }>(`SELECT r.id, r.fragment_id, r.reason, e.kind, e.detail, e.occurred_at, e.related_id
+          FROM returns r JOIN return_evidence e ON e.return_id = r.id
+          WHERE r.outcome IS NULL ORDER BY r.surfaced_at DESC LIMIT 1`);
+    return {
+      lastAt: last?.at ? Date.parse(last.at) : null,
+      open: row ? {
+        id: row.id, fragmentId: row.fragment_id, reason: row.reason,
+        evidence: { kind: row.kind, detail: row.detail, occurredAt: Date.parse(row.occurred_at), relatedId: row.related_id },
+      } : null,
+    };
   }
 
   /** Ids surfaced within the window, so the same thing is not pressed twice. */
@@ -695,6 +718,7 @@ export function createRecordStore(db: RecordDb, options: StoreOptions = {}) {
     recordReturn: serializeRecordWrite(recordReturn),
     closeReturn: serializeRecordWrite(closeReturn),
     recentlyReturned,
+    returnStatus,
     setTranscript: serializeRecordWrite(setTranscript),
     markAudioMissing: serializeRecordWrite(markAudioMissing),
     markAudioIncomplete: serializeRecordWrite(markAudioIncomplete),

@@ -1044,3 +1044,50 @@ describe('visible Find', () => {
     view.unmount(); h.db.close();
   });
 });
+
+describe('first-week Returns on the real Record', () => {
+  beforeEach(() => { jest.useFakeTimers(); jest.setSystemTime(T0); });
+  afterEach(() => jest.useRealTimers());
+  it('arrives after a relevant capture, survives remount and remembers let go', async () => {
+    const h = harness(); await migrate(h.db);
+    await h.store.capture({ id: 'old', body: 'a quiet place for thinking', at: T0 - 7 * 864e5 });
+    let view = await mount(h);
+    await act(async () => { await jest.advanceTimersByTimeAsync(1700); });
+    expect(screen.queryByText(/^back from/)).toBeNull();
+    await act(async () => {
+      fireEvent.changeText(screen.getByLabelText('capture'), 'a quiet place for thinking again');
+      fireEvent(screen.getByLabelText('capture'), 'submitEditing');
+    });
+    await act(async () => { await jest.advanceTimersByTimeAsync(1700); });
+    expect(screen.getByText(/^back from/)).toBeTruthy();
+    const id = (await h.store.returnStatus()).open!.id;
+    view.unmount(); view = await mount(h);
+    await act(async () => { await jest.advanceTimersByTimeAsync(1700); });
+    expect(screen.getByText(/^back from/)).toBeTruthy();
+    expect((await h.store.returnStatus()).open!.id).toBe(id);
+    await act(async () => { fireEvent.press(screen.getByLabelText('let go')); await jest.advanceTimersByTimeAsync(500); });
+    expect((await h.store.returnStatus()).open).toBeNull();
+    view.unmount(); view = await mount(h);
+    await act(async () => { await jest.advanceTimersByTimeAsync(1700); });
+    expect(screen.queryByText(/^back from/)).toBeNull();
+    expect(await h.store.getFragment('old')).not.toBeNull();
+    view.unmount(); h.db.close();
+  });
+  it('does not spend a Return while somebody is searching or drafting', async () => {
+    const h = harness(); await migrate(h.db);
+    await h.store.capture({ id: 'old', body: 'a quiet place for thinking', at: T0 - 7 * 864e5 });
+    await h.store.capture({ id: 'new', body: 'a quiet place for thinking again' });
+    const view = await mount(h);
+    await act(async () => { fireEvent.press(screen.getByLabelText('Find in the Record')); });
+    await act(async () => { await jest.advanceTimersByTimeAsync(1700); });
+    expect((await h.store.returnStatus()).open).toBeNull();
+    await act(async () => { fireEvent.press(screen.getByLabelText('back to capture')); fireEvent.changeText(screen.getByLabelText('capture'), 'a draft'); });
+    await act(async () => { await jest.advanceTimersByTimeAsync(1700); });
+    expect((await h.store.returnStatus()).open).toBeNull();
+    await act(async () => { fireEvent.changeText(screen.getByLabelText('capture'), ''); });
+    await act(async () => { await jest.advanceTimersByTimeAsync(1700); });
+    expect((await h.store.returnStatus()).open).not.toBeNull();
+    view.unmount(); h.db.close();
+  });
+
+});
