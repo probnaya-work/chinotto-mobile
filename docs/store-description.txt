@@ -1,5 +1,7 @@
-Release candidate — iPhone 2.2.0 (44), 15 November 2026. Not submitted to App Store Connect.
+Release candidate — iPhone 2.2.0 (44), 15 November 2026. Draft metadata saved in App Store Connect; no build upload or App Review submission.
 Publish with the matching app release after device acceptance; plans and prices come from the app.
+
+App Store subtitle: A private record of thoughts
 
 Chinotto — iPhone description
 
@@ -14,3 +16,5 @@ Choose the familiar dark appearance or a warm light field with graphite text. Te
 Capture, reading, Find and local audio playback need no subscription. Optional sync between iPhone and Mac uses Sign in with Apple. Sync is free on Mac; iPhone sync uses Chinotto Pro. Words, dates, Lines and wording history travel through the cloud. Original recordings stay on the device that captured them. Available iPhone plans and prices are shown before purchase.
 
 Export a portable archive with history and original audio, and restore a Chinotto archive without duplicating moments already in your Record.
+
+Terms of Use: https://www.apple.com/legal/internet-services/itunes/dev/stdeula/
