@@ -276,50 +276,53 @@ export function Focus(props: FocusProps) {
             </Pressable>
           </View>
         ) : (
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <Pressable
-              onPress={props.onStartContinue}
-              accessibilityRole="button"
-              style={{
-                flex: 1,
-                height: 56,
-                backgroundColor: agency.ink,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Text
+          <View style={{ gap: 8 }}>
+            <Text style={type({ size: 12, width: 90, color: ink.meta })}>continue · a new moment, dated now</Text>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <Pressable
+                onPress={props.onStartContinue}
+                accessibilityRole="button"
                 style={{
-                  fontFamily: face(92, { weight: agency.weight }),
-                  fontSize: 17,
-                  color: agency.ground,
+                  flex: 1,
+                  height: 56,
+                  backgroundColor: agency.ink,
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
-                continue
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => props.onHold(props.focus)}
-              accessibilityRole="button"
-              style={{
-                height: 56,
-                paddingHorizontal: 22,
-                borderWidth: 1,
-                borderColor: ink.faint,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Text
+                <Text
+                  style={{
+                    fontFamily: face(92, { weight: agency.weight }),
+                    fontSize: 17,
+                    color: agency.ground,
+                  }}
+                >
+                  continue
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => props.onHold(props.focus)}
+                accessibilityRole="button"
                 style={{
-                  fontFamily: face(92, { weight: agency.weight }),
-                  fontSize: 16,
-                  color: agency.ink,
+                  height: 56,
+                  paddingHorizontal: 22,
+                  borderWidth: 1,
+                  borderColor: ink.faint,
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
-                {props.heldIds.has(props.focus.id) ? 'release' : 'hold'}
-              </Text>
-            </Pressable>
+                <Text
+                  style={{
+                    fontFamily: face(92, { weight: agency.weight }),
+                    fontSize: 16,
+                    color: agency.ink,
+                  }}
+                >
+                  {props.heldIds.has(props.focus.id) ? 'release' : 'hold'}
+                </Text>
+              </Pressable>
+            </View>
           </View>
         )}
       </Animated.View>
