@@ -401,9 +401,9 @@ export function ChinottoApp({ services }: { services: Services }) {
     let stop: (() => void) | undefined;
     const notifier = createDebouncedRemoteIngestNotifier(() => {
       void (async () => {
-        const { created, conflicts } = await bridge.projectCatchUp();
-        // Only disturb the surface when something actually arrived.
-        if (created > 0 || conflicts > 0) setChangedAt((n) => n + 1);
+        await bridge.projectCatchUp();
+        // The notifier also includes metadata changes already applied to the Record.
+        setChangedAt((n) => n + 1);
       })();
     });
 
@@ -786,6 +786,7 @@ export function ChinottoApp({ services }: { services: Services }) {
           errorMessage={
             account.error ??
             sync.deviceError ??
+            sync.pendingError ??
             (account.plansUnavailable ? 'plans could not be read right now' : null)
           }
           onContinueWithApple={() => void account.continueWithApple()}

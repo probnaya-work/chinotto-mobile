@@ -430,7 +430,18 @@ export default function RecordRoot() {
         online: () => null,
         pendingCount: async () => {
           const row = await asRecordDb.getFirstAsync<{ n: number }>(
-            "SELECT COUNT(*) AS n FROM sync_queue WHERE status = 'pending'"
+            `SELECT COUNT(*) AS n FROM (
+              SELECT json_extract(payload, '$.id') AS id FROM sync_queue WHERE status = 'pending'
+              UNION SELECT s.fragment_id FROM record_sync_state s
+                JOIN fragments f ON f.id = s.fragment_id WHERE s.dirty = 1 AND f.removed_at IS NULL AND TRIM(f.body) <> ''
+            )`
+          );
+          return row?.n ?? 0;
+        },
+        failedCount: async () => {
+          const row = await asRecordDb.getFirstAsync<{ n: number }>(
+            `SELECT COUNT(*) AS n FROM record_sync_state s JOIN fragments f ON f.id = s.fragment_id
+              WHERE s.dirty = 1 AND s.error IS NOT NULL AND f.removed_at IS NULL`
           );
           return row?.n ?? 0;
         },

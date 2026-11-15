@@ -161,6 +161,8 @@ export async function applyRemoteTombstoneDeletes(entryIds: string[]): Promise<n
 }
 
 export type FirestoreIngestEntryRow = Pick<Entry, 'id' | 'text' | 'createdAt'> & {
+  /** Additive Record metadata; applied by the sync layer after legacy text ingest. */
+  record?: unknown;
   /** Undefined = omit theme apply; null = clear when local unlocked. */
   theme?: EntryTheme | null;
 };
