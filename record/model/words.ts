@@ -1,9 +1,9 @@
 /**
  * The word matching every evidence-backed thing in the Record rests on.
  *
- * A faithful port of the `---- words ----` section of the prototype's `chinotto-data.js`,
- * which desktop and mobile share. Traces, Returns and the continuation offer all quote real
- * words back to a person, so this is where "the same words" is defined — and it has to mean
+ * Based on the prototype's word model, with Unicode words preserved. Traces, Returns and
+ * the continuation offer quote real words back to a person, so this is where "the same
+ * words" is defined — and it has to mean
  * the same thing on both devices, or the two would disagree about why something came back.
  *
  * Nothing here is clever. It is a stemmer, a stop list and a longest-shared-run search, and
@@ -17,12 +17,23 @@ const STOP = new Set(
   )
 );
 
+// Common function words must not become evidence merely because Unicode now preserves them.
+for (const word of (
+  'и или но в на за от до по из к с у не нет да я мы ты вы он она они это ' +
+  'как что где когда уже ещё был была было были есть для при без его её их ' +
+  'o os as e ou mas de do da dos das em no na nos nas ao aos para por com ' +
+  'que como quando onde se não sim eu tu ele ela nós vocês eles elas um uma ' +
+  'uns umas é são foi ser estar mais muito minha meu sua seu'
+).split(' ')) STOP.add(word);
+
 /**
  * Crude, order-dependent suffix stripping. Ported exactly, including the length guards: the
  * guards are what stop it turning short words into single letters that then match everything.
  */
 export function stem(word: string): string {
   let s = word.replace(/’/g, "'").replace(/'s$/, '');
+  // The inherited suffix rules are English. Applying them to other scripts corrupts words.
+  if (!/^[a-z']+$/.test(s)) return s;
   if (s.length > 5) s = s.replace(/ing$/, '');
   s = s.replace(/(edly|ed|es|ly)$/, '');
   if (s.length > 3) s = s.replace(/s$/, '');
@@ -38,8 +49,9 @@ export type Token = { w: string; s: string };
  */
 export const tokens = (text: string | null | undefined): Token[] =>
   (String(text ?? '')
+    .normalize('NFC')
     .toLowerCase()
-    .match(/[a-z0-9’']+/g) ?? [])
+    .match(/[\p{L}\p{N}][\p{L}\p{M}\p{N}’']*/gu) ?? [])
     .slice(0, 160)
     .map((w) => ({ w, s: stem(w) }));
 
@@ -126,8 +138,8 @@ export function parts(text: string | null | undefined, phrases?: (string | null)
   if (!ps.length) return [{ t: source, m: false, n: true }];
 
   const re = new RegExp(
-    ps.map((p) => p.trim().split(/\s+/).map(esc).join('[\\s\\W]+')).join('|'),
-    'gi'
+    ps.map((p) => p.trim().split(/\s+/).map(esc).join('[\\s\\p{P}\\p{S}]+')).join('|'),
+    'giu'
   );
 
   const out: TextPart[] = [];
@@ -156,8 +168,8 @@ export function snippet(text: string, phrase: string): string {
       .trim()
       .split(/\s+/)
       .map(esc)
-      .join('[\\s\\W]+'),
-    'i'
+      .join('[\\s\\p{P}\\p{S}]+'),
+    'iu'
   );
   const m = text.match(re);
   if (!m || m.index === undefined) return text.slice(0, 90);
