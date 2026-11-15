@@ -1,0 +1,16 @@
+Release draft — phase 6, 15 November 2026. Not submitted to App Store Connect.
+Publish with the matching app release after device acceptance; plans and prices come from the app.
+
+Chinotto — iPhone description
+
+A private record of thoughts, encounters, and what continues between them.
+
+Capture a thought as it arrives. Type, speak, use the home-screen widget, or share a page or selection from another app. No folders, tags or account to set up before writing.
+
+Every moment keeps its date. Continue adds a new moment dated now. Correct changes the wording while keeping the original date and earlier words. Find the words you remember, follow a Line, or pick up an older thought when recent writing brings it back.
+
+Choose the familiar dark appearance or a warm light field with graphite text. Text follows the iPhone's text size. Optional Face ID or device-code protection keeps reading behind system authentication while leaving blank capture available.
+
+Capture, reading, Find and local audio playback need no subscription. Optional sync between iPhone and Mac uses Sign in with Apple. Sync is free on Mac; iPhone sync uses Chinotto Pro. Words, dates, Lines and wording history travel through the cloud. Original recordings stay on the device that captured them. Available iPhone plans and prices are shown before purchase.
+
+Export a portable archive with history and original audio, and restore a Chinotto archive without duplicating moments already in your Record.
