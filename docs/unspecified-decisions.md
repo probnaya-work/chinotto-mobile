@@ -461,3 +461,17 @@ and wrap. macOS relaxes old-text compression at 130–140%. Nothing caps system 
 Native theme changes are serialized; only the main Mac window owns app-wide appearance, so
 transparent capture does not acquire an opaque host. These are local changes pending real
 phone daylight/large-text and signed Mac main-window/capture acceptance.
+
+
+### iOS scene lifecycle — physical-device check, 15 November 2026
+
+A signed Release built with SDK 27 stopped in UIKit's
+`UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption` on the attached iPhone,
+before JavaScript or database migration. Adopt one programmatic UIWindowScene, without
+adding navigation or multiple Records. Keep the scene manifest aligned in app.json and the
+committed Info.plist. Scene callbacks forward to the existing Expo app delegate so Record
+privacy and subscriber lifecycles keep their existing paths. Cold links become React Native
+launch options; warm URL/universal links use the existing linking handlers.
+
+This follows [Apple's scene migration guidance](https://developer.apple.com/documentation/technotes/tn3187-migrating-to-the-uikit-scene-based-life-cycle).
+It changes native launch compatibility, not product scope or the release version.

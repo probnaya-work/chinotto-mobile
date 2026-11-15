@@ -26,6 +26,17 @@
         ]
       },
       "infoPlist": {
+        "UIApplicationSceneManifest": {
+          "UIApplicationSupportsMultipleScenes": false,
+          "UISceneConfigurations": {
+            "UIWindowSceneSessionRoleApplication": [
+              {
+                "UISceneConfigurationName": "Chinotto Record",
+                "UISceneDelegateClassName": "$(PRODUCT_MODULE_NAME).ChinottoSceneDelegate"
+              }
+            ]
+          }
+        },
         "UIDeviceFamily": [1],
         "ITSAppUsesNonExemptEncryption": false,
         "NSMicrophoneUsageDescription": "Chinotto uses the microphone so you can tap the circle and speak instead of typing. The recording itself is kept on this iPhone as part of your record, so you can hear a moment back later — not only read what was heard.",

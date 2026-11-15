@@ -195,6 +195,29 @@ Replace light-theme screenshots and iPhone Settings shots that need to show the 
 large-text shots deliberately show a different reading density. This is local implementation,
 not a release, store submission or website deployment.
 
+### Physical iPhone check — 15 November 2026
+
+Installed a locally signed Release on the attached iPhone 15 (iOS 27.0.1), with embedded
+JavaScript and no Metro dependency. The first launch exposed UIKit's SDK 27 assertion for an
+app without scene adoption. A single-window scene delegate now creates the Record window,
+forwards lifecycle events to Expo/privacy handling, and preserves cold/warm linking paths.
+The corrected Release launches into the existing Record. No version/build bump or store
+submission was made.
+
+Before installation, the app container and app group were backed up in the owner's private
+Application Support directory. On-device schema migration 7 → 9 completed: SQLite quick_check
+passed, there were no foreign-key violations, and every original column of all 197 legacy
+entries and 198 fragments matched the pre-install backup exactly.
+
+The owner switched to light in Settings while QuickTime displayed the actual phone. Warm
+surfaces, graphite labels, separators, selected appearance and the dark status-bar content
+render correctly at the current text size. A Settings screenshot is saved in the sibling
+`product-phase6-artifacts/iphone-light-settings.png`; private Record contents are not included
+in the shared artifact. Keyboard, enlarged-text/daylight and authentication acceptance remain
+pending. Regression verification: 127 Jest suites, 841 passed / one existing skipped;
+TypeScript and signed Release device build passed. Scene configuration is checked for drift
+between committed native and Expo configuration.
+
 ## Later candidates
 
 Manual joining of existing moments, recent-line re-entry, Shortcuts/Action Button capture and local OCR stay candidates after these phases. They are not prerequisites for the current improvement cycle.
