@@ -8,7 +8,8 @@
  */
 
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { Appearance, StatusBar, StyleSheet } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import { openTestDb } from '../__testsupport__/nodeSqliteDb';
@@ -17,6 +18,7 @@ import { createBridge } from '../bridge';
 import { createRecordStore } from '../store';
 import { RecordApp } from '../RecordApp';
 import { protectRecordStore } from '../privacy';
+import { AppearanceProvider } from '../ui/appearance';
 import { LAUNCH_HOLD } from '../ui/Launch';
 
 const T0 = new Date('2026-09-19T17:10:00.000Z').getTime();
@@ -1095,6 +1097,33 @@ describe('first-week Returns on the real Record', () => {
 
 
 describe('protected Record', () => {
+  it.each(['light', 'dark'] as const)('restores %s status-bar content after cancelled authentication without losing capture', async (choice) => {
+    const h = harness(); await migrate(h.db);
+    await h.store.capture({ body: 'private history' });
+    const read = jest.spyOn(h.store, 'loadRecord');
+    const style = jest.spyOn(StatusBar, 'setBarStyle').mockImplementation(() => {});
+    const scheme = jest.spyOn(Appearance, 'setColorScheme').mockImplementation(() => {});
+    await AsyncStorage.setItem('chinotto.record.appearance', JSON.stringify({ choice, contrast: false }));
+    const store = protectRecordStore(h.store, () => false);
+    const privacy = { locked: true, busy: true, error: null, onUnlock: jest.fn() };
+    const ui = (busy: boolean) => <AppearanceProvider><RecordApp {...defaults}
+      store={store} bridge={h.bridge} privacy={{ ...privacy, busy }} /></AppearanceProvider>;
+    const view = render(ui(true));
+    await waitFor(() => expect(screen.getByLabelText('capture').props.keyboardAppearance).toBe(choice));
+    const field = screen.getByLabelText('capture');
+    fireEvent.changeText(field, 'unfinished after cancellation');
+    style.mockClear();
+    view.rerender(ui(false));
+    expect(style).toHaveBeenLastCalledWith(choice === 'light' ? 'dark-content' : 'light-content', false);
+    expect(screen.getByLabelText('capture')).toBe(field);
+    expect(field.props.value).toBe('unfinished after cancellation');
+    expect(screen.queryByText('private history')).toBeNull();
+    expect(read).not.toHaveBeenCalled();
+    view.unmount(); h.db.close();
+    style.mockRestore(); scheme.mockRestore();
+    await AsyncStorage.removeItem('chinotto.record.appearance');
+  });
+
   it('keeps opening feedback until the authenticated read finishes, without gating capture', async () => {
     const h = harness(); await migrate(h.db);
     await h.store.capture({ body: 'private history' });

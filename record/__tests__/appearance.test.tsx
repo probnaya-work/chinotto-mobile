@@ -1,8 +1,8 @@
 import React from 'react';
-import { Text, Pressable, Appearance, Animated, StyleSheet } from 'react-native';
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { Text, Pressable, AppState, Appearance, Animated, StatusBar, StyleSheet, type AppStateStatus } from 'react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AppearanceProvider, useRecordAppearance } from '../ui/appearance';
+import { AppearanceProvider, useRecordAppearance, useRecordStatusBar } from '../ui/appearance';
 import { paletteFor } from '../ui/palette';
 import { SURFACE, ink } from '../ui/tokens';
 import { Edge } from '../ui/Edge';
@@ -10,6 +10,7 @@ import { tierClamp, tierTextStyle } from '../ui/tiers';
 import { face } from '../ui/type';
 function Probe() {
   const value = useRecordAppearance();
+  useRecordStatusBar(false);
   const [draft, setDraft] = React.useState('');
   return <><Text testID="field" style={{ color: value.palette.ink.ink, backgroundColor: value.palette.SURFACE }}>{value.choice}</Text>
     <Pressable accessibilityRole="button" accessibilityLabel="light" onPress={() => value.choose('light')} />
@@ -59,4 +60,26 @@ it('does not let a late preference load replace a choice made while booting', as
   fireEvent.press(ui.getByLabelText('light'));
   resolve(JSON.stringify({ choice: 'dark', contrast: false }));
   await waitFor(() => expect(ui.getByTestId('field').props.children).toBe('light'));
+});
+
+it('restores the chosen status-bar style on foreground without remounting capture', async () => {
+  const listeners = new Set<(state: AppStateStatus) => void>();
+  jest.spyOn(AppState, 'addEventListener').mockImplementation((_event, listener) => {
+    listeners.add(listener);
+    return { remove: () => { listeners.delete(listener); } };
+  });
+  const style = jest.spyOn(StatusBar, 'setBarStyle').mockImplementation(() => {});
+  const ui = render(<AppearanceProvider><Probe /></AppearanceProvider>);
+  fireEvent.press(ui.getByLabelText('light'));
+  const field = ui.getByLabelText('capture');
+  fireEvent.changeText(field, 'unfinished on return');
+  style.mockClear();
+  act(() => { listeners.forEach((listener) => listener('inactive')); });
+  expect(style).not.toHaveBeenCalled();
+  act(() => { listeners.forEach((listener) => listener('active')); });
+  expect(style).toHaveBeenLastCalledWith('dark-content', false);
+  expect(ui.getByLabelText('capture')).toBe(field);
+  expect(field.props.value).toBe('unfinished on return');
+  ui.unmount();
+  expect(listeners.size).toBe(0);
 });

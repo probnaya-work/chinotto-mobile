@@ -11,13 +11,12 @@
  *     focus / settings (z 4) · years (z 5) · share (z 6) · launch (z 20)
  */
 
-import { useRecordTheme } from './ui/appearance';
+import { useRecordStatusBar, useRecordTheme } from './ui/appearance';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AppState,
   Platform,
   Pressable,
-  StatusBar,
   Text,
   TextInput,
   View,
@@ -105,7 +104,8 @@ export type RecordAppProps = {
 };
 
 export function RecordApp(props: RecordAppProps) {
-  const { ink, SURFACE, mode } = useRecordTheme();
+  const { ink, SURFACE } = useRecordTheme();
+  useRecordStatusBar(props.privacy?.busy ?? false);
 
   const record = useRecord(props.store, props.bridge, undefined, props.audio, !props.privacy?.locked);
   const capabilities = props.capabilities ?? capabilitiesFor(Platform.OS);
@@ -420,8 +420,6 @@ export function RecordApp(props: RecordAppProps) {
         return false;
       }}
     >
-      <StatusBar barStyle={mode === 'light' ? 'dark-content' : 'light-content'} backgroundColor={SURFACE} />
-
       {/*
         Chinotto's own temporal orientation, and nothing else.
 

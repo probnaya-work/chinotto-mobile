@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Appearance as NativeAppearance, StatusBar } from 'react-native';
+import { AppState, Appearance as NativeAppearance, StatusBar } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { paletteFor, type Appearance } from './palette';
 
@@ -8,6 +8,21 @@ const Context = createContext({ choice: 'dark' as Appearance, contrast: false, p
   error: null as string | null, choose: (_: Appearance) => {}, setContrast: (_: boolean) => {} });
 export const useRecordAppearance = () => useContext(Context);
 export const useRecordTheme = () => useContext(Context).palette;
+
+export function useRecordStatusBar(authenticationBusy: boolean) {
+  const { choice } = useRecordAppearance();
+  useEffect(() => {
+    if (authenticationBusy) return;
+    // System authentication can change native status-bar styling without changing
+    // React props. Reapply after dismissal, including cancellation while still locked.
+    const restore = () => StatusBar.setBarStyle(choice === 'light' ? 'dark-content' : 'light-content', false);
+    restore();
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') restore();
+    });
+    return () => subscription.remove();
+  }, [choice, authenticationBusy]);
+}
 
 export function AppearanceProvider({ children }: { children: React.ReactNode }) {
   const [choice, setChoice] = useState<Appearance>('dark');
