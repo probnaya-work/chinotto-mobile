@@ -196,6 +196,10 @@ export function useRecord(
   );
 
   useEffect(() => {
+    if (!readEnabled) {
+      setReady(false);
+      return;
+    }
     let alive = true;
     void (async () => {
       await reload();

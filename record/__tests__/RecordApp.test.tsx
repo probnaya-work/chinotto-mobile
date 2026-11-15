@@ -1095,6 +1095,53 @@ describe('first-week Returns on the real Record', () => {
 
 
 describe('protected Record', () => {
+  it('keeps opening feedback until the authenticated read finishes, without gating capture', async () => {
+    const h = harness(); await migrate(h.db);
+    await h.store.capture({ body: 'private history' });
+    const rows = await h.store.loadRecord();
+    let finishRead!: (value: typeof rows) => void;
+    jest.spyOn(h.store, 'loadRecord').mockImplementation(() => new Promise((resolve) => { finishRead = resolve; }));
+    let open = false;
+    const store = protectRecordStore(h.store, () => open);
+    const privacy = { locked: true, busy: true, error: null, onUnlock: jest.fn() };
+    const view = await mount(h, { store, privacy });
+    fireEvent.changeText(screen.getByLabelText('capture'), 'unfinished thought');
+    open = true;
+    await act(async () => {
+      view.rerender(<RecordApp {...defaults} store={store} bridge={h.bridge}
+        privacy={{ ...privacy, locked: false, busy: false }} />);
+    });
+    expect(screen.getByRole('progressbar', { name: 'Opening the Record' })).toBeTruthy();
+    expect(screen.queryByText('private history')).toBeNull();
+    fireEvent.changeText(screen.getByLabelText('capture'), 'still typing while opening');
+    await act(async () => { finishRead(rows); });
+    expect(screen.queryByRole('progressbar')).toBeNull();
+    expect(screen.getByText('private history')).toBeTruthy();
+    expect(screen.getByLabelText('capture').props.value).toBe('still typing while opening');
+    view.unmount(); h.db.close();
+  });
+
+  it('shows opening feedback during authentication without reading history or losing capture', async () => {
+    const h = harness(); await migrate(h.db);
+    await h.store.capture({ body: 'private history' });
+    const read = jest.spyOn(h.store, 'loadRecord');
+    const store = protectRecordStore(h.store, () => false);
+    const privacy = { locked: true, busy: false, error: null, onUnlock: jest.fn() };
+    const view = await mount(h, { store, privacy });
+    fireEvent.changeText(screen.getByLabelText('capture'), 'unfinished thought');
+    view.rerender(<RecordApp {...defaults} store={store} bridge={h.bridge} privacy={{ ...privacy, busy: true }} />);
+    expect(screen.getByRole('progressbar', { name: 'Opening the Record' })).toBeTruthy();
+    expect(screen.getByLabelText('capture').props.value).toBe('unfinished thought');
+    expect(read).not.toHaveBeenCalled();
+    expect(screen.queryByText('private history')).toBeNull();
+    // Cancelling ends the feedback immediately, retaining capture and the retry action.
+    view.rerender(<RecordApp {...defaults} store={store} bridge={h.bridge} privacy={privacy} />);
+    expect(screen.queryByRole('progressbar')).toBeNull();
+    expect(screen.getByLabelText('capture').props.value).toBe('unfinished thought');
+    expect(screen.getByLabelText('open the record').props.accessibilityState?.disabled).not.toBe(true);
+    view.unmount(); h.db.close();
+  });
+
   it.each(['new locked capture', '/new locked capture'])('keeps cold history unread while saving %s without disclosure', async (wording) => {
     const h = harness(); await migrate(h.db);
     await h.store.capture({ body: 'private history' });

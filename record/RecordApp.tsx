@@ -42,6 +42,7 @@ import { hasFoundSettings, rememberFoundSettings } from './pullHint';
 import { type } from './ui/type';
 import { useRecord } from './useRecord';
 import { LockedCapture } from './ui/LockedCapture';
+import { RecordOpening } from './ui/record-opening';
 import { recordBackStep } from './back';
 import { capabilitiesFor, type PlatformCapabilities } from './platform';
 import { displayText, firstLine, type Material } from './model/material';
@@ -462,7 +463,11 @@ export function RecordApp(props: RecordAppProps) {
         disabled={Boolean(record.focus)}
       />
 
-      <RecordList
+      {props.privacy && !record.ready ? (
+        <View style={{ flex: 1, justifyContent: 'center', paddingBottom: keyboardInset }}>
+          <RecordOpening reducedMotion={reducedMotion} />
+        </View>
+      ) : <RecordList
         keyboardInset={keyboardInset}
         voice={capabilities.voice}
         edgeHeight={edgeHeight}
@@ -555,7 +560,7 @@ export function RecordApp(props: RecordAppProps) {
             ))}
           </View>
         )}
-      />
+      />}
 
       <Edge
         input={record.input}

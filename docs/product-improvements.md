@@ -231,6 +231,23 @@ Regression verification: 127 Jest suites, 841 passed / one existing skipped;
 TypeScript and signed Release device build passed. Scene configuration is checked for drift
 between committed native and Expo configuration.
 
+### Protected Record opening feedback — 15 November 2026
+
+Following the owner's Face ID check, replace the blank native privacy cover with Chinotto's
+72pt ring and three dots. It breathes gently in opacity on the selected dark or warm-light
+surface; Reduce Motion leaves the mark still. The same mark also covers authentication and
+the first authenticated Record load in React. The loading state ends with the actual read,
+without a minimum display time or replaying the launch sequence. Capture remains available;
+cancellation returns the retry action with the unfinished wording intact.
+
+Verification: 127 Jest suites, 843 passed / one existing skipped; TypeScript and a signed
+Release device build passed. New surface tests defer the authenticated database read and
+check feedback until completion, capture while loading, no private history before completion,
+and immediate cancellation recovery. Installed on the attached iPhone; the post-install
+SQLite check passed and all 199 legacy entries / 200 fragments were unchanged from the new
+pre-install backup (including the owner's two test moments). Physical animation feedback is
+awaiting the owner repeating Face ID; reduced-motion acceptance remains pending.
+
 ## Later candidates
 
 Recover an unfinished capture locally after process death or force-quit. Device testing exposed

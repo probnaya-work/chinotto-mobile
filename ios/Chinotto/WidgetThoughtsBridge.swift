@@ -40,6 +40,69 @@ final class WidgetThoughtsBridge: NSObject {
   }
 }
 
+// The privacy cover must render even while React is waiting for system authentication.
+// Match Mark.tsx's full rung; opacity alone gives it a quiet breath, without a timed gate.
+private final class RecordPrivacyCover: UIView {
+  private let mark = CAShapeLayer()
+
+  init(frame: CGRect, style: UIUserInterfaceStyle) {
+    super.init(frame: frame)
+    autoresizingMask = [.flexibleWidth, .flexibleHeight]
+    let light = style == .light
+    backgroundColor = light
+      ? UIColor(red: 238 / 255, green: 234 / 255, blue: 225 / 255, alpha: 1)
+      : UIColor(red: 20 / 255, green: 20 / 255, blue: 22 / 255, alpha: 1)
+    let ink = light
+      ? UIColor(red: 52 / 255, green: 51 / 255, blue: 45 / 255, alpha: 1)
+      : UIColor(red: 212 / 255, green: 211 / 255, blue: 206 / 255, alpha: 1)
+
+    // One compound filled path: a fine ring and three descending dots.
+    let path = UIBezierPath(ovalIn: CGRect(x: 3, y: 3, width: 58, height: 58))
+    path.append(UIBezierPath(ovalIn: CGRect(x: 5, y: 5, width: 54, height: 54)))
+    for (y, radius) in [(23.0, 8.0), (38.0, 4.5), (47.5, 2.5)] {
+      path.append(UIBezierPath(ovalIn: CGRect(x: 32 - radius, y: y - radius,
+                                            width: radius * 2, height: radius * 2)))
+    }
+    mark.path = path.cgPath
+    mark.fillRule = .evenOdd
+    mark.fillColor = ink.cgColor
+    mark.bounds = CGRect(x: 0, y: 0, width: 64, height: 64)
+    mark.setAffineTransform(CGAffineTransform(scaleX: 1.125, y: 1.125))
+    layer.addSublayer(mark)
+    isAccessibilityElement = true
+    accessibilityLabel = "Chinotto"
+    accessibilityViewIsModal = true
+    NotificationCenter.default.addObserver(self, selector: #selector(updateMotion),
+      name: UIAccessibility.reduceMotionStatusDidChangeNotification, object: nil)
+    updateMotion()
+  }
+
+  required init?(coder: NSCoder) { return nil }
+
+  deinit { NotificationCenter.default.removeObserver(self) }
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    CATransaction.begin()
+    CATransaction.setDisableActions(true)
+    mark.position = CGPoint(x: bounds.midX, y: bounds.midY)
+    CATransaction.commit()
+  }
+
+  @objc private func updateMotion() {
+    mark.removeAnimation(forKey: "breath")
+    guard !UIAccessibility.isReduceMotionEnabled else { return }
+    let breath = CAKeyframeAnimation(keyPath: "opacity")
+    breath.values = [0.52, 1.0, 0.52]
+    breath.keyTimes = [0, 0.5, 1]
+    breath.timingFunctions = [CAMediaTimingFunction(name: .easeInEaseOut),
+                              CAMediaTimingFunction(name: .easeInEaseOut)]
+    breath.duration = 1.8
+    breath.repeatCount = .infinity
+    mark.add(breath, forKey: "breath")
+  }
+}
+
 // Kept in the existing bridge source so both the committed project and prebuild include it.
 // UIKit covers the window synchronously; React acknowledges the safe foreground render.
 final class RecordPrivacyGuard {
@@ -60,11 +123,7 @@ final class RecordPrivacyGuard {
     guard enabled, let window else { return }
     window.rootViewController?.view.accessibilityElementsHidden = true
     if cover == nil {
-      let view = UIView(frame: window.bounds)
-      view.backgroundColor = UIColor(red: 20 / 255, green: 20 / 255, blue: 22 / 255, alpha: 1)
-      view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-      view.isAccessibilityElement = true
-      view.accessibilityLabel = "Chinotto"
+      let view = RecordPrivacyCover(frame: window.bounds, style: window.traitCollection.userInterfaceStyle)
       window.addSubview(view)
       cover = view
     }

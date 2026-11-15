@@ -475,3 +475,18 @@ launch options; warm URL/universal links use the existing linking handlers.
 
 This follows [Apple's scene migration guidance](https://developer.apple.com/documentation/technotes/tn3187-migrating-to-the-uikit-scene-based-life-cycle).
 It changes native launch compatibility, not product scope or the release version.
+
+
+### Opening a protected Record — 15 November 2026
+
+The owner requested a Chinotto animation instead of the blank frame around Face ID. The
+native privacy cover now shows the existing full mark at 72pt, with a slow opacity breath on
+the current window's dark or warm-light field. Reduce Motion keeps it still. The matching
+React indicator spans authentication and the first authenticated Record read; capture stays
+available while that read settles. Locking resets read readiness so a reopened Record does
+not report an empty history before loading it.
+
+There is no minimum display time, repeated launch lockup or added authentication step. The
+native cover still conceals the entire Record synchronously and leaves only after the
+existing foreground/epoch render acknowledgement. No private preview or text is drawn into
+it. Cancellation ends the indicator immediately and preserves the capture draft for retry.

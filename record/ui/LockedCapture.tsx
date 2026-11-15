@@ -1,7 +1,8 @@
 import { useRecordTheme } from './appearance';
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
-import { Edge, type EdgeProps } from './Edge';
+import { Edge, useReducedMotion, type EdgeProps } from './Edge';
+import { RecordOpening } from './record-opening';
 import { useKeyboardInset } from './useKeyboardInset';
 
 import { type } from './type';
@@ -24,6 +25,7 @@ export function LockedCapture({ capture, words, change, onUnlock, busy, error, o
   const input = useRef<TextInput>(null);
   useEffect(() => { input.current?.focus(); }, []);
   const keyboardInset = useKeyboardInset();
+  const reducedMotion = useReducedMotion();
   const save = async () => {
     const text = wordsNow.current;
     if (!text.trim()) return;
@@ -41,6 +43,10 @@ export function LockedCapture({ capture, words, change, onUnlock, busy, error, o
         <Text style={type({ size: 13, width: 90, color: ink.meta })}>settings</Text>
       </Pressable>
     </View>
+    {busy ? <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0,
+      bottom: keyboardInset, justifyContent: 'center' }}>
+      <RecordOpening reducedMotion={reducedMotion} />
+    </View> : null}
     <Edge captureOnly input={words} onChangeInput={(text) => { wordsNow.current = text; change(text); }} onSubmit={() => void save()} inputRef={input}
       focused={true} onFocus={() => {}} onBlur={() => {}} onPressCaret={() => input.current?.focus()}
       anchored={false} onClearAnchor={() => {}} findSummary={null} notices={[]}
