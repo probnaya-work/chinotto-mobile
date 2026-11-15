@@ -245,8 +245,9 @@ Release device build passed. New surface tests defer the authenticated database 
 check feedback until completion, capture while loading, no private history before completion,
 and immediate cancellation recovery. Installed on the attached iPhone; the post-install
 SQLite check passed and all 199 legacy entries / 200 fragments were unchanged from the new
-pre-install backup (including the owner's two test moments). Physical animation feedback is
-awaiting the owner repeating Face ID; reduced-motion acceptance remains pending.
+pre-install backup (including the owner's two test moments). After being asked to repeat
+Face ID and reopen the app, the owner confirmed that the transition looks good on the
+physical iPhone. Reduced-motion acceptance remains pending.
 
 ## Later candidates
 
