@@ -7,10 +7,10 @@
  * decoration and this component is not optional.
  */
 
+import { useRecordTheme } from './appearance';
 import React from 'react';
 import { Text, type TextProps, type TextStyle } from 'react-native';
 
-import { evidence, wash } from './tokens';
 import type { TextPart } from '../model/words';
 
 export type MarkedProps = TextProps & {
@@ -25,7 +25,9 @@ export type MarkedProps = TextProps & {
   matchColor?: string;
 };
 
-export function Marked({ parts, style, quiet, matchColor = evidence.ink, ...rest }: MarkedProps) {
+export function Marked({ parts, style, quiet, matchColor, ...rest }: MarkedProps) {
+  const { evidence, wash } = useRecordTheme();
+
   return (
     <Text style={style} {...rest}>
       {parts.map((part, i) =>
@@ -36,7 +38,7 @@ export function Marked({ parts, style, quiet, matchColor = evidence.ink, ...rest
             key={i}
             style={{
               backgroundColor: quiet ? wash.matchTrace : wash.match,
-              color: matchColor,
+              color: matchColor ?? evidence.ink,
             }}
           >
             {part.t}

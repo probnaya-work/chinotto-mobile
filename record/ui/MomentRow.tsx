@@ -13,13 +13,13 @@
  * about.
  */
 
+import { useRecordTheme } from './appearance';
 import React from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 
 import { Marked } from './Marked';
-import { FOCUSED_TIER_COLORS, bandGap, tierClamp, tierTextStyle, voiceChip } from './tiers';
+import { bandGap, tierClamp, tierTextStyle, voiceChip } from './tiers';
 import { VoiceChip } from './VoiceChip';
-import { agency, ink, rule, wash } from './tokens';
 import { face, type } from './type';
 import type { Tier } from '../model/bands';
 import {
@@ -34,8 +34,6 @@ import {
 } from '../model/material';
 import { fmtDur, monthLabel } from '../model/time';
 import { parts, type TextPart } from '../model/words';
-
-const metaStyle = type({ size: 12, width: 90, lineHeight: 1.3, color: ink.meta });
 
 export type MomentRowProps = {
   material: Material;
@@ -109,6 +107,11 @@ function bodyParts(material: Material, tier: Tier, highlight?: (string | null)[]
 }
 
 export function MomentRow(props: MomentRowProps) {
+  const palette = useRecordTheme();
+  const { ink, agency, rule, wash } = palette;
+  const { fontScale } = useWindowDimensions();
+  const metaStyle = type({ size: 12, width: 90, lineHeight: 1.3, color: ink.meta });
+
   const { material, tier, gap, now } = props;
   const compact = tier > 0;
   const voice = isVoice(material);
@@ -117,6 +120,8 @@ export function MomentRow(props: MomentRowProps) {
 
   const textStyle = tierTextStyle(tier, {
     voice,
+    palette,
+    fontScale,
     borrowedWords: borrowed,
     focused: props.focused,
   });
@@ -132,7 +137,7 @@ export function MomentRow(props: MomentRowProps) {
         textStyle,
         {
           fontStyle: 'normal',
-          color: props.focused ? FOCUSED_TIER_COLORS[3] : ink.meta,
+          color: props.focused ? palette.focused[3] : ink.meta,
         },
       ]}
     >
@@ -150,7 +155,7 @@ export function MomentRow(props: MomentRowProps) {
         // The just-saved underline: still yours to change, and it shows.
         props.justSaved ? { textDecorationLine: 'underline', textDecorationColor: ink.meta } : null,
       ].filter(Boolean) as never}
-      numberOfLines={tierClamp(tier, props.selected)}
+      numberOfLines={tierClamp(tier, props.selected, fontScale)}
     />
   );
 
@@ -249,7 +254,7 @@ export function MomentRow(props: MomentRowProps) {
       </Pressable>
 
       {props.selected ? (
-        <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 14 }}>
           <Verb label="continue" filled onPress={props.onContinue} />
           <Verb label={props.held ? 'release' : 'hold'} onPress={props.onHold} />
           <Verb label="correct" onPress={props.onCorrect} />
@@ -274,15 +279,20 @@ function Verb({
   quiet?: boolean;
   onPress?: () => void;
 }) {
+  const { ink, agency } = useRecordTheme();
+  const { fontScale } = useWindowDimensions();
+
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label === '×' ? 'remove' : label}
       style={{
-        flex: narrow ? undefined : 1,
+        flexGrow: narrow ? 0 : 1,
+        flexBasis: narrow ? undefined : 80 * fontScale,
         width: narrow ? 44 : undefined,
-        height: 44,
+        minHeight: 44,
+        paddingVertical: 10,
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: filled ? agency.ink : 'transparent',
@@ -316,6 +326,8 @@ export function HeldRow({
   /** When it was captured, in the record's own words — `today`, `12 mar`. */
   dayLabel: string;
 }) {
+  const { ink, agency, rule } = useRecordTheme();
+
   return (
     <View style={{ position: 'relative', paddingLeft: 14, marginBottom: 18 }}>
       <View

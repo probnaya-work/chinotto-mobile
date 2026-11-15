@@ -13,6 +13,7 @@
  * desktop/mobile transition is over.
  */
 
+import { useRecordTheme, AppearanceProvider } from './record/ui/appearance';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Platform, View } from 'react-native';
 import { randomUUID } from 'expo-crypto';
@@ -25,7 +26,7 @@ import { nativeRecordPrivacy } from './record/nativePrivacy';
 import { recoverInterruptedRestores, cleanupAbandonedRestores } from './record/nativeRestore';
 import { cleanupAbandonedExports } from './record/exportTemp';
 import { ensureThisDevice, HEARTBEAT_MS, isRevoked, type ThisDevice } from './record/devices';
-import { SURFACE } from './record/ui/tokens';
+
 import { SystemFrame } from './record/ui/systemInsets';
 import { capabilitiesFor } from './record/platform';
 import type { VoiceEngine } from './record/voice';
@@ -205,7 +206,9 @@ const audioPlayback: AudioPlaybackPort = {
   subscribe: (handlers) => subscribeAudioPlayback(handlers),
 };
 
-export default function RecordRoot() {
+function RecordRootContent() {
+  const { SURFACE } = useRecordTheme();
+
   const privacy = useMemo(() => CAPABILITIES.systemName === 'ios' ? nativeRecordPrivacy() : undefined, []);
   useEffect(() => {
     try { cleanupAbandonedRestores(); cleanupAbandonedExports(); } catch { /* The next launch retries. */ }
@@ -339,7 +342,6 @@ export default function RecordRoot() {
    */
   const handledShare = useRef(false);
   const [shareSeen, setShareSeen] = useState(0);
-
 
   useEffect(() => {
     if (!sharePayloads || sharePayloads.length === 0) handledShare.current = false;
@@ -503,4 +505,8 @@ export default function RecordRoot() {
       <ChinottoApp services={services} />
     </SystemFrame>
   );
+}
+
+export default function RecordRoot() {
+  return <AppearanceProvider><RecordRootContent /></AppearanceProvider>;
 }

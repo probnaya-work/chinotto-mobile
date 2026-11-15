@@ -16,11 +16,12 @@
  * and it should look like the thing leaving rather than like a click registering.
  */
 
+import { useRecordTheme } from './appearance';
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, Pressable, Text, View } from 'react-native';
 
 import { Marked } from './Marked';
-import { agency, ink, motion } from './tokens';
+import { motion } from './tokens';
 import { type } from './type';
 import { becauseSentence, type RecordReturn } from '../model/returns';
 import { displayText, type Material } from '../model/material';
@@ -46,6 +47,8 @@ export function ReturnBlock({
   onHold,
   onLetGo,
 }: ReturnBlockProps) {
+  const { ink, agency } = useRecordTheme();
+
   const enter = useRef(new Animated.Value(0)).current;
   const exit = useRef(new Animated.Value(0)).current;
 
@@ -147,6 +150,8 @@ function Verb({
   strong?: boolean;
   onPress: () => void;
 }) {
+  const { ink } = useRecordTheme();
+
   return (
     <Pressable
       onPress={onPress}

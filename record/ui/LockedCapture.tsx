@@ -1,8 +1,9 @@
+import { useRecordTheme } from './appearance';
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { Edge, type EdgeProps } from './Edge';
 import { useKeyboardInset } from './useKeyboardInset';
-import { ink, SURFACE } from './tokens';
+
 import { type } from './type';
 
 export function LockedCapture({ capture, words, change, onUnlock, busy, error, onSettings, voice }: {
@@ -15,6 +16,8 @@ export function LockedCapture({ capture, words, change, onUnlock, busy, error, o
   onSettings: () => void;
   voice: Pick<EdgeProps, 'recording' | 'voice' | 'onStartRecording' | 'onStopRecording' | 'onCancelRecording'>;
 }) {
+  const { ink, SURFACE } = useRecordTheme();
+
   const wordsNow = useRef(words);
   wordsNow.current = words;
   const [message, setMessage] = useState('the record is locked. a new thought can still land.');

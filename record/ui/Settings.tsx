@@ -11,12 +11,13 @@
  * Export is deliberately user-initiated and sits with the Record, not routine capture.
  */
 
+import { useRecordTheme, useRecordAppearance } from './appearance';
 import React from 'react';
 import { Platform, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 
 import { Mark } from './Mark';
 import { capabilitiesFor, type PlatformCapabilities } from '../platform';
-import { agency, ink, rule, SURFACE } from './tokens';
+
 import { face, type } from './type';
 
 export type IconChoice = 'dark' | 'light';
@@ -38,7 +39,6 @@ export type SettingsProps = {
   exportError?: string | null;
   onExport?: () => void;
   onCancelExport?: () => void;
-
 
   icon: IconChoice;
   onPickIcon: (choice: IconChoice) => void;
@@ -72,16 +72,11 @@ export type SettingsProps = {
   capabilities?: PlatformCapabilities;
 };
 
-const body = type({ size: 16, width: 94, lineHeight: 1.4, color: ink.near });
-const sectionLabel = {
-  fontFamily: face(90),
-  fontSize: 10,
-  letterSpacing: 0.6,
-  textTransform: 'uppercase' as const,
-  color: ink.far,
-};
+
 
 export function Settings(props: SettingsProps) {
+  const { ink, agency, SURFACE } = useRecordTheme();
+
   const can = props.capabilities ?? capabilitiesFor(Platform.OS);
   const head =
     props.page === 'manifesto'
@@ -142,6 +137,9 @@ export function Settings(props: SettingsProps) {
 }
 
 function Root(props: SettingsProps & { capabilities: PlatformCapabilities }) {
+  const { ink, agency, rule } = useRecordTheme();
+
+  const appearance = useRecordAppearance();
   const can = props.capabilities;
   return (
     <ScrollView
@@ -210,9 +208,21 @@ function Root(props: SettingsProps & { capabilities: PlatformCapabilities }) {
 
       <Reference voice={can.voice} />
 
-      {/* One appearance, because there is one. The absence of a light-mode switch is honest. */}
       <Section label="appearance" gap={7}>
-        <SettingRow title="app" status="dark" divider={false} />
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 18 }}>
+          <Text style={type({ size: 15, width: 94, color: ink.near })}>app</Text>
+          {(['dark', 'light'] as const).map((choice) => (
+            <Pressable key={choice} accessibilityRole="button" accessibilityLabel={`${choice} appearance`}
+              accessibilityState={{ selected: appearance.choice === choice }} onPress={() => appearance.choose(choice)}
+              style={{ minHeight: 44, justifyContent: 'center', borderBottomWidth: appearance.choice === choice ? 1 : 0, borderBottomColor: agency.quiet }}>
+              <Text style={type({ size: 15, width: 92, weight: agency.weight, color: appearance.choice === choice ? agency.ink : ink.meta })}>{choice}</Text>
+            </Pressable>
+          ))}
+        </View>
+        <SettingRow title="lift contrast" detail="stronger quiet text in bright light"
+          status={appearance.contrast ? 'on' : 'off'} action={appearance.contrast ? 'turn off' : 'turn on'}
+          onPress={() => appearance.setContrast(!appearance.contrast)} divider={false} />
+        {appearance.error ? <Text accessibilityRole="alert" style={type({ size: 14, width: 90, color: ink.meta })}>{appearance.error}</Text> : null}
         {can.iconChoice ? (
           <View style={{ gap: 7, paddingTop: 1 }}>
             <Text style={type({ size: 12, width: 90, color: ink.meta })}>
@@ -410,6 +420,8 @@ const referenceLines = [
 ] as const;
 
 function Reference({ voice }: { voice: boolean }) {
+  const { ink, agency, rule } = useRecordTheme();
+
   const [open, setOpen] = React.useState(false);
   const { width, fontScale } = useWindowDimensions();
   const stacked = width <= 350 || fontScale >= 1.3;
@@ -504,6 +516,8 @@ function SettingRow({
   accessibilityRole?: 'button' | 'switch';
   checked?: boolean;
 }) {
+  const { ink, agency, rule } = useRecordTheme();
+
   const content = (
     <>
       <View style={{ flex: 1, gap: 3 }}>
@@ -565,6 +579,15 @@ function Section({
   gap?: number;
   children: React.ReactNode;
 }) {
+  const { ink } = useRecordTheme();
+  const sectionLabel = {
+  fontFamily: face(90),
+  fontSize: 10,
+  letterSpacing: 0.6,
+  textTransform: 'uppercase' as const,
+  color: ink.far,
+};
+
   return (
     <View style={{ gap }}>
       <Text style={sectionLabel}>{label}</Text>
@@ -575,6 +598,9 @@ function Section({
 
 /** The argument, in the product's own words. Not marketing, and not a tour. */
 function Manifesto({ paragraphs }: { paragraphs: readonly string[] }) {
+  const { ink } = useRecordTheme();
+  const body = type({ size: 16, width: 94, lineHeight: 1.4, color: ink.near });
+
   return (
     <ScrollView
       style={{ flex: 1 }}
@@ -603,6 +629,9 @@ function Manifesto({ paragraphs }: { paragraphs: readonly string[] }) {
  * risk. It is not: only the copy in the cloud goes.
  */
 function DeleteAccount(props: SettingsProps) {
+  const { ink, agency, rule, SURFACE } = useRecordTheme();
+  const body = type({ size: 16, width: 94, lineHeight: 1.4, color: ink.near });
+
   return (
     <ScrollView
       style={{ flex: 1 }}
@@ -640,7 +669,8 @@ function DeleteAccount(props: SettingsProps) {
           style={{
             flex: 1,
             opacity: props.deleteBusy ? 0.5 : 1,
-            height: 56,
+            minHeight: 56,
+            paddingVertical: 10,
             alignItems: 'center',
             justifyContent: 'center',
             backgroundColor: 'transparent',
@@ -666,7 +696,8 @@ function DeleteAccount(props: SettingsProps) {
           onPress={props.onBack}
           accessibilityRole="button"
           style={{
-            height: 56,
+            minHeight: 56,
+            paddingVertical: 10,
             paddingHorizontal: 22,
             borderWidth: 1,
             borderColor: rule.line,

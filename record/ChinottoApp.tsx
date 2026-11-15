@@ -18,6 +18,7 @@
  * Nothing in 3 or 4 is allowed to block 2. That is the golden rule, expressed as an ordering.
  */
 
+import { useRecordTheme } from './ui/appearance';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, BackHandler, Linking, Platform, View } from 'react-native';
 import * as Font from 'expo-font';
@@ -32,7 +33,7 @@ import { ShareSurface, metBeforeLabel } from './ui/ShareSurface';
 import { SyncSheet } from './ui/SyncSheet';
 import { ForcedUpdate, WidgetPreview } from './ui/WidgetPreview';
 import { FONT_ASSETS } from './ui/type';
-import { SURFACE } from './ui/tokens';
+
 import { createBridge, type RecordBridge } from './bridge';
 import { sweepRemovedVoice } from './erasure';
 import { deleteRecordFile, listRetainedAudio, recordFileExists } from './files';
@@ -123,6 +124,8 @@ type Surface =
   | { kind: 'widget' };
 
 export function ChinottoApp({ services }: { services: Services }) {
+  const { SURFACE } = useRecordTheme();
+
   const protection = usePrivacy(services.privacy);
   const readAllowed = protection.ready && !protection.locked;
   const capabilities = services.capabilities ?? capabilitiesFor(Platform.OS);

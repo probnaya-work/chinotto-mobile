@@ -13,6 +13,7 @@
  *     above it. The placeholder says so.
  */
 
+import { useRecordTheme } from './appearance';
 import React, { useEffect, useRef } from 'react';
 import {
   Animated,
@@ -27,7 +28,7 @@ import {
 import { Marked } from './Marked';
 import { useKeyboardInset } from './useKeyboardInset';
 import { VoiceChip, type VoiceChipSpec } from './VoiceChip';
-import { agency, evidence, ink, motion, rule, SURFACE } from './tokens';
+import { motion } from './tokens';
 import { face, type } from './type';
 import { foldLine, lineHeading, type LineEntry } from '../model/lines';
 import {
@@ -93,6 +94,8 @@ const FOCUS_CHIP: VoiceChipSpec = {
 };
 
 export function Focus(props: FocusProps) {
+  const { ink, agency, rule, SURFACE, mode } = useRecordTheme();
+
   const slide = useRef(new Animated.Value(0)).current;
   // Continue and correction sit on the keyboard for the same reason the edge does: they are
   // the bottom of this surface, not something floating over it.
@@ -237,6 +240,7 @@ export function Focus(props: FocusProps) {
         {props.continuing ? (
           <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 12 }}>
             <TextInput
+              keyboardAppearance={mode}
               accessibilityLabel="a new moment, dated now"
               autoFocus
               // Chinotto keeps the casing somebody chose. `dinner friday` is how they wrote
@@ -265,7 +269,8 @@ export function Focus(props: FocusProps) {
               accessibilityLabel="leave it"
               style={{
                 width: 48,
-                height: 48,
+                minHeight: 48,
+                paddingVertical: 10,
                 backgroundColor: agency.ink,
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -284,7 +289,8 @@ export function Focus(props: FocusProps) {
                 accessibilityRole="button"
                 style={{
                   flex: 1,
-                  height: 56,
+                  minHeight: 56,
+                  paddingVertical: 10,
                   backgroundColor: agency.ink,
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -304,7 +310,8 @@ export function Focus(props: FocusProps) {
                 onPress={() => props.onHold(props.focus)}
                 accessibilityRole="button"
                 style={{
-                  height: 56,
+                  minHeight: 56,
+                  paddingVertical: 10,
                   paddingHorizontal: 22,
                   borderWidth: 1,
                   borderColor: ink.faint,
@@ -334,6 +341,8 @@ function Moment({
   entry,
   ...props
 }: FocusProps & { entry: Extract<LineEntry, { kind: 'moment' }> }) {
+  const { ink, agency, rule, mode } = useRecordTheme();
+
   const m = entry.material;
   const isFocus = m.id === props.focus.id;
   const voice = isVoice(m);
@@ -357,14 +366,14 @@ function Moment({
         }}
       />
 
-      <View style={{ flexDirection: 'row', gap: 10, marginBottom: 4 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 4 }}>
         <Text style={type({ size: 12, width: 90, color: ink.meta })}>
           {`${when} · ${fmtTime(m.at)} · ${sourceOf(m)}`}
         </Text>
         {m.correctionCount > 0 ? (
           <Text
             onPress={() => props.onTogglePrevious(m.id)}
-            style={type({ size: 12, width: 90, color: ink.faint })}
+            style={type({ size: 12, width: 90, color: ink.meta })}
           >
             {`corrected · ${props.shownPrevious[m.id] ? 'hide' : 'show'}`}
           </Text>
@@ -374,6 +383,7 @@ function Moment({
       {editing ? (
         <>
           <TextInput
+            keyboardAppearance={mode}
             accessibilityLabel="correct the wording"
             autoFocus
             autoCapitalize="none"
@@ -549,6 +559,8 @@ function TraceRow({
   onYes: () => void;
   onNo: () => void;
 }) {
+  const { ink, agency, evidence } = useRecordTheme();
+
   const guess = trace.kind === 'guess';
   const kindLabel = guess ? 'a guess' : trace.kind === 'same_source' ? 'same source' : 'same words';
   const when =

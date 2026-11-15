@@ -11,6 +11,7 @@
  * item, because a band can be four hundred moments long.
  */
 
+import { useRecordTheme } from './appearance';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
@@ -23,7 +24,7 @@ import {
 } from 'react-native';
 
 import { HeldRow, MomentRow } from './MomentRow';
-import { agency, bandLabel, frame, ink, rule } from './tokens';
+import { frame } from './tokens';
 import { face, type } from './type';
 import type { Row } from './rows';
 import { yearBarHeight, type YearSummary } from '../model/bands';
@@ -203,6 +204,8 @@ function ScrollFocusMotion({
 }
 
 export function RecordList(props: RecordListProps) {
+  const { ink, bandLabel } = useRecordTheme();
+
   const [scrollFocus, setScrollFocus] = useState<ScrollFocus>(noScrollFocus);
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 10 }).current;
   const onViewableItemsChanged = useRef(
@@ -318,7 +321,7 @@ export function RecordList(props: RecordListProps) {
           return (
             <Text
               style={[
-                type({ size: 12, width: 90, color: ink.faint }),
+                type({ size: 12, width: 90, color: ink.meta }),
                 { marginBottom: 22 },
               ]}
             >
@@ -327,7 +330,7 @@ export function RecordList(props: RecordListProps) {
           );
       }
     },
-    [props, scrollFocus]
+    [props, scrollFocus, ink, bandLabel]
   );
 
   return (
@@ -392,6 +395,8 @@ function YearsBand({
   years: YearSummary[];
   onPress: (year: number) => void;
 }) {
+  const { ink, agency, rule } = useRecordTheme();
+
   return (
     <View style={{ marginBottom: 16 }}>
       {/* Newest year lowest, matching the band's own reversal. */}

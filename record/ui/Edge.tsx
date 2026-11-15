@@ -16,6 +16,7 @@
  * wait for anything.
  */
 
+import { useRecordTheme } from './appearance';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
@@ -24,10 +25,11 @@ import {
   TextInput,
   View,
   type GestureResponderEvent,
+  useWindowDimensions,
   type TextInputProps,
 } from 'react-native';
 
-import { agency, edge, ink, motion, LIVE, RECORDING_BAR_SECONDS, SURFACE } from './tokens';
+import { edge, motion, RECORDING_BAR_SECONDS } from './tokens';
 import { face, type } from './type';
 import { fmtDur } from '../model/time';
 
@@ -112,7 +114,11 @@ export type EdgeProps = {
   onHeightChange?: (height: number) => void;
 };
 
+
+
 export function Edge(props: EdgeProps) {
+  const { ink, agency, SURFACE, LIVE } = useRecordTheme();
+
   const reportedHeight = useRef(0);
   const micGesture = useRef<MicGesture | null>(null);
   const [micHeld, setMicHeld] = useState(false);
@@ -451,9 +457,12 @@ const CaptureField = React.forwardRef<TextInput, TextInputProps>(function Captur
   { value, style, ...rest },
   ref
 ) {
+  const { ink, mode } = useRecordTheme();
+  const { fontScale } = useWindowDimensions();
   return (
     <TextInput
       ref={ref}
+      keyboardAppearance={mode}
       accessibilityLabel="capture"
       multiline
       // `blurOnSubmit` with `multiline` is what turns Return into submit rather than a
@@ -477,13 +486,14 @@ const CaptureField = React.forwardRef<TextInput, TextInputProps>(function Captur
           paddingVertical: FIELD_PADDING_Y,
           maxHeight: edge.fieldMaxHeight,
         },
-        value ? null : { height: FIELD_ONE_LINE },
+        value ? null : { height: Math.ceil(FIELD_ONE_LINE * fontScale) },
         style,
       ]}
       {...rest}
     />
   );
 });
+
 
 /** What is being said, over a veil so the record behind it never collides with the words. */
 function SpeakingVeil({
@@ -495,6 +505,8 @@ function SpeakingVeil({
   micHeld: boolean;
   micLocked: boolean;
 }) {
+  const { ink, SURFACE } = useRecordTheme();
+
   const status =
     recording.phase === 'starting'
       ? 'opening microphone…'
@@ -570,6 +582,8 @@ function SpeakingVeil({
  * looping bars can look healthy while the microphone is actually silent.
  */
 function SpeakingBars({ level }: { level: number }) {
+  const { LIVE } = useRecordTheme();
+
   const value = useRef(new Animated.Value(level)).current;
   const reduced = useReducedMotion();
 
@@ -617,6 +631,8 @@ function SpeakingBars({ level }: { level: number }) {
 }
 
 function Notice({ notice }: { notice: EdgeNotice }) {
+  const { ink, agency } = useRecordTheme();
+
   const base = type({ size: 13, width: 90, lineHeight: 1.4, color: ink.far });
   switch (notice.kind) {
     case 'mic':

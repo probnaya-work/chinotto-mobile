@@ -12,10 +12,10 @@
  * font happened to answer.
  */
 
+import { useRecordTheme } from './appearance';
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { agency, ink, rule } from './tokens';
 import { face } from './type';
 import { fmtDur } from '../model/time';
 
@@ -42,6 +42,8 @@ export function VoiceChip({
   /** Absent at a distance: the chip states the duration but does not play. */
   onPlay?: () => void;
 }) {
+  const { ink, agency, rule } = useRecordTheme();
+
   const color = missing ? ink.meta : agency.ink;
   // Cap height rather than a full em, so the mark sits with the digits instead of over them.
   const mark = Math.round(spec.fontSize * 0.62);

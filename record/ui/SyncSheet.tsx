@@ -13,11 +13,12 @@
  * genuinely unknown — which is exactly why this asks instead of resolving.
  */
 
+import { useRecordTheme } from './appearance';
 import React from 'react';
 import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { PRIVACY_POLICY_URL, TERMS_OF_USE_URL } from '../../monetization/legalLinks';
-import { agency, ink, rule, LIVE, SURFACE } from './tokens';
+
 import { face, type } from './type';
 
 export type SyncState =
@@ -82,8 +83,7 @@ export type SyncSheetProps = {
   errorWhen: string;
 };
 
-const body = type({ size: 16, width: 94, lineHeight: 1.4, color: ink.near });
-const quiet = type({ size: 14, width: 90, lineHeight: 1.4, color: ink.meta });
+
 
 /**
  * A standalone link that can actually be hit.
@@ -97,6 +97,8 @@ const quiet = type({ size: 14, width: 90, lineHeight: 1.4, color: ink.meta });
 const linkPad = { paddingVertical: 12, marginVertical: -12 } as const;
 
 export function SyncSheet(props: SyncSheetProps) {
+  const { ink, rule, SURFACE, veil } = useRecordTheme();
+
   const pendingLine = props.pending === 1 ? '1 moment is' : `${props.pending} moments are`;
 
   return (
@@ -109,7 +111,7 @@ export function SyncSheet(props: SyncSheetProps) {
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: 'rgba(14,14,16,0.72)',
+        backgroundColor: veil,
         zIndex: 7,
         justifyContent: 'flex-end',
       }}
@@ -162,6 +164,10 @@ export function SyncSheet(props: SyncSheetProps) {
 }
 
 function Plan(props: SyncSheetProps) {
+  const { ink, agency, rule } = useRecordTheme();
+  const body = type({ size: 16, width: 94, lineHeight: 1.4, color: ink.near });
+  const quiet = type({ size: 14, width: 90, lineHeight: 1.4, color: ink.meta });
+
   return (
     <View style={{ gap: 18 }}>
       <Text
@@ -247,6 +253,10 @@ function Plan(props: SyncSheetProps) {
 }
 
 function Apple(props: SyncSheetProps) {
+  const { ink } = useRecordTheme();
+  const body = type({ size: 16, width: 94, lineHeight: 1.4, color: ink.near });
+  const quiet = type({ size: 14, width: 90, lineHeight: 1.4, color: ink.meta });
+
   return (
     <View style={{ gap: 18 }}>
       <Text
@@ -266,6 +276,10 @@ function Apple(props: SyncSheetProps) {
 }
 
 function Connecting(props: SyncSheetProps) {
+  const { ink } = useRecordTheme();
+  const body = type({ size: 16, width: 94, lineHeight: 1.4, color: ink.near });
+  const quiet = type({ size: 14, width: 90, lineHeight: 1.4, color: ink.meta });
+
   return (
     <View style={{ gap: 18 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -285,6 +299,10 @@ function Connecting(props: SyncSheetProps) {
 }
 
 function On(props: SyncSheetProps & { pendingLine: string }) {
+  const { ink, agency, LIVE } = useRecordTheme();
+  const body = type({ size: 16, width: 94, lineHeight: 1.4, color: ink.near });
+  const quiet = type({ size: 14, width: 90, lineHeight: 1.4, color: ink.meta });
+
   const others = props.devices.filter((d) => !d.isThisDevice);
   const head = props.offline
     ? 'sync is on. the phone is offline.'
@@ -399,6 +417,10 @@ function On(props: SyncSheetProps & { pendingLine: string }) {
 }
 
 function SignInExpired(props: SyncSheetProps & { pendingLine: string }) {
+  const { ink } = useRecordTheme();
+  const body = type({ size: 16, width: 94, lineHeight: 1.4, color: ink.near });
+  const quiet = type({ size: 14, width: 90, lineHeight: 1.4, color: ink.meta });
+
   return (
     <View style={{ gap: 18 }}>
       <Text
@@ -419,6 +441,10 @@ function SignInExpired(props: SyncSheetProps & { pendingLine: string }) {
 }
 
 function Conflict(props: SyncSheetProps & { conflict: WordingConflict }) {
+  const { ink, agency, rule } = useRecordTheme();
+  const body = type({ size: 16, width: 94, lineHeight: 1.4, color: ink.near });
+  const quiet = type({ size: 14, width: 90, lineHeight: 1.4, color: ink.meta });
+
   const sides = [
     {
       id: 'local' as const,
@@ -482,12 +508,15 @@ function Conflict(props: SyncSheetProps & { conflict: WordingConflict }) {
 }
 
 function Filled({ label, onPress }: { label: string; onPress: () => void }) {
+  const { agency } = useRecordTheme();
+
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       style={{
-        height: 56,
+        minHeight: 56,
+        paddingVertical: 10,
         backgroundColor: agency.ink,
         alignItems: 'center',
         justifyContent: 'center',

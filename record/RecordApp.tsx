@@ -11,6 +11,7 @@
  *     focus / settings (z 4) · years (z 5) · share (z 6) · launch (z 20)
  */
 
+import { useRecordTheme } from './ui/appearance';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AppState,
@@ -36,7 +37,7 @@ import { Mark } from './ui/Mark';
 import { RecordList } from './ui/RecordList';
 import { ReturnBlock } from './ui/ReturnBlock';
 import { YearsOverlay } from './ui/YearsOverlay';
-import { agency, frame, ink, LIVE, SURFACE } from './ui/tokens';
+import { frame } from './ui/tokens';
 import { hasFoundSettings, rememberFoundSettings } from './pullHint';
 import { type } from './ui/type';
 import { useRecord } from './useRecord';
@@ -103,6 +104,8 @@ export type RecordAppProps = {
 };
 
 export function RecordApp(props: RecordAppProps) {
+  const { ink, SURFACE, mode } = useRecordTheme();
+
   const record = useRecord(props.store, props.bridge, undefined, props.audio, !props.privacy?.locked);
   const capabilities = props.capabilities ?? capabilitiesFor(Platform.OS);
 
@@ -416,7 +419,7 @@ export function RecordApp(props: RecordAppProps) {
         return false;
       }}
     >
-      <StatusBar barStyle="light-content" backgroundColor={SURFACE} />
+      <StatusBar barStyle={mode === 'light' ? 'dark-content' : 'light-content'} backgroundColor={SURFACE} />
 
       {/*
         Chinotto's own temporal orientation, and nothing else.
@@ -661,6 +664,8 @@ function PullStrip({
   /** Whether this person has yet to find settings. */
   hint: boolean;
 }) {
+  const { ink, agency, LIVE } = useRecordTheme();
+
   const [pull, setPull] = useState(0);
   const start = useRef(0);
 
@@ -723,7 +728,7 @@ function PullStrip({
         <Mark size={pulling ? 24 : 20} color={pulling ? agency.ink : LIVE} />
         {pulling || hint ? (
           <Text
-            style={type({ size: 14, width: 90, color: pulling ? ink.meta : ink.faint })}
+            style={type({ size: 14, width: 90, color: ink.meta })}
           >
             {pull > frame.pullThreshold ? 'settings' : 'pull for settings'}
           </Text>

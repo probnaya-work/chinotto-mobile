@@ -1,3 +1,4 @@
+import { useRecordTheme } from './appearance';
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
@@ -5,10 +6,12 @@ import type { RecordDb } from '../db';
 import type { RecordPrivacy } from '../privacy';
 import { prepareNativeRestore, removePickedArchive, type PreparedRestore } from '../nativeRestore';
 import type { RestorePreview } from '../restoreRecord';
-import { ink, agency } from './tokens';
+
 import { type } from './type';
 
 export function RestoreArchive({ db, privacy, onRestored }: { db: RecordDb; privacy?: RecordPrivacy; onRestored: () => void }) {
+  const { ink } = useRecordTheme();
+
   const [preview, setPreview] = useState<RestorePreview | null>(null);
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
@@ -70,6 +73,8 @@ export function RestoreArchive({ db, privacy, onRestored }: { db: RecordDb; priv
   </View>;
 }
 function Action({ label, onPress, children }: { label: string; onPress: () => void; children: React.ReactNode }) {
+  const { agency } = useRecordTheme();
+
   return <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={{ minHeight: 44, justifyContent: 'center' }}>
     <Text style={type({ size: 14, width: 94, color: agency.quiet })}>{children}</Text>
   </Pressable>;
