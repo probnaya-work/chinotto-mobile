@@ -6,6 +6,15 @@
  * against a real SQLite engine in Node (see `record/__testsupport__/nodeSqliteDb.ts`) rather
  * than against a hand-rolled fake that cannot enforce a CHECK constraint or a foreign key.
  */
+import { runSerializedDb } from '../storage/runSerializedDb';
+
+/** Share the same connection queue as legacy sync; internal store calls remain unwrapped. */
+export function serializeRecordWrite<Args extends unknown[], Result>(
+  write: (...args: Args) => Promise<Result>,
+): (...args: Args) => Promise<Result> {
+  return (...args) => runSerializedDb(() => write(...args));
+}
+
 export type RecordRunResult = {
   lastInsertRowId: number;
   changes: number;

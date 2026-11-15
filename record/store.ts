@@ -19,7 +19,7 @@
 import { rebuildLineIndex } from './lineIndex';
 import { NOT_BLANK } from './migrate';
 import { domainOf, soleUrlIn, urlKey } from './urlKey';
-import type { RecordDb } from './db';
+import { serializeRecordWrite, type RecordDb } from './db';
 import type {
   CaptureMethod,
   CaptureOrigin,
@@ -680,26 +680,26 @@ export function createRecordStore(db: RecordDb, options: StoreOptions = {}) {
     traceJudgements,
     encountersOf,
     // write
-    capture,
-    correct,
-    continueFrom,
-    linkContinuation,
-    hold,
-    release,
-    remove,
-    bringBack,
+    capture: serializeRecordWrite(capture),
+    correct: serializeRecordWrite(correct),
+    continueFrom: serializeRecordWrite(continueFrom),
+    linkContinuation: serializeRecordWrite(linkContinuation),
+    hold: serializeRecordWrite(hold),
+    release: serializeRecordWrite(release),
+    remove: serializeRecordWrite(remove),
+    bringBack: serializeRecordWrite(bringBack),
     dueRemovals,
     undoSecondsLeft,
-    markRemovalPublished,
-    judgeTrace,
-    recordReturn,
-    closeReturn,
+    markRemovalPublished: serializeRecordWrite(markRemovalPublished),
+    judgeTrace: serializeRecordWrite(judgeTrace),
+    recordReturn: serializeRecordWrite(recordReturn),
+    closeReturn: serializeRecordWrite(closeReturn),
     recentlyReturned,
-    setTranscript,
-    markAudioMissing,
-    markAudioIncomplete,
+    setTranscript: serializeRecordWrite(setTranscript),
+    markAudioMissing: serializeRecordWrite(markAudioMissing),
+    markAudioIncomplete: serializeRecordWrite(markAudioIncomplete),
     audioPathOf,
-    setEnrichment,
+    setEnrichment: serializeRecordWrite(setEnrichment),
   };
 }
 
