@@ -1,6 +1,6 @@
-# iOS 2.2.0 (build 44) — release candidate
+# iOS 2.2.0 (build 44) — Waiting for Review
 
-Draft for the next App Store version. Device acceptance is tracked in `product-improvements.md`.
+Submitted on 15 November 2026 with manual release. Remaining device acceptance is tracked in `product-improvements.md`.
 
 - Protect reading with optional Face ID or your device code while keeping new capture available. A quiet Chinotto mark accompanies authentication and opening the Record.
 - Choose a warm light appearance, lift contrast and use the iPhone's larger text settings.

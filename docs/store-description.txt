@@ -1,7 +1,10 @@
-Release candidate — iPhone 2.2.0 (44), 15 November 2026. Draft metadata saved in App Store Connect; no build upload or App Review submission.
+App Review submission — iPhone 2.2.0 (44), 15 November 2026. Uploaded and selected; Waiting for Review, manual release.
 Publish with the matching app release after device acceptance; plans and prices come from the app.
 
 App Store subtitle: A private record of thoughts
+
+Promotional Text (copied from iPhone 2.0.2):
+A pocket for thoughts, encounters, and what comes back. Capture instantly, no folders or projects. Local-first, works fully offline.
 
 Chinotto — iPhone description
 
