@@ -5,7 +5,7 @@ Chinotto Mobile is **local-first**. Your thoughts stay on your device in SQLite.
 ## Your data
 
 - **Record text** is stored on the device by default. With optional sync on iOS, text, earlier wordings and continuation links are also stored in the synced copy. It is not sent to analytics or included in crash-style telemetry.
-- **Export** — Settings can prepare a portable ZIP of the local Record, including correction history and retained audio. It works offline and opens the system share interface. It is a copy, not a restorable app backup.
+- **Export** — Settings can prepare a portable ZIP of the local Record, including correction history and retained audio. It works offline and opens the system share interface. The Record can be restored from it on iPhone or Mac; accounts and device settings are not included.
 - **Account deletion** — when signed in for sync, Settings → Account → Delete Account removes your cloud data and Firebase account. Local entries on the device are kept.
 
 ## Voice
@@ -55,3 +55,14 @@ capture only while protection is enabled. Chinotto covers private content for ba
 On Mac, outgoing sync reads wait until the protected Record is reopened; new captures are kept
 locally. This access control does not encrypt the database, backups, exports or cloud storage.
 An export is a plain copy under your control and can be read outside Chinotto.
+
+
+## Restoring an archive
+
+Archives are verified locally and previewed before any moments are added. Existing or previously
+removed IDs are skipped. A consistent database recovery copy is kept on this device before a
+nonempty restore; it is not uploaded or encrypted by device authentication. Temporary archive
+staging is removed after use or retried on launch. The file picker may download a ZIP from your
+chosen Files provider. Chinotto itself does not send archive contents to a server. If sync is
+already enabled, restored text/history/links join its normal sync path; original audio stays
+local. See [portable archives](record-archive.md) for recovery locations and compatibility.
