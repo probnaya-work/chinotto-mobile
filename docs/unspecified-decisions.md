@@ -530,3 +530,28 @@ existing CocoaPods toolchain to regenerate `Podfile.lock` for ExpoNotifications 
 then build a development binary. Verify actual foreground/background delivery,
 tap from cold and warm starts, permissions disabled in Settings, Face ID
 cancellation and retry, VoiceOver, and the compact date picker in both appearances.
+
+### Notification preferences
+
+Phase 2 adds one Notifications row to the existing iPhone settings. The status
+read from iOS and Chinotto’s reminder-alert pause are separate. A pause removes
+pending delivery and retains the selected times. Existing future times can be
+edited while paused. Resuming arms only future alerts. A failed native update
+retains the preference and offers a retry.
+
+Discreet previews default to “Open Chinotto”. Turning them off permits a generic
+reminder sentence. A thought-level override can always be stricter than the
+device default. Future pending requests are reconciled after a preview edit.
+Neither choice places a date, title or excerpt from the Record in the alert.
+
+When iOS permission or Chinotto alerts are off, a new time can deliberately be
+saved in Chinotto without any OS request. Such an intent becomes ready in the
+Scheduled reminders list at its chosen time. It never converts itself into an
+alert. Opening a ready thought marks that return used. Upcoming times can be
+edited and canceled through the same thought sheet and return to the list.
+
+Scheduled reminders are inside Notifications. Existing device protection
+gates the list and its first-line excerpts. Schema v11 adds an in-app delivery
+choice and a per-thought preview override. Both the choices and the global
+notification preference remain on the device. Quiet hours follow the device’s
+Focus settings. Automatic Return alerts are outside this phase.

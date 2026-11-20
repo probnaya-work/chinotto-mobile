@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { AppState, Pressable, ScrollView, Text, View } from 'react-native';
-import { ReminderError, type Reminders, type ThoughtReminder } from '../reminders';
+import { ReminderError, type ReminderDelivery, type Reminders, type ReminderStatus, type ThoughtReminder } from '../reminders';
 import { postponeReminder, reminderDate, reminderPresets, reminderTime } from '../reminderTime';
 import { useRecordTheme } from './appearance';
 import { ReminderDatePicker } from './ReminderDatePicker';
+import { SettingRow } from './Settings';
 import { type } from './type';
 
 export type ReminderDraft = {
@@ -11,7 +12,8 @@ export type ReminderDraft = {
   openedAt: number;
   at: number;
   custom: boolean;
-  step: 'choose' | 'manage' | 'permission' | 'denied' | 'cancel';
+  step: 'choose' | 'manage' | 'permission' | 'denied' | 'paused' | 'cancel';
+  delivery: ReminderDelivery;
   existing: ThoughtReminder | null;
 };
 
@@ -21,6 +23,7 @@ export function reminderDraft(fragmentId: string, existing: ThoughtReminder | nu
     fragmentId, openedAt, existing, custom: false,
     at: existing?.at ?? reminderPresets(openedAt)[1].at,
     step: existing ? 'manage' : 'choose',
+    delivery: existing?.delivery ?? 'alert',
   };
 }
 
@@ -37,24 +40,24 @@ export function ReminderSheet({ draft, change, reminders, done, close, openSetti
   const { SURFACE, veil, ink, agency, rule } = useRecordTheme();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [scheduled, setScheduled] = useState<boolean | null>(null);
+  const [status, setStatus] = useState<ReminderStatus | null>(null);
   const existing = draft.existing;
   const existingId = existing?.id;
   const { step, at, openedAt } = draft;
 
   useEffect(() => {
-    if (!existingId || step !== 'manage') return;
+    if (!existing || step !== 'manage') return;
     let active = true;
     const refresh = () => {
-      void reminders.scheduled(existingId).then(
-        (value) => { if (active) setScheduled(value); },
-        () => { if (active) setScheduled(false); },
+      void reminders.status(existing).then(
+        (value) => { if (active) setStatus(value); },
+        () => { if (active) setStatus('unavailable'); },
       );
     };
     refresh();
     const sub = AppState.addEventListener('change', (state) => { if (state === 'active') refresh(); });
     return () => { active = false; sub.remove(); };
-  }, [existingId, reminders, step]);
+  }, [existing, reminders, step]);
 
   const edit = (options: Partial<ReminderDraft>) => { setError(null); change({ ...draft, ...options }); };
   const readout = (time: number) => (
@@ -67,12 +70,14 @@ export function ReminderSheet({ draft, change, reminders, done, close, openSetti
       </Text>
       <View style={{ flexShrink: 1 }}>
         <Text style={type({ size: 14, width: 94, color: ink.near })}>{reminderDate(time)}</Text>
-        <Text style={type({ size: 12, width: 90, color: ink.meta })}>once · on this iphone</Text>
+        <Text style={type({ size: 12, width: 90, color: ink.meta })}>
+          {draft.delivery === 'in-app' ? 'in chinotto only' : 'once · on this iphone'}
+        </Text>
       </View>
     </View>
   );
 
-  async function save(time: number, ask = false) {
+  async function save(time: number, delivery = draft.delivery, ask = false) {
     if (busy) return;
     if (!Number.isFinite(time) || time <= Date.now()) {
       setError('choose a time in the future.');
@@ -81,18 +86,42 @@ export function ReminderSheet({ draft, change, reminders, done, close, openSetti
     setBusy(true);
     setError(null);
     try {
-      const permission = ask ? await reminders.requestPermission() : await reminders.permission();
-      if (permission !== 'granted') {
-        edit({ at: time, step: permission === 'ask' && !ask ? 'permission' : 'denied' });
+      const paused = delivery === 'alert' && (await reminders.preferences()).paused;
+      if (paused && existing?.delivery !== 'alert') {
+        edit({ at: time, delivery, step: 'paused' });
         return;
       }
-      const result = await reminders.save(draft.fragmentId, time);
-      done(result.reminder, result.scheduled ? undefined : 'time saved · the alert is unavailable');
+      if (delivery === 'alert' && !paused) {
+        const permission = ask ? await reminders.requestPermission() : await reminders.permission();
+        if (permission !== 'granted') {
+          edit({ at: time, delivery, step: permission === 'ask' && !ask ? 'permission' : 'denied' });
+          return;
+        }
+      }
+      const result = await reminders.save(draft.fragmentId, time, delivery);
+      const notice = delivery === 'in-app' ? 'saved in scheduled reminders · no alert'
+        : paused ? 'time saved · alerts are paused'
+        : result.scheduled ? undefined : 'time saved · the alert is unavailable';
+      done(result.reminder, notice);
     } catch (cause) {
-      if (cause instanceof ReminderError && cause.reason === 'denied') edit({ at: time, step: 'denied' });
+      if (cause instanceof ReminderError && cause.reason === 'paused') edit({ at: time, delivery, step: 'paused' });
+      else if (cause instanceof ReminderError && cause.reason === 'denied') edit({ at: time, delivery, step: 'denied' });
       else if (cause instanceof ReminderError && cause.reason === 'past') setError('choose a time in the future.');
       else if (cause instanceof ReminderError && cause.reason === 'gone') done(null, 'this thought is no longer available');
       else setError('could not set this reminder. try again.');
+    } finally { setBusy(false); }
+  }
+
+  async function togglePreview() {
+    if (!existing || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const update = await reminders.setDiscreet(existing, existing.discreet ? 0 : 1);
+      edit({ existing: update.reminder });
+      if (!update.applied) setError('preview saved · the alert could not be updated.');
+    } catch {
+      setError('could not save this preview choice.');
     } finally { setBusy(false); }
   }
 
@@ -128,6 +157,7 @@ export function ReminderSheet({ draft, change, reminders, done, close, openSetti
   );
   const caption = (text: string) => <Text style={type({ size: 14, width: 94, color: ink.far, lineHeight: 1.4 })}>{text}</Text>;
   const heading = step === 'cancel' ? 'cancel reminder?' : step === 'denied' ? 'notifications are off'
+    : step === 'paused' ? 'reminder alerts are paused'
     : step === 'permission' ? 'a reminder on this iphone' : step === 'manage' ? 'reminder' : 'remind me';
 
   return (
@@ -184,8 +214,19 @@ export function ReminderSheet({ draft, change, reminders, done, close, openSetti
             {action(busy ? 'setting…' : draft.existing ? 'save changes' : 'set reminder', () => void save(at), true)}
           </> : step === 'manage' && existing ? <>
             {readout(existing.at)}
-            {scheduled === false ? caption('the time is saved here · alerts are unavailable') : null}
-            {scheduled === false ? action('try setting the alert again', () => void save(existing.at)) : null}
+            {status === 'paused' ? caption('alerts paused in chinotto · the time is kept') : null}
+            {status === 'alerts-off' ? caption('alerts off in iPhone Settings · the time is kept') : null}
+            {status === 'unavailable' ? caption('the time is saved here · alert unavailable') : null}
+            {status === 'ready' ? caption('ready to revisit from scheduled reminders') : null}
+            {status === 'unavailable' || status === 'alerts-off'
+              ? action('try setting the alert again', () => void save(existing.at, 'alert')) : null}
+            {existing.delivery === 'alert' ? (
+              <SettingRow title="always use a discreet preview" detail="show only “Open Chinotto” for this thought"
+                status={existing.discreet ? 'on' : 'off'} accessibilityRole="switch" checked={Boolean(existing.discreet)}
+                disabled={busy} onPress={() => void togglePreview()} />
+            ) : action('choose a time for an alert ›', () => edit({
+              step: 'choose', delivery: 'alert', at: existing.at > Date.now() ? existing.at : reminderPresets(Date.now())[1].at,
+            }))}
             {action('change time ›', () => edit({ step: 'choose', at: existing.at }))}
             {action('postpone one day ›', () => void save(postponeReminder(existing.at)))}
             {action('cancel reminder ›', () => edit({ step: 'cancel' }))}
@@ -197,11 +238,15 @@ export function ReminderSheet({ draft, change, reminders, done, close, openSetti
             {readout(at)}
             {step === 'permission' ? <>
               {caption('chinotto can send one alert at this time. the words stay inside chinotto.')}
-              {action('continue to system prompt', () => void save(at, true), true)}
+              {action('continue to system prompt', () => void save(at, 'alert', true), true)}
             </> : <>
-              {caption('allow alerts in iPhone Settings, then come back to set this time.')}
-              {action('open iPhone Settings ›', openSettings)}
-              {action('check and set reminder', () => void save(at), true)}
+              {step === 'denied' ? <>
+                {caption('allow alerts in iPhone Settings, then come back to set this time.')}
+                {action('open iPhone Settings ›', openSettings)}
+              </> : caption('resume alerts in chinotto’s notification settings to send an alert.')}
+              {caption('or keep this time in scheduled reminders without an alert.')}
+              {action('keep in chinotto', () => void save(at, 'in-app'), true)}
+              {action('check and set reminder', () => void save(at, 'alert'))}
             </>}
             {action('‹ change time', () => edit({ step: 'choose' }))}
           </>}

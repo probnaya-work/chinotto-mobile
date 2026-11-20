@@ -29,7 +29,7 @@ import { relabelUnconfirmedTranscripts } from './transcripts';
 import { RECORD_SYNC_SCHEMA } from './syncSchema';
 
 /** Schema version this build expects. Bump when adding a step below. */
-export const TARGET_VERSION = 10;
+export const TARGET_VERSION = 11;
 
 /**
  * The v1 schema, byte-for-byte what shipped. Owned here so the boot path and the migration
@@ -206,6 +206,15 @@ export async function migrate(db: RecordDb): Promise<MigrationReport> {
         fire_at     INTEGER NOT NULL CHECK (fire_at > 0)
       );
       CREATE INDEX thought_reminders_time ON thought_reminders(fire_at);
+    `));
+  }
+
+  if (from < 11) {
+    await step(db, 11, report, async () => db.execAsync(`
+      ALTER TABLE thought_reminders ADD COLUMN delivery TEXT NOT NULL DEFAULT 'alert'
+        CHECK (delivery IN ('alert', 'in-app'));
+      ALTER TABLE thought_reminders ADD COLUMN discreet INTEGER NOT NULL DEFAULT 0
+        CHECK (discreet IN (0, 1));
     `));
   }
 

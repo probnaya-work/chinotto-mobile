@@ -54,13 +54,17 @@ import type { Reminders, ThoughtReminder } from './reminders';
 import { reminderDate, reminderTime } from './reminderTime';
 import { ReminderSheet, reminderDraft, type ReminderDraft } from './ui/ReminderSheet';
 
+export type ReminderOpenRequest = { id: string; source: 'notification' | 'scheduled' };
+
 export type RecordAppProps = {
   store: RecordStore;
   privacy?: { locked: boolean; busy: boolean; error: string | null; onUnlock: () => void };
   bridge: RecordBridge;
   reminders?: Reminders;
-  reminderRequest?: string | null;
-  onReminderHandled?: (id: string) => void;
+  remindersChanged?: number;
+  reminderRequest?: ReminderOpenRequest | null;
+  onReminderHandled?: (request: ReminderOpenRequest, consume: boolean) => void;
+  onReturnToScheduled?: () => void;
   /** False on a warm resume, so the lockup plays once per cold start and no more. */
   coldStart: boolean;
   onOpenSettings: () => void;
@@ -119,6 +123,7 @@ export function RecordApp(props: RecordAppProps) {
 
   const { reminders, reminderRequest, onReminderHandled } = props;
   const [editor, setEditor] = useState<ReminderDraft | null>(null);
+  const [editingFromScheduled, setEditingFromScheduled] = useState(false);
   const [scheduledReminder, setScheduledReminder] = useState<ThoughtReminder | null>(null);
   const [reminderNotice, setReminderNotice] = useState<{ text: string; fragmentId: string | null } | null>(null);
   const [reminderArrival, setReminderArrival] = useState<string | null>(null);
@@ -136,24 +141,32 @@ export function RecordApp(props: RecordAppProps) {
       () => { if (current) setScheduledReminder(null); },
     );
     return () => { current = false; };
-  }, [focusedId, locked, reminders]);
+  }, [focusedId, locked, reminders, props.remindersChanged]);
 
   useEffect(() => {
     if (!reminders || !reminderRequest || !record.ready || locked || isAuthoring || editorOpen) return;
     let current = true;
     void (async () => {
       try {
-        const id = await reminders.resolve(reminderRequest);
-        const thought = id ? await props.store.getFragment(id) : null;
+        const reminder = await reminders.resolve(reminderRequest.id);
+        const thought = reminder ? await props.store.getFragment(reminder.fragmentId) : null;
         if (!current) return;
-        if (thought && thought.removedAt == null) {
+        const fromNotification = reminderRequest.source === 'notification';
+        const dueInApp = reminder?.delivery === 'in-app' && reminder.at <= Date.now();
+        if (thought && thought.removedAt == null && reminder) {
           openExisting(thought);
-          setReminderArrival(thought.id);
           setReminderNotice(null);
+          const manage = !fromNotification && !dueInApp;
+          setReminderArrival(manage ? null : thought.id);
+          if (manage) {
+            setScheduledReminder(reminder);
+            setEditingFromScheduled(true);
+            setEditor(reminderDraft(thought.id, reminder));
+          }
         } else {
           setReminderNotice({ text: 'this reminder is no longer available', fragmentId: null });
         }
-        onReminderHandled?.(reminderRequest);
+        onReminderHandled?.(reminderRequest, fromNotification || dueInApp);
       } catch (error) {
         if (current && !(error instanceof RecordLocked)) {
           setReminderNotice({ text: 'could not open this reminder', fragmentId: null });
@@ -164,9 +177,17 @@ export function RecordApp(props: RecordAppProps) {
   }, [editorOpen, isAuthoring, locked, onReminderHandled, openExisting, props.store, record.ready, reminderRequest, reminders]);
 
 
+  const closeReminder = () => {
+    setEditor(null);
+    if (!editingFromScheduled) return;
+    setEditingFromScheduled(false);
+    record.setFocusId(null);
+    props.onReturnToScheduled?.();
+  };
+
   if (props.backRef) {
     props.backRef.current = () => {
-      if (editorOpen) { setEditor(null); return true; }
+      if (editorOpen) { closeReminder(); return true; }
       const step = recordBackStep({
         yearsOpen: record.yearsOpen,
         focusOpen: Boolean(record.focus),
@@ -713,11 +734,11 @@ export function RecordApp(props: RecordAppProps) {
           draft={editor}
           change={setEditor}
           reminders={reminders}
-          close={() => setEditor(null)}
+          close={closeReminder}
           done={(saved, notice) => {
             setScheduledReminder(saved);
             setReminderNotice(notice ? { text: notice, fragmentId: editor.fragmentId } : null);
-            setEditor(null);
+            closeReminder();
           }}
           openSettings={props.voice.openSystemSettings}
         />

@@ -1282,7 +1282,7 @@ describe('thought reminders through the reader', () => {
     let open = false;
     const store = protectRecordStore(h.store, () => open);
     const privacy = { locked: true, busy: false, error: null, onUnlock: jest.fn() };
-    const reminderRequest = saved.reminder.id;
+    const reminderRequest = { id: saved.reminder.id, source: 'notification' as const };
     const view = await mount(h, { store, privacy, reminders, reminderRequest, onReminderHandled });
     fireEvent.changeText(screen.getByLabelText('capture'), 'my unfinished thought');
     expect(screen.queryByText(thought.body)).toBeNull();
@@ -1294,9 +1294,55 @@ describe('thought reminders through the reader', () => {
         reminderRequest={reminderRequest} onReminderHandled={onReminderHandled} privacy={{ ...privacy, locked: false }} />);
     });
     expect(screen.getByText('a reminder you set')).toBeTruthy();
-    expect(onReminderHandled).toHaveBeenCalledWith(reminderRequest);
+    expect(onReminderHandled).toHaveBeenCalledWith(reminderRequest, true);
     expect(screen.getByLabelText('capture').props.value).toBe('my unfinished thought');
     view.unmount();
     h.db.close();
   });
+
+  it('manages an upcoming reminder from Settings, then returns to the list without consuming it', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const thought = await h.store.capture({ body: 'revise the reminder for this thought' });
+    const ios = testReminderNotifications();
+    const reminders = createReminders(h.db, ios.notifications, () => 'fixture');
+    const saved = await reminders.save(thought.id, T0 + 600_000);
+    const reminderRequest = { id: saved.reminder.id, source: 'scheduled' as const };
+    const onReminderHandled = jest.fn();
+    const onReturnToScheduled = jest.fn();
+    const view = await mount(h, { reminders, reminderRequest, onReminderHandled, onReturnToScheduled });
+    try {
+      expect(screen.getByRole('button', { name: /change time/ })).toBeTruthy();
+      expect(await reminders.get(thought.id)).toEqual(saved.reminder);
+      expect(onReminderHandled).toHaveBeenCalledWith(reminderRequest, false);
+      // The parent clears the command once it has opened the matching overlay.
+      await act(async () => {
+        view.rerender(<RecordApp {...defaults} store={h.store} bridge={h.bridge}
+          reminders={reminders} onReturnToScheduled={onReturnToScheduled} />);
+      });
+      fireEvent.press(screen.getByRole('button', { name: 'close' }));
+      expect(onReturnToScheduled).toHaveBeenCalledTimes(1);
+      expect(ios.armed.get(saved.reminder.id)).toBe(saved.reminder.at);
+    } finally { view.unmount(); h.db.close(); }
+  });
+
+  it('lets someone keep a chosen time inside the app when alerts are denied', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const thought = await h.store.capture({ body: 'an in-app reminder' });
+    const ios = testReminderNotifications('denied');
+    const reminders = createReminders(h.db, ios.notifications, () => 'fixture');
+    const view = await mount(h, { reminders });
+    try {
+      fireEvent.press(screen.getByText(thought.body));
+      fireEvent.press(screen.getByText(thought.body));
+      await act(async () => { fireEvent.press(screen.getByRole('button', { name: 'remind me' })); });
+      await act(async () => { fireEvent.press(screen.getByRole('button', { name: 'set reminder' })); });
+      await act(async () => { fireEvent.press(screen.getByRole('button', { name: 'keep in chinotto' })); });
+      expect((await reminders.get(thought.id))?.delivery).toBe('in-app');
+      expect(screen.getByText('saved in scheduled reminders · no alert')).toBeTruthy();
+      expect(ios.notifications.schedule).not.toHaveBeenCalled();
+    } finally { view.unmount(); h.db.close(); }
+  });
+
 });

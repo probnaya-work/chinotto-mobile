@@ -5,8 +5,7 @@
  * quiet index rather than a system settings list: full-width actions make it usable, while
  * the privacy and Chinotto sections keep the record's more editorial rhythm.
  *
- * Two sub-pages push in over it and come back with `‹ edge`: the manifesto, and deleting
- * the cloud account.
+ * Sub-pages keep the same field and return to their containing settings surface.
  *
  * Export is deliberately user-initiated and sits with the Record, not routine capture.
  */
@@ -21,12 +20,14 @@ import { capabilitiesFor, type PlatformCapabilities } from '../platform';
 import { face, type } from './type';
 
 export type IconChoice = 'dark' | 'light';
-export type SettingsPage = 'root' | 'manifesto' | 'delete';
+export type SettingsPage = 'root' | 'manifesto' | 'delete' | 'notifications' | 'scheduled';
 
 export type SettingsProps = {
   page: SettingsPage;
   onClose: () => void;
   onBack: () => void;
+  onOpenNotifications?: () => void;
+  notificationContent?: React.ReactNode;
 
   /** `on · this iphone and aleks's macbook.` — what is true, in a sentence. */
   syncLine: string;
@@ -78,12 +79,12 @@ export function Settings(props: SettingsProps) {
   const { ink, agency, SURFACE } = useRecordTheme();
 
   const can = props.capabilities ?? capabilitiesFor(Platform.OS);
-  const head =
-    props.page === 'manifesto'
-      ? 'why chinotto'
-      : props.page === 'delete'
-        ? 'account'
-        : `this ${can.deviceNoun}`;
+  const isNotifications = props.page === 'notifications' || props.page === 'scheduled';
+  const headings: Partial<Record<SettingsPage, string>> = {
+    manifesto: 'why chinotto', delete: 'account', notifications: 'this iphone', scheduled: 'notifications',
+  };
+  const head = headings[props.page] ?? `this ${can.deviceNoun}`;
+  const backLabel = props.page === 'scheduled' ? '‹ notifications' : isNotifications ? '‹ settings' : '‹ edge';
 
   return (
     <View
@@ -112,7 +113,7 @@ export function Settings(props: SettingsProps) {
           accessibilityRole="button"
           hitSlop={12}
         >
-          <Text style={type({ size: 14, width: 90, color: ink.far })}>‹ edge</Text>
+          <Text style={type({ size: 14, width: 90, color: ink.far })}>{backLabel}</Text>
         </Pressable>
         <View
           style={{
@@ -132,6 +133,7 @@ export function Settings(props: SettingsProps) {
       {props.page === 'root' ? <Root {...props} capabilities={can} /> : null}
       {props.page === 'manifesto' ? <Manifesto paragraphs={can.manifesto} /> : null}
       {props.page === 'delete' ? <DeleteAccount {...props} /> : null}
+      {isNotifications ? props.notificationContent : null}
     </View>
   );
 }
@@ -174,6 +176,14 @@ function Root(props: SettingsProps & { capabilities: PlatformCapabilities }) {
             action={props.micDenied ? 'settings ›' : undefined}
             status={props.micDenied ? undefined : microphoneStatus(props.micLine)}
             onPress={props.micDenied ? props.onOpenSystemSettings : undefined}
+          />
+        ) : null}
+        {props.onOpenNotifications ? (
+          <SettingRow
+            title="notifications"
+            detail="alerts and scheduled reminders on this iphone"
+            action="open ›"
+            onPress={props.onOpenNotifications}
           />
         ) : null}
         {can.voice ? (
@@ -495,7 +505,7 @@ function microphoneStatus(line: string): string | undefined {
   return undefined;
 }
 
-function SettingRow({
+export function SettingRow({
   title,
   detail,
   action,
@@ -505,6 +515,8 @@ function SettingRow({
   quietAction = false,
   accessibilityRole = 'button',
   checked,
+  disabled = false,
+  accessibilityHint,
 }: {
   title: string;
   detail?: string;
@@ -515,6 +527,8 @@ function SettingRow({
   quietAction?: boolean;
   accessibilityRole?: 'button' | 'switch';
   checked?: boolean;
+  disabled?: boolean;
+  accessibilityHint?: string;
 }) {
   const { ink, agency, rule } = useRecordTheme();
 
@@ -560,17 +574,19 @@ function SettingRow({
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled}
       accessibilityRole={accessibilityRole}
       accessibilityLabel={`${title}${action ? `, ${action}` : ''}`}
-      accessibilityState={checked === undefined ? undefined : { checked }}
-      style={({ pressed }) => [style, { opacity: pressed ? 0.62 : 1 }]}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={checked !== undefined || disabled ? { checked, disabled } : undefined}
+      style={({ pressed }) => [style, { opacity: pressed || disabled ? 0.62 : 1 }]}
     >
       {content}
     </Pressable>
   );
 }
 
-function Section({
+export function Section({
   label,
   gap = 8,
   children,

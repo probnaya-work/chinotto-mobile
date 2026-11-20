@@ -15,17 +15,20 @@ function reminderId(response: Notifications.NotificationResponse | null) {
     ? id : null;
 }
 
+const DISCREET_COPY = 'Open Chinotto';
+
 export const nativeReminders: ReminderNotifications = {
   permission: async () => status(await Notifications.getPermissionsAsync()),
   requestPermission: async () => status(await Notifications.requestPermissionsAsync({
     ios: { allowAlert: true, allowBadge: false, allowSound: false },
   })),
   pending: async () => (await Notifications.getAllScheduledNotificationsAsync())
-    .map(({ identifier }) => identifier).filter((id) => id.startsWith(REMINDER_PREFIX)),
-  async schedule({ id, at }) {
+    .filter(({ identifier }) => identifier.startsWith(REMINDER_PREFIX))
+    .map(({ identifier, content }) => ({ id: identifier, discreet: content.body === DISCREET_COPY })),
+  async schedule({ id, at, discreet }) {
     await Notifications.scheduleNotificationAsync({
       identifier: id,
-      content: { title: 'Chinotto', body: 'A thought you asked to revisit.' },
+      content: { title: 'Chinotto', body: discreet ? DISCREET_COPY : 'A thought you asked to revisit.' },
       trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: at },
     });
   },

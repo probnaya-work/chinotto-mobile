@@ -25,13 +25,14 @@ export type AppBackState = {
   settingsPage: SettingsPage | null;
 };
 
-export type AppBackStep = 'close-sync' | 'close-share' | 'close-widget' | 'settings-root' | 'close-settings';
+export type AppBackStep = 'close-sync' | 'close-share' | 'close-widget' | 'settings-root' | 'settings-notifications' | 'close-settings';
 
 export function appBackStep(s: AppBackState): AppBackStep | null {
   if (s.syncOpen) return 'close-sync';
   if (s.share) return 'close-share';
   if (s.surface === 'widget') return 'close-widget';
   if (s.surface === 'settings') {
+    if (s.settingsPage === 'scheduled') return 'settings-notifications';
     return s.settingsPage && s.settingsPage !== 'root' ? 'settings-root' : 'close-settings';
   }
   return null;

@@ -27,12 +27,16 @@ afterEach(() => jest.clearAllMocks());
 
 it('schedules one local, discreet alert and clears both pending and visible copies', async () => {
   const at = new Date('2026-11-21T09:00:00.000Z').getTime();
-  await nativeReminders.schedule({ id, at });
+  await nativeReminders.schedule({ id, at, discreet: false });
   expect(native.scheduleNotificationAsync).toHaveBeenCalledWith({
     identifier: id,
     content: { title: 'Chinotto', body: 'A thought you asked to revisit.' },
     trigger: { type: 'date', date: at },
   });
+  await nativeReminders.schedule({ id, at, discreet: true });
+  expect(native.scheduleNotificationAsync).toHaveBeenLastCalledWith(expect.objectContaining({
+    content: { title: 'Chinotto', body: 'Open Chinotto' },
+  }));
   await nativeReminders.cancel(id);
   expect(native.cancelScheduledNotificationAsync).toHaveBeenCalledWith(id);
   expect(native.dismissNotificationAsync).toHaveBeenCalledWith(id);

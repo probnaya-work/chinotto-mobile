@@ -24,11 +24,12 @@ import { AppState, BackHandler, Linking, Platform, View } from 'react-native';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 
-import { RecordApp } from './RecordApp';
+import { RecordApp, type ReminderOpenRequest } from './RecordApp';
 import { protectRecordStore, type RecordPrivacy } from './privacy';
 import { usePrivacy } from './usePrivacy';
 import type { VoiceCaptureDisplayState } from './ui/Edge';
 import { Settings, settingsCopy, type SettingsPage } from './ui/Settings';
+import { NotificationSettings, ScheduledReminders } from './ui/NotificationSettings';
 import { ShareSurface, metBeforeLabel } from './ui/ShareSurface';
 import { SyncSheet } from './ui/SyncSheet';
 import { ForcedUpdate, WidgetPreview } from './ui/WidgetPreview';
@@ -65,7 +66,7 @@ import { urlKey } from './urlKey';
 import { appBackStep } from './back';
 import { capabilitiesFor, type PlatformCapabilities } from './platform';
 import type { RecordDb } from './db';
-import { createReminders, type ReminderNotifications } from './reminders';
+import { createReminders, type ReminderNotifications, type Reminders } from './reminders';
 
 export type Services = {
   db: RecordDb;
@@ -139,22 +140,23 @@ export function ChinottoApp({ services }: { services: Services }) {
   const reminders = useMemo(() => notifications
     ? createReminders(services.db, notifications, services.newId) : undefined,
     [notifications, services.db, services.newId]);
-  const [reminderRequest, setReminderRequest] = useState<string | null>(null);
+  const [reminderRequest, setReminderRequest] = useState<ReminderOpenRequest | null>(null);
+  const [remindersChanged, setRemindersChanged] = useState(0);
   useEffect(() => {
     if (!notifications || !reminders) return;
     const refresh = () => { void reminders.reconcile().catch(() => {}); };
     const unsubscribe = notifications.subscribe((id) => {
-      setReminderRequest(id);
+      setReminderRequest({ id, source: 'notification' });
       setSurface({ kind: 'record' });
     });
     refresh();
     const activity = AppState.addEventListener('change', (state) => { if (state === 'active') refresh(); });
     return () => { unsubscribe(); activity.remove(); };
   }, [notifications, reminders]);
-  const reminderHandled = useCallback((id: string) => {
-    setReminderRequest((current) => current === id ? null : current);
-    notifications?.acknowledge(id);
-    void reminders?.consume(id).catch(() => {});
+  const reminderHandled = useCallback((request: ReminderOpenRequest, consume: boolean) => {
+    setReminderRequest((current) => current === request ? null : current);
+    if (request.source === 'notification') notifications?.acknowledge(request.id);
+    if (consume) void reminders?.consume(request.id).then(() => setRemindersChanged((n) => n + 1)).catch(() => {});
   }, [notifications, reminders]);
 
   const [shareMetBefore, setShareMetBefore] = useState('first time here');
@@ -691,6 +693,9 @@ export function ChinottoApp({ services }: { services: Services }) {
       case 'close-widget':
         setSurface({ kind: 'settings', page: 'root' });
         return true;
+      case 'settings-notifications':
+        setSurface({ kind: 'settings', page: 'notifications' });
+        return true;
       case 'settings-root':
         setSurface({ kind: 'settings', page: 'root' });
         setDeleteArmed(false);
@@ -728,8 +733,10 @@ export function ChinottoApp({ services }: { services: Services }) {
           onUnlock: () => void services.privacy?.request('unlock') }}
         bridge={bridge}
         reminders={reminders}
+        remindersChanged={remindersChanged}
         reminderRequest={surface.kind === 'record' && !share && !sync.open ? reminderRequest : null}
         onReminderHandled={reminderHandled}
+        onReturnToScheduled={() => setSurface({ kind: 'settings', page: 'scheduled' })}
         coldStart={coldStart && fontsReady}
         onOpenSettings={() => setSurface({ kind: 'settings', page: 'root' })}
         voice={{
@@ -776,6 +783,12 @@ export function ChinottoApp({ services }: { services: Services }) {
           onOpenSync={openSync}
           sync={sync}
           services={services}
+          reminders={reminders}
+          recordStore={surfaceStore}
+          onManageReminder={(id) => {
+            setReminderRequest({ id, source: 'scheduled' });
+            setSurface({ kind: 'record' });
+          }}
           capabilities={capabilities}
           protection={protection}
           privacy={services.privacy}
@@ -894,6 +907,9 @@ function SettingsSurface(props: {
   onOpenSync: () => void;
   sync: ReturnType<typeof useSyncSurface>;
   services: Services;
+  reminders?: Reminders;
+  recordStore: RecordStore;
+  onManageReminder: (id: string) => void;
   capabilities: PlatformCapabilities;
   protection: ReturnType<typeof usePrivacy>;
   privacy?: RecordPrivacy;
@@ -960,9 +976,26 @@ function SettingsSurface(props: {
       page={props.page}
       onClose={props.onClose}
       onBack={() => {
-        props.setPage('root');
+        props.setPage(props.page === 'scheduled' ? 'notifications' : 'root');
         props.setDeleteArmed(false);
       }}
+      onOpenNotifications={props.reminders ? () => props.setPage('notifications') : undefined}
+      notificationContent={props.reminders && (props.page === 'scheduled' ? (
+        <ScheduledReminders
+          reminders={props.reminders}
+          store={props.recordStore}
+          readAllowed={props.protection.ready && !props.protection.locked}
+          unlockBusy={props.protection.busy}
+          onUnlock={() => void props.privacy?.request('unlock')}
+          onOpen={props.onManageReminder}
+        />
+      ) : props.page === 'notifications' ? (
+        <NotificationSettings
+          reminders={props.reminders}
+          openSystemSettings={props.services.openSystemSettings}
+          openScheduled={() => props.setPage('scheduled')}
+        />
+      ) : null)}
       syncLine={settingsCopy.sync({
         on: props.sync.state === 'on',
         offline: props.sync.offline,
