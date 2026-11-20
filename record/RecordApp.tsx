@@ -49,11 +49,18 @@ import { dayLabel, fmtTime, monthLabel } from './model/time';
 import type { RecordBridge } from './bridge';
 import type { AudioPlaybackPort } from './playback';
 import type { RecordStore } from './store';
+import { RecordLocked } from './privacy';
+import type { Reminders, ThoughtReminder } from './reminders';
+import { reminderDate, reminderTime } from './reminderTime';
+import { ReminderSheet, reminderDraft, type ReminderDraft } from './ui/ReminderSheet';
 
 export type RecordAppProps = {
   store: RecordStore;
   privacy?: { locked: boolean; busy: boolean; error: string | null; onUnlock: () => void };
   bridge: RecordBridge;
+  reminders?: Reminders;
+  reminderRequest?: string | null;
+  onReminderHandled?: (id: string) => void;
   /** False on a warm resume, so the lockup plays once per cold start and no more. */
   coldStart: boolean;
   onOpenSettings: () => void;
@@ -110,8 +117,56 @@ export function RecordApp(props: RecordAppProps) {
   const record = useRecord(props.store, props.bridge, undefined, props.audio, !props.privacy?.locked);
   const capabilities = props.capabilities ?? capabilitiesFor(Platform.OS);
 
+  const { reminders, reminderRequest, onReminderHandled } = props;
+  const [editor, setEditor] = useState<ReminderDraft | null>(null);
+  const [scheduledReminder, setScheduledReminder] = useState<ThoughtReminder | null>(null);
+  const [reminderNotice, setReminderNotice] = useState<{ text: string; fragmentId: string | null } | null>(null);
+  const [reminderArrival, setReminderArrival] = useState<string | null>(null);
+  const focusedId = record.focus?.id;
+  const locked = props.privacy?.locked ?? false;
+  const openExisting = record.openExisting;
+  const isAuthoring = Boolean(record.editingId || record.continuing || props.voice.state);
+  const editorOpen = Boolean(editor && editor.fragmentId === focusedId);
+
+  useEffect(() => {
+    if (!reminders || !focusedId || locked) return;
+    let current = true;
+    void reminders.get(focusedId).then(
+      (reminder) => { if (current) setScheduledReminder(reminder); },
+      () => { if (current) setScheduledReminder(null); },
+    );
+    return () => { current = false; };
+  }, [focusedId, locked, reminders]);
+
+  useEffect(() => {
+    if (!reminders || !reminderRequest || !record.ready || locked || isAuthoring || editorOpen) return;
+    let current = true;
+    void (async () => {
+      try {
+        const id = await reminders.resolve(reminderRequest);
+        const thought = id ? await props.store.getFragment(id) : null;
+        if (!current) return;
+        if (thought && thought.removedAt == null) {
+          openExisting(thought);
+          setReminderArrival(thought.id);
+          setReminderNotice(null);
+        } else {
+          setReminderNotice({ text: 'this reminder is no longer available', fragmentId: null });
+        }
+        onReminderHandled?.(reminderRequest);
+      } catch (error) {
+        if (current && !(error instanceof RecordLocked)) {
+          setReminderNotice({ text: 'could not open this reminder', fragmentId: null });
+        }
+      }
+    })();
+    return () => { current = false; };
+  }, [editorOpen, isAuthoring, locked, onReminderHandled, openExisting, props.store, record.ready, reminderRequest, reminders]);
+
+
   if (props.backRef) {
     props.backRef.current = () => {
+      if (editorOpen) { setEditor(null); return true; }
       const step = recordBackStep({
         yearsOpen: record.yearsOpen,
         focusOpen: Boolean(record.focus),
@@ -132,6 +187,7 @@ export function RecordApp(props: RecordAppProps) {
           record.stopContinue();
           return true;
         case 'close-focus':
+          setReminderArrival(null);
           record.setFocusId(null);
           return true;
         case 'leave-find':
@@ -342,6 +398,9 @@ export function RecordApp(props: RecordAppProps) {
           : undefined,
     });
   }
+  if (reminderNotice && reminderNotice.fragmentId === null) {
+    notices.push({ kind: 'reminder', text: reminderNotice.text });
+  }
   if (props.voiceIssue) {
     notices.push({ kind: 'mic', text: props.voiceIssue });
   }
@@ -386,6 +445,17 @@ export function RecordApp(props: RecordAppProps) {
   useEffect(() => {
     if (record.focusId) dismissKeyboard();
   }, [record.focusId]);
+
+  const removeMoment = async (moment: Material) => {
+    await record.remove(moment);
+    void reminders?.reconcile().catch(() => {});
+  };
+
+  useEffect(() => {
+    if (reminderNotice?.fragmentId !== null) return;
+    const timer = setTimeout(() => setReminderNotice(null), 8000);
+    return () => clearTimeout(timer);
+  }, [reminderNotice]);
 
   const tapMoment = useCallback(
     (m: Material, tier: number) => {
@@ -488,7 +558,7 @@ export function RecordApp(props: RecordAppProps) {
         }}
         onHold={record.toggleHold}
         onCorrect={record.startCorrect}
-        onRemove={record.remove}
+        onRemove={removeMoment}
         onAcceptContinuation={record.acceptOffer}
         onRejectContinuation={record.rejectOffer}
         onOpenYears={() => record.setYearsOpen(true)}
@@ -603,7 +673,21 @@ export function RecordApp(props: RecordAppProps) {
           onTogglePrevious={record.togglePrevious}
           heldIds={record.heldIds}
           onHold={record.toggleHold}
-          onRemove={record.remove}
+          onRemove={removeMoment}
+          fromReminder={record.focus.id === reminderArrival}
+          reminder={reminders ? {
+            label: scheduledReminder?.fragmentId === record.focus.id
+              ? `reminder · ${reminderDate(scheduledReminder.at)} · ${reminderTime(scheduledReminder.at)}` : 'remind me',
+            notice: reminderNotice?.fragmentId === record.focus.id ? reminderNotice.text : null,
+            onOpen: () => {
+              if (!focusedId) return;
+              const id = focusedId;
+              setReminderNotice(null);
+              void reminders.get(id).then((saved) => setEditor(reminderDraft(id, saved)), () => {
+                setReminderNotice({ text: 'could not read this reminder', fragmentId: id });
+              });
+            },
+          } : undefined}
           playingId={record.playingId}
           onPlay={(m) => void record.togglePlay(m)}
           traces={record.focusTraces}
@@ -617,9 +701,25 @@ export function RecordApp(props: RecordAppProps) {
           onSubmitContinue={record.submitContinue}
           onClose={() => {
             record.setFocusId(null);
+            setReminderArrival(null);
             record.stopContinue();
             record.cancelCorrection();
           }}
+        />
+      ) : null}
+
+      {editor && editorOpen && reminders ? (
+        <ReminderSheet
+          draft={editor}
+          change={setEditor}
+          reminders={reminders}
+          close={() => setEditor(null)}
+          done={(saved, notice) => {
+            setScheduledReminder(saved);
+            setReminderNotice(notice ? { text: notice, fragmentId: editor.fragmentId } : null);
+            setEditor(null);
+          }}
+          openSettings={props.voice.openSystemSettings}
         />
       ) : null}
 

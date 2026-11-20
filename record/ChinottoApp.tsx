@@ -65,10 +65,12 @@ import { urlKey } from './urlKey';
 import { appBackStep } from './back';
 import { capabilitiesFor, type PlatformCapabilities } from './platform';
 import type { RecordDb } from './db';
+import { createReminders, type ReminderNotifications } from './reminders';
 
 export type Services = {
   db: RecordDb;
   privacy?: RecordPrivacy;
+  reminderNotifications?: ReminderNotifications;
   voiceEngine: VoiceEngine;
   syncPorts: SyncPorts;
   newId: () => string;
@@ -133,6 +135,28 @@ export function ChinottoApp({ services }: { services: Services }) {
   const [surface, setSurface] = useState<Surface>({ kind: 'record' });
   const [share, setShare] = useState<ShareIntake | null>(null);
   const [shareWords, setShareWords] = useState('');
+  const notifications = services.reminderNotifications;
+  const reminders = useMemo(() => notifications
+    ? createReminders(services.db, notifications, services.newId) : undefined,
+    [notifications, services.db, services.newId]);
+  const [reminderRequest, setReminderRequest] = useState<string | null>(null);
+  useEffect(() => {
+    if (!notifications || !reminders) return;
+    const refresh = () => { void reminders.reconcile().catch(() => {}); };
+    const unsubscribe = notifications.subscribe((id) => {
+      setReminderRequest(id);
+      setSurface({ kind: 'record' });
+    });
+    refresh();
+    const activity = AppState.addEventListener('change', (state) => { if (state === 'active') refresh(); });
+    return () => { unsubscribe(); activity.remove(); };
+  }, [notifications, reminders]);
+  const reminderHandled = useCallback((id: string) => {
+    setReminderRequest((current) => current === id ? null : current);
+    notifications?.acknowledge(id);
+    void reminders?.consume(id).catch(() => {});
+  }, [notifications, reminders]);
+
   const [shareMetBefore, setShareMetBefore] = useState('first time here');
 
   /**
@@ -422,6 +446,7 @@ export function ChinottoApp({ services }: { services: Services }) {
     const notifier = createDebouncedRemoteIngestNotifier(() => {
       void (async () => {
         await bridge.projectCatchUp();
+        void reminders?.reconcile().catch(() => {});
         // The notifier also includes metadata changes already applied to the Record.
         setChangedAt((n) => n + 1);
       })();
@@ -439,7 +464,7 @@ export function ChinottoApp({ services }: { services: Services }) {
       stop?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [services.subscriptionLoaded, sync.open, bridge]);
+  }, [services.subscriptionLoaded, sync.open, bridge, reminders]);
 
   /**
    * The home widget shows the last few thoughts, and reads them from the legacy table the
@@ -702,6 +727,9 @@ export function ChinottoApp({ services }: { services: Services }) {
         privacy={{ locked: !readAllowed, busy: protection.busy, error: protection.error,
           onUnlock: () => void services.privacy?.request('unlock') }}
         bridge={bridge}
+        reminders={reminders}
+        reminderRequest={surface.kind === 'record' && !share && !sync.open ? reminderRequest : null}
+        onReminderHandled={reminderHandled}
         coldStart={coldStart && fontsReady}
         onOpenSettings={() => setSurface({ kind: 'settings', page: 'root' })}
         voice={{

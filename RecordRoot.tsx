@@ -91,6 +91,7 @@ import { insertPendingSyncItem, removePendingSyncItemsForEntry } from './sync/sy
 import { enqueueSyncTombstoneWithDb } from './sync/tombstoneOutbox';
 import { addFirestoreIngestSuppressionWithDb } from './sync/ingestSuppression';
 import type { RecordDb } from './record/db';
+import { nativeReminders } from './record/nativeReminders';
 
 const APP_VERSION = getRuntimeAppVersion();
 
@@ -376,6 +377,7 @@ function RecordRootContent() {
     return {
       db: asRecordDb,
       privacy,
+      reminderNotifications: nativeReminders,
       voiceEngine,
       newId: randomUUID,
       deviceName: () => deviceName(),

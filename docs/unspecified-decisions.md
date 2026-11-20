@@ -490,3 +490,43 @@ There is no minimum display time, repeated launch lockup or added authentication
 native cover still conceals the entire Record synchronously and leaves only after the
 existing foreground/epoch render acknowledgement. No private preview or text is drawn into
 it. Cancellation ends the indicator immediately and preserves the capture draft for retry.
+
+## One-shot thought reminders
+
+Phase 1 adds a local reminder to an open thought on iPhone. The reader shows
+`remind me` or the stored time. The existing bottom-sheet geometry puts the
+selected time first, with the date and device scope beside it. Presets are one
+hour from opening, 09:00 tomorrow, and 09:00 in seven calendar days. Custom time
+uses the native date and time picker. Postpone moves the selected time by one
+local calendar day. Once scheduled, the intent stores the chosen instant.
+Travel displays that instant in the current device time zone.
+
+The first request follows the chosen date. Denial offers iPhone Settings and
+preserves the choice through that visit in the current app session. The first
+phase keeps permission and management contextual. An in-app fallback and the
+global notification preferences remain a separate phase. The app makes no
+promises about delivery while system alerts are off, in Focus or in a scheduled
+summary. Foreground delivery leaves the active Record alone.
+
+Schema v10 adds device-local scheduling metadata only. Notification identifiers
+are opaque and revision-specific. The OS sees the app name, generic body and
+trigger, with no thought text. The existing device protection gates following a
+tap. Cold and warm entry preserve capture text. A tap during a correction,
+continuation, share, or sync sheet waits for that overlay to close.
+
+One future intent per thought is reconciled against pending OS requests. Replacing
+an intent retires its old identifier; a failed cancellation prevents arming a
+second alert. Failed scheduling retains the time with an unavailable status and
+can be retried before it passes. Past times are never rescheduled. Removing a thought
+retires its alert and its intent; bringing back the thought requires deliberately
+setting another reminder. Reminders are excluded from sync and Record archives.
+
+The iOS port uses Expo Notifications 55.0.13, the version paired with this Expo
+55.0.8 checkout, solely for local alert
+permission, scheduling, cancellation and response handling. Android excludes
+the notifications module and its application helper from native autolinking. The SwiftUI date editor uses the already linked
+Expo UI module. On Mac, run `pod install` from `ios/` with the workspace's
+existing CocoaPods toolchain to regenerate `Podfile.lock` for ExpoNotifications and ExpoApplication,
+then build a development binary. Verify actual foreground/background delivery,
+tap from cold and warm starts, permissions disabled in Settings, Face ID
+cancellation and retry, VoiceOver, and the compact date picker in both appearances.

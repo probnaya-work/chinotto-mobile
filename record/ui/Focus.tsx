@@ -80,6 +80,8 @@ export type FocusProps = {
   onStartContinue: () => void;
   onSubmitContinue: () => void;
 
+  reminder?: { label: string; onOpen: () => void; notice: string | null };
+  fromReminder?: boolean;
   onClose: () => void;
 };
 
@@ -150,6 +152,11 @@ export function Focus(props: FocusProps) {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
       >
+        {props.fromReminder ? (
+          <Text style={[type({ size: 12, width: 90, color: ink.meta }), { marginBottom: 16 }]}>
+            a reminder you set
+          </Text>
+        ) : null}
         <View style={{ position: 'relative', paddingLeft: 18, gap: 22 }}>
           {isLine ? (
             <View
@@ -494,6 +501,24 @@ function Moment({
             </View>
           </Pressable>
 
+          {isFocus && props.reminder && !props.continuing ? (
+            <View style={{ alignItems: 'flex-start' }}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={props.reminder.onOpen}
+                style={{ minHeight: 44, minWidth: 44, justifyContent: 'center' }}
+              >
+                <Text style={type({ size: 14, width: 94, weight: agency.weight, color: agency.ink })}>
+                  {props.reminder.label}
+                </Text>
+              </Pressable>
+              {props.reminder.notice ? (
+                <Text accessibilityRole="alert" style={type({ size: 13, width: 92, color: ink.far })}>
+                  {props.reminder.notice}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
           {m.url ? (
             <Text style={[type({ size: 12, width: 90, color: ink.meta }), { marginTop: 4 }]}>
               {m.title ? `${m.domain ?? ''} · ${m.title}` : (m.domain ?? m.url)}

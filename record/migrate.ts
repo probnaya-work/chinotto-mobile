@@ -29,7 +29,7 @@ import { relabelUnconfirmedTranscripts } from './transcripts';
 import { RECORD_SYNC_SCHEMA } from './syncSchema';
 
 /** Schema version this build expects. Bump when adding a step below. */
-export const TARGET_VERSION = 9;
+export const TARGET_VERSION = 10;
 
 /**
  * The v1 schema, byte-for-byte what shipped. Owned here so the boot path and the migration
@@ -195,6 +195,17 @@ export async function migrate(db: RecordDb): Promise<MigrationReport> {
     await step(db, 9, report, async () => db.execAsync(`
       ALTER TABLE fragments ADD COLUMN legacy_continuation_offset INTEGER;
       ALTER TABLE fragments ADD COLUMN legacy_continuation_at TEXT;
+    `));
+  }
+
+  if (from < 10) {
+    await step(db, 10, report, async () => db.execAsync(`
+      CREATE TABLE thought_reminders (
+        fragment_id TEXT PRIMARY KEY NOT NULL REFERENCES fragments(id) ON DELETE CASCADE,
+        id          TEXT UNIQUE NOT NULL,
+        fire_at     INTEGER NOT NULL CHECK (fire_at > 0)
+      );
+      CREATE INDEX thought_reminders_time ON thought_reminders(fire_at);
     `));
   }
 

@@ -71,6 +71,16 @@ export function useRecord(
   const [focusId, setFocusId] = useState<string | null>(null);
   const [unfolded, setUnfolded] = useState(false);
   const [yearsOpen, setYearsOpen] = useState(false);
+  const openExisting = useCallback((moment: Material) => {
+    // A scheduled moment can be older than the normal Record window.
+    setMaterial((rows) => rows.some(({ id }) => id === moment.id)
+      ? rows.map((row) => row.id === moment.id ? moment : row)
+      : [...rows, moment].sort((a, b) => b.at - a.at));
+    setSelectedId(null);
+    setYearsOpen(false);
+    setFocusId(moment.id);
+  }, []);
+
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTextState, setEditTextState] = useState('');
@@ -583,6 +593,7 @@ export function useRecord(
     focus,
     focusId,
     setFocusId,
+    openExisting,
     line,
     focusTraces,
     unfolded,

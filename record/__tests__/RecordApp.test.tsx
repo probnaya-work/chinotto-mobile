@@ -20,6 +20,9 @@ import { RecordApp } from '../RecordApp';
 import { protectRecordStore } from '../privacy';
 import { AppearanceProvider } from '../ui/appearance';
 import { LAUNCH_HOLD } from '../ui/Launch';
+import { createReminders } from '../reminders';
+import { postponeReminder, reminderPresets, reminderTime } from '../reminderTime';
+import { testReminderNotifications } from '../__testsupport__/reminderNotifications';
 
 const T0 = new Date('2026-09-19T17:10:00.000Z').getTime();
 
@@ -1210,6 +1213,90 @@ describe('protected Record', () => {
     expect(screen.getByLabelText('capture').props.value).toBe('/private');
     fireEvent.press(screen.getByLabelText('back to capture'));
     expect(screen.getByLabelText('capture').props.value).toBe('unfinished capture, later');
+    h.db.close();
+  });
+});
+
+
+describe('thought reminders through the reader', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(T0);
+  });
+  afterEach(() => jest.useRealTimers());
+
+  it('keeps the chosen time through denial, then sets, postpones and cancels one alert', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const thought = await h.store.capture({ body: 'read this on the walk' });
+    const ios = testReminderNotifications('ask');
+    let sequence = 0;
+    const reminders = createReminders(h.db, ios.notifications, () => `fixture-${++sequence}`);
+    const view = await mount(h, { reminders });
+
+    expect(ios.notifications.requestPermission).not.toHaveBeenCalled();
+    expect(screen.queryByText('remind me')).toBeNull();
+    fireEvent.press(screen.getByText(thought.body));
+    fireEvent.press(screen.getByText(thought.body));
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: 'remind me' })); });
+    const chosen = reminderPresets(T0)[1].at;
+    expect(screen.getAllByText(reminderTime(chosen)).length).toBeGreaterThan(0);
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: 'set reminder' })); });
+    expect(screen.getByText('a reminder on this iphone')).toBeTruthy();
+    expect(ios.notifications.requestPermission).not.toHaveBeenCalled();
+    ios.setPermission('denied');
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: 'continue to system prompt' })); });
+    expect(screen.getByText('notifications are off')).toBeTruthy();
+    expect(screen.getAllByText(reminderTime(chosen)).length).toBeGreaterThan(0);
+    expect(await reminders.get(thought.id)).toBeNull();
+    fireEvent.press(screen.getByRole('button', { name: /open iPhone Settings/ }));
+    expect(defaults.voice.openSystemSettings).toHaveBeenCalled();
+
+    ios.setPermission('granted');
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: 'check and set reminder' })); });
+    expect((await reminders.get(thought.id))?.at).toBe(chosen);
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: /^reminder · / })); });
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: /postpone one day/ })); });
+    expect((await reminders.get(thought.id))?.at).toBe(postponeReminder(chosen));
+    expect(ios.armed.size).toBe(1);
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: /^reminder · / })); });
+    fireEvent.press(screen.getByRole('button', { name: 'cancel reminder ›' }));
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: 'cancel reminder' })); });
+    expect(await reminders.get(thought.id)).toBeNull();
+    expect(ios.armed.size).toBe(0);
+    expect(screen.getAllByText(thought.body).length).toBeGreaterThan(0);
+    view.unmount();
+    h.db.close();
+  });
+
+  it('waits for device protection before following the alert and retains the capture draft', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const thought = await h.store.capture({ body: 'only after unlocking' });
+    const ios = testReminderNotifications();
+    const reminders = createReminders(h.db, ios.notifications, () => 'fixture');
+    const saved = await reminders.save(thought.id, T0 + 60_000);
+    jest.setSystemTime(T0 + 120_000);
+    const resolve = jest.spyOn(reminders, 'resolve');
+    const onReminderHandled = jest.fn();
+    let open = false;
+    const store = protectRecordStore(h.store, () => open);
+    const privacy = { locked: true, busy: false, error: null, onUnlock: jest.fn() };
+    const reminderRequest = saved.reminder.id;
+    const view = await mount(h, { store, privacy, reminders, reminderRequest, onReminderHandled });
+    fireEvent.changeText(screen.getByLabelText('capture'), 'my unfinished thought');
+    expect(screen.queryByText(thought.body)).toBeNull();
+    expect(resolve).not.toHaveBeenCalled();
+
+    open = true;
+    await act(async () => {
+      view.rerender(<RecordApp {...defaults} store={store} bridge={h.bridge} reminders={reminders}
+        reminderRequest={reminderRequest} onReminderHandled={onReminderHandled} privacy={{ ...privacy, locked: false }} />);
+    });
+    expect(screen.getByText('a reminder you set')).toBeTruthy();
+    expect(onReminderHandled).toHaveBeenCalledWith(reminderRequest);
+    expect(screen.getByLabelText('capture').props.value).toBe('my unfinished thought');
+    view.unmount();
     h.db.close();
   });
 });
