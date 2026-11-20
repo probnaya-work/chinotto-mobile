@@ -8,7 +8,7 @@
  */
 
 import React from 'react';
-import { Appearance, StatusBar, StyleSheet } from 'react-native';
+import { AppState, Appearance, StatusBar, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
@@ -21,6 +21,7 @@ import { protectRecordStore } from '../privacy';
 import { AppearanceProvider } from '../ui/appearance';
 import { LAUNCH_HOLD } from '../ui/Launch';
 import { createReminders } from '../reminders';
+import { fullDate, MS_DAY } from '../model/time';
 import { postponeReminder, reminderPresets, reminderTime } from '../reminderTime';
 import { testReminderNotifications } from '../__testsupport__/reminderNotifications';
 
@@ -1052,8 +1053,16 @@ describe('visible Find', () => {
 });
 
 describe('first-week Returns on the real Record', () => {
-  beforeEach(() => { jest.useFakeTimers(); jest.setSystemTime(T0); });
-  afterEach(() => jest.useRealTimers());
+  const originalState = AppState.currentState;
+  beforeEach(() => {
+    AppState.currentState = 'active';
+    jest.useFakeTimers();
+    jest.setSystemTime(T0);
+  });
+  afterEach(() => {
+    AppState.currentState = originalState;
+    jest.useRealTimers();
+  });
   it('arrives after a relevant capture, survives remount and remembers let go', async () => {
     const h = harness(); await migrate(h.db);
     await h.store.capture({ id: 'old', body: 'a quiet place for thinking', at: T0 - 7 * 864e5 });
@@ -1071,7 +1080,7 @@ describe('first-week Returns on the real Record', () => {
     await act(async () => { await jest.advanceTimersByTimeAsync(1700); });
     expect(screen.getByText(/^back from/)).toBeTruthy();
     expect((await h.store.returnStatus()).open!.id).toBe(id);
-    await act(async () => { fireEvent.press(screen.getByLabelText('let go')); await jest.advanceTimersByTimeAsync(500); });
+    await act(async () => { fireEvent.press(screen.getByLabelText('let go')); });
     expect((await h.store.returnStatus()).open).toBeNull();
     view.unmount(); view = await mount(h);
     await act(async () => { await jest.advanceTimersByTimeAsync(1700); });
@@ -1093,6 +1102,106 @@ describe('first-week Returns on the real Record', () => {
     await act(async () => { fireEvent.changeText(screen.getByLabelText('capture'), ''); });
     await act(async () => { await jest.advanceTimersByTimeAsync(1700); });
     expect((await h.store.returnStatus()).open).not.toBeNull();
+    view.unmount(); h.db.close();
+  });
+
+  it('opens the exact old thought with dated evidence and continues it as a new moment', async () => {
+    const h = harness(); await migrate(h.db);
+    const original = 'a quiet place for thinking\n\nwith nothing to prove';
+    const oldAt = T0 - 900 * MS_DAY;
+    await h.store.capture({ id: 'old', at: oldAt, body: original });
+    await h.store.capture({ id: 'new', body: 'Looking for a Quiet place for thinking again' });
+    const view = await mount(h);
+    await act(async () => { await jest.advanceTimersByTimeAsync(1700); });
+
+    expect(screen.queryByText(/^why it came back/)).toBeNull();
+    const invitation = screen.getByRole('button', { name: /^back from .*a quiet place for thinking/ });
+    await act(async () => { fireEvent.press(invitation); });
+
+    expect(screen.getByText(new RegExp(`^${fullDate(oldAt)} ·`))).toBeTruthy();
+    expect(screen.getByText('with nothing to prove')).toBeTruthy();
+    expect(screen.getByText(`why it came back · ${fullDate(T0)}`)).toBeTruthy();
+    expect(screen.getByText(/^you wrote “Quiet place for thinking” at /)).toBeTruthy();
+    expect(screen.queryByText('a reminder you set')).toBeNull();
+    expect((await h.store.returnStatus()).open).toBeNull();
+
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: 'continue' })); });
+    const continuation = screen.getByLabelText('a new moment, dated now');
+    await act(async () => {
+      fireEvent.changeText(continuation, 'now I leave the window open');
+      fireEvent(continuation, 'submitEditing');
+    });
+    const older = await h.store.getFragment('old');
+    const later = (await h.store.loadRecord()).find((row) => row.body === 'now I leave the window open');
+    expect(older).toMatchObject({ body: original, at: oldAt });
+    expect(later?.at).toBeGreaterThan(oldAt);
+    expect(later?.lineId).toBe('old');
+    expect(screen.queryByText(/^why it came back/)).toBeNull();
+    view.unmount(); h.db.close();
+  });
+
+  it('withdraws the shown reason if its source wording changes while reading', async () => {
+    const h = harness(); await migrate(h.db);
+    await h.store.capture({ id: 'old', body: 'past the old blue bridge', at: T0 - 9 * MS_DAY });
+    await h.store.capture({ id: 'new', body: 'walk past the old blue bridge again' });
+    const view = await mount(h);
+    await act(async () => { await jest.advanceTimersByTimeAsync(1700); });
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: /^back from/ })); });
+    expect(screen.getByText(/^why it came back/)).toBeTruthy();
+
+    await h.store.correct('new', 'take the next train home');
+    await act(async () => {
+      view.rerender(<RecordApp store={h.store} bridge={h.bridge} {...defaults} changedAt={1} />);
+    });
+    expect(screen.queryByText(/^why it came back/)).toBeNull();
+    expect(screen.getByRole('button', { name: 'continue' })).toBeTruthy();
+    view.unmount(); h.db.close();
+  });
+
+  it('keeps a returned middle moment visible in a folded Line', async () => {
+    const h = harness(); await migrate(h.db);
+    const oldAt = T0 - 300 * MS_DAY;
+    const target = 'a corner that keeps the afternoon';
+    const first = await h.store.capture({ body: 'first window', at: oldAt });
+    let previous = first.id;
+    for (let i = 1; i < 9; i += 1) {
+      const moment = await h.store.continueFrom(previous, {
+        body: i === 4 ? target : `window ${i}`,
+        at: oldAt + i * MS_DAY,
+      });
+      previous = moment!.id;
+    }
+    await h.store.capture({ body: `I found ${target} again` });
+    const view = await mount(h);
+    await act(async () => { await jest.advanceTimersByTimeAsync(1700); });
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: /^back from/ })); });
+
+    expect(screen.getByText(new RegExp(`^${fullDate(oldAt + 4 * MS_DAY)} ·`))).toBeTruthy();
+    expect(screen.getByText(/^why it came back/)).toBeTruthy();
+    expect(screen.getAllByText(/^2 folded/)).toHaveLength(2);
+    await act(async () => {
+      fireEvent.press(screen.getAllByRole('button', { name: /^2 folded .* unfold$/ })[0]);
+    });
+    expect(screen.queryByText(/^2 folded/)).toBeNull();
+    view.unmount(); h.db.close();
+  });
+
+  it('waits for the foreground edge and does not surface while the capture field has focus', async () => {
+    const h = harness(); await migrate(h.db);
+    await h.store.capture({ id: 'old', body: 'the empty Sunday street', at: T0 - 40 * MS_DAY });
+    await h.store.capture({ id: 'new', body: 'back on the empty Sunday street' });
+    const view = await mount(h, { returnCovered: true });
+    await act(async () => { await jest.advanceTimersByTimeAsync(1700); });
+    expect((await h.store.returnStatus()).open).toBeNull();
+    await act(async () => {
+      view.rerender(<RecordApp store={h.store} bridge={h.bridge} {...defaults} />);
+      fireEvent(screen.getByLabelText('capture'), 'focus');
+      await jest.advanceTimersByTimeAsync(1700);
+    });
+    expect((await h.store.returnStatus()).open).toBeNull();
+    await act(async () => { fireEvent(screen.getByLabelText('capture'), 'blur'); });
+    await act(async () => { await jest.advanceTimersByTimeAsync(1700); });
+    expect(screen.getByRole('button', { name: /^back from/ })).toBeTruthy();
     view.unmount(); h.db.close();
   });
 

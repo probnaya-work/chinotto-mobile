@@ -174,7 +174,9 @@ export type SavedReturn = {
 };
 
 /** Resume the same unanswered Return only while its quoted reason still exists. */
-export function resumeReturn(saved: SavedReturn, material: Material[], now: number): RecordReturn | null {
+export function resumeReturn(
+  saved: Pick<SavedReturn, 'fragmentId' | 'reason' | 'evidence'>, material: Material[], now: number
+): RecordReturn | null {
   const old = material.find((m) => m.id === saved.fragmentId && m.removedAt === null);
   const cause = material.find((m) => m.id === saved.evidence.relatedId && m.removedAt === null);
   if (!old || !cause || hasNoWordsYet(old)) return null;
@@ -199,7 +201,11 @@ export function becauseSentence(
 ): { lead: string; quote: string | null; tail: string } {
   switch (r.reason) {
     case 'repeated_language':
-      return { lead: 'you wrote “', quote: r.phraseNew, tail: `” at ${fmtTime(r.because.at)}` };
+      return {
+        lead: hasNoWordsYet(r.because) ? 'a source had the words “' : 'you wrote “',
+        quote: r.phraseNew,
+        tail: `” at ${fmtTime(r.because.at)}`,
+      };
     case 'same_source':
       return {
         lead: `you opened ${r.evidence.detail} again`,

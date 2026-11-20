@@ -67,6 +67,7 @@ export type RecordAppProps = {
   onReturnToScheduled?: () => void;
   /** False on a warm resume, so the lockup plays once per cold start and no more. */
   coldStart: boolean;
+  returnCovered?: boolean;
   onOpenSettings: () => void;
   /** Press-to-record. Release keeps it; slide up locks it; discard leaves no moment behind. */
   voice: {
@@ -118,7 +119,10 @@ export function RecordApp(props: RecordAppProps) {
   const { ink, SURFACE } = useRecordTheme();
   useRecordStatusBar(props.privacy?.busy ?? false);
 
-  const record = useRecord(props.store, props.bridge, undefined, props.audio, !props.privacy?.locked);
+  const [active, setActive] = useState(() => !AppState.currentState || AppState.currentState === 'active');
+  const [launchVisible, setLaunchVisible] = useState(props.coldStart);
+  const returnCovered = Boolean(props.returnCovered || !active || launchVisible || props.voice.state || props.reminderRequest);
+  const record = useRecord(props.store, props.bridge, undefined, props.audio, !props.privacy?.locked, returnCovered);
   const capabilities = props.capabilities ?? capabilitiesFor(Platform.OS);
 
   const { reminders, reminderRequest, onReminderHandled } = props;
@@ -259,7 +263,6 @@ export function RecordApp(props: RecordAppProps) {
 
   const inputRef = useRef<TextInputType>(null);
 
-  const [launchVisible, setLaunchVisible] = useState(props.coldStart);
   const [launchLeaving, setLaunchLeaving] = useState(false);
   /** Once per mount, whatever the prop does afterwards. */
   const launchPlayed = useRef(props.coldStart);
@@ -308,6 +311,7 @@ export function RecordApp(props: RecordAppProps) {
     };
     void flush();
     const sub = AppState.addEventListener('change', (state) => {
+      setActive(state === 'active');
       if (state === 'active') void flush();
     });
     return () => {
@@ -590,25 +594,9 @@ export function RecordApp(props: RecordAppProps) {
               value={record.ret}
               now={record.now}
               leaving={record.retLeaving}
-              onOpen={() => {
-                record.setFocusId(record.ret!.material.id);
-                record.closeReturn('opened');
-              }}
-              onContinue={() => {
-                record.setFocusId(record.ret!.material.id);
-                record.startContinue();
-                record.closeReturn('continued');
-              }}
-              onHold={() => {
-                // `let_go` is about the Return, not about the material: the Return has
-                // been dismissed, and the holding of what it brought back is recorded in
-                // `holds`, which is where holding lives. The outcome column has no `held`
-                // and should not grow one — both facts are already written down, in the
-                // two places that mean them.
-                void record.toggleHold(record.ret!.material);
-                record.closeReturn('let_go');
-              }}
-              onLetGo={record.letGo}
+              reducedMotion={reducedMotion}
+              onOpen={record.openReturn}
+              onLetGo={() => record.letGo(!reducedMotion)}
             />
           ) : null
         }
@@ -696,6 +684,9 @@ export function RecordApp(props: RecordAppProps) {
           onHold={record.toggleHold}
           onRemove={removeMoment}
           fromReminder={record.focus.id === reminderArrival}
+          fromReturn={record.returned}
+          returnContext={record.returnContext}
+          reducedMotion={reducedMotion}
           reminder={reminders ? {
             label: scheduledReminder?.fragmentId === record.focus.id
               ? `reminder · ${reminderDate(scheduledReminder.at)} · ${reminderTime(scheduledReminder.at)}` : 'remind me',

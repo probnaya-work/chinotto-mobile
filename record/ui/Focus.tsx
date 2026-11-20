@@ -14,7 +14,7 @@
  */
 
 import { useRecordTheme } from './appearance';
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import {
   Animated,
   Easing,
@@ -23,9 +23,11 @@ import {
   Text,
   TextInput,
   View,
+  type LayoutChangeEvent,
 } from 'react-native';
 
 import { Marked } from './Marked';
+import { ReturnContext } from './ReturnBlock';
 import { useKeyboardInset } from './useKeyboardInset';
 import { VoiceChip, type VoiceChipSpec } from './VoiceChip';
 import { motion } from './tokens';
@@ -41,6 +43,7 @@ import {
 import { dayLabel, fmtDur, fullDate, fmtTime, monthLabel } from '../model/time';
 import { parts, snippet } from '../model/words';
 import { tracesHeading, type Trace } from '../model/traces';
+import type { RecordReturn } from '../model/returns';
 
 export type FocusProps = {
   focus: Material;
@@ -82,6 +85,9 @@ export type FocusProps = {
 
   reminder?: { label: string; onOpen: () => void; notice: string | null };
   fromReminder?: boolean;
+  fromReturn?: boolean;
+  returnContext?: RecordReturn | null;
+  reducedMotion?: boolean;
   onClose: () => void;
 };
 
@@ -98,21 +104,36 @@ const FOCUS_CHIP: VoiceChipSpec = {
 export function Focus(props: FocusProps) {
   const { ink, agency, rule, SURFACE, mode } = useRecordTheme();
 
-  const slide = useRef(new Animated.Value(0)).current;
+  const slide = useRef(new Animated.Value(props.reducedMotion ? 1 : 0)).current;
+  const scroll = useRef<ScrollView>(null);
+  const positionedReturn = useRef<string | null>(null);
   // Continue and correction sit on the keyboard for the same reason the edge does: they are
   // the bottom of this surface, not something floating over it.
   const keyboardInset = useKeyboardInset();
   useEffect(() => {
-    Animated.timing(slide, {
+    if (props.reducedMotion) {
+      slide.setValue(1);
+      return;
+    }
+    const animation = Animated.timing(slide, {
       toValue: 1,
       duration: motion.pushIn,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
-    }).start();
-  }, [slide]);
+    });
+    animation.start();
+    return () => animation.stop();
+  }, [slide, props.reducedMotion]);
 
   const isLine = props.line.length > 1;
-  const entries = foldLine(props.line, props.now, props.unfolded);
+  const returnId = props.fromReturn ? props.focus.id : undefined;
+  const entries = foldLine(props.line, props.now, props.unfolded, returnId);
+  const positionAtReturn = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
+    if (!returnId || positionedReturn.current === returnId || !scroll.current) return;
+    positionedReturn.current = returnId;
+    // The Moment's y is measured inside the Line, so the ScrollView keeps its normal top inset.
+    scroll.current.scrollTo({ y: nativeEvent.layout.y, animated: false });
+  }, [returnId]);
 
   return (
     <Animated.View
@@ -147,6 +168,7 @@ export function Focus(props: FocusProps) {
       </View>
 
       <Animated.ScrollView
+        ref={scroll}
         style={{ flex: 1, marginBottom: keyboardInset }}
         contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 26, paddingBottom: 140 }}
         keyboardShouldPersistTaps="handled"
@@ -173,12 +195,20 @@ export function Focus(props: FocusProps) {
 
           {entries.map((entry) =>
             entry.kind === 'fold' ? (
-              <View key="fold" style={{ position: 'relative' }}>
+              <Pressable
+                key={`fold:${entry.firstId}`}
+                accessibilityRole="button"
+                accessibilityLabel={`${entry.label} · unfold`}
+                onPress={props.onUnfold}
+                style={({ pressed }) => ({
+                  position: 'relative', minHeight: 48, justifyContent: 'center', opacity: pressed ? 0.7 : 1,
+                })}
+              >
                 <View
                   style={{
                     position: 'absolute',
                     left: -16,
-                    top: 6,
+                    top: 22,
                     width: 4,
                     height: 4,
                     backgroundColor: ink.meta,
@@ -186,13 +216,18 @@ export function Focus(props: FocusProps) {
                 />
                 <Text style={type({ size: 12, width: 90, color: ink.meta })}>
                   {`${entry.label} · `}
-                  <Text onPress={props.onUnfold} style={{ color: agency.ink, fontFamily: face(90, { weight: agency.weight }) }}>
+                  <Text style={{ color: agency.ink, fontFamily: face(90, { weight: agency.weight }) }}>
                     unfold
                   </Text>
                 </Text>
-              </View>
+              </Pressable>
             ) : (
-              <Moment key={entry.material.id} entry={entry} {...props} />
+              <Moment
+                key={entry.material.id}
+                entry={entry}
+                onLayout={entry.material.id === returnId ? positionAtReturn : undefined}
+                {...props}
+              />
             )
           )}
         </View>
@@ -346,8 +381,12 @@ export function Focus(props: FocusProps) {
 
 function Moment({
   entry,
+  onLayout,
   ...props
-}: FocusProps & { entry: Extract<LineEntry, { kind: 'moment' }> }) {
+}: FocusProps & {
+  entry: Extract<LineEntry, { kind: 'moment' }>;
+  onLayout?: (event: LayoutChangeEvent) => void;
+}) {
   const { ink, agency, rule, mode } = useRecordTheme();
 
   const m = entry.material;
@@ -359,9 +398,11 @@ function Moment({
   const body = displayText(m);
   const paragraphs = body.split(/\n\n+/);
   const when = dayLabel(m.at, props.now) === 'today' ? 'today' : fullDate(m.at);
+  const returnContext = isFocus ? props.returnContext : null;
+  const match = returnContext?.phraseOld ?? null;
 
   return (
-    <View style={{ position: 'relative' }}>
+    <View onLayout={onLayout} style={{ position: 'relative' }}>
       <View
         style={{
           position: 'absolute',
@@ -464,7 +505,7 @@ function Moment({
               ) : null}
               <View style={{ flex: 1 }}>
                 <Marked
-                  parts={parts(paragraphs[0], [])}
+                  parts={parts(paragraphs[0], [match])}
                   style={
                     isFocus
                       ? type({
@@ -485,21 +526,22 @@ function Moment({
                   }
                 />
                 {paragraphs.slice(1).map((p, i) => (
-                  <Text
+                  <Marked
                     key={i}
+                    parts={parts(p, [match])}
                     style={[
                       isFocus
                         ? type({ size: 20, width: 100, lineHeight: 1.3, color: ink.ink })
                         : type({ size: 16, width: 94, lineHeight: 1.32, color: ink.near }),
                       { marginTop: 10 },
                     ]}
-                  >
-                    {p}
-                  </Text>
+                  />
                 ))}
               </View>
             </View>
           </Pressable>
+
+          {returnContext ? <ReturnContext value={returnContext} now={props.now} /> : null}
 
           {isFocus && props.reminder && !props.continuing ? (
             <View style={{ alignItems: 'flex-start' }}>

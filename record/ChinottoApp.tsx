@@ -738,6 +738,7 @@ export function ChinottoApp({ services }: { services: Services }) {
         onReminderHandled={reminderHandled}
         onReturnToScheduled={() => setSurface({ kind: 'settings', page: 'scheduled' })}
         coldStart={coldStart && fontsReady}
+        returnCovered={surface.kind !== 'record' || Boolean(share) || sync.open}
         onOpenSettings={() => setSurface({ kind: 'settings', page: 'root' })}
         voice={{
           start: startVoice,

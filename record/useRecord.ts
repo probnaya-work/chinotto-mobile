@@ -40,12 +40,15 @@ export type PendingRemoval = { material: Material; at: number };
 
 export type RecordState = ReturnType<typeof useRecord>;
 
+type FocusTarget = { id: string; returned?: Pick<RecordReturn, 'reason' | 'evidence'> };
+
 export function useRecord(
   store: RecordStore,
   bridge: RecordBridge,
   nowFn = Date.now,
   audio: AudioPlaybackPort = NO_PLAYBACK,
-  readEnabled = true
+  readEnabled = true,
+  returnCovered = false
 ) {
   const [material, setMaterial] = useState<Material[]>([]);
   const [heldIds, setHeldIds] = useState<Set<string>>(new Set());
@@ -68,7 +71,11 @@ export function useRecord(
   }, [anchor]);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [focusId, setFocusId] = useState<string | null>(null);
+  const [focusTarget, setFocusTarget] = useState<FocusTarget | null>(null);
+  const focusId = focusTarget?.id ?? null;
+  const setFocusId = useCallback((id: string | null) => {
+    setFocusTarget(id === null ? null : { id });
+  }, []);
   const [unfolded, setUnfolded] = useState(false);
   const [yearsOpen, setYearsOpen] = useState(false);
   const openExisting = useCallback((moment: Material) => {
@@ -79,7 +86,7 @@ export function useRecord(
     setSelectedId(null);
     setYearsOpen(false);
     setFocusId(moment.id);
-  }, []);
+  }, [setFocusId]);
 
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -226,23 +233,24 @@ export function useRecord(
 
   /* ------------------------------------------------------------------ the Return */
 
-  const fieldBusy = input.length > 0;
+  const returnVisible = !returnCovered && !input.length && !inputFocused && !anchor &&
+    !focusId && !yearsOpen && selectedId === null;
 
   useEffect(() => {
-    if (!ready || !readEnabled) return;
+    if (!ready || !readEnabled || retLeaving) return;
     if (ret) {
       const stillValid = !heldIds.has(ret.material.id) && resumeReturn({
-        id: retRowId!, fragmentId: ret.material.id, reason: ret.reason, evidence: ret.evidence,
+        fragmentId: ret.material.id, reason: ret.reason, evidence: ret.evidence,
       }, material, nowFn());
       if (!stillValid) {
-        if (retRowId !== null) void store.closeReturn(retRowId, 'expired');
-        setRet(null); setRetRowId(null); setRetLeaving(false);
+        if (retRowId !== null) void store.closeReturn(retRowId, 'expired').catch(() => {});
+        setRet(null); setRetRowId(null);
       } else if (ret.material !== stillValid.material || ret.because !== stillValid.because) {
         setRet(stillValid);
       }
       return;
     }
-    if (fieldBusy || anchor || focusId || yearsOpen) return;
+    if (!returnVisible) return;
     let alive = true;
     const timer = setTimeout(() => {
       void (async () => {
@@ -269,22 +277,36 @@ export function useRecord(
       })().catch(() => { /* Capture remains available; the next material change retries. */ });
     }, RETURN_DELAY_MS);
     return () => { alive = false; clearTimeout(timer); };
-  }, [ready, readEnabled, material, heldIds, ret, retRowId, store, nowFn, fieldBusy, anchor, focusId, yearsOpen]);
+  }, [ready, readEnabled, material, heldIds, ret, retLeaving, retRowId, store, nowFn, returnVisible]);
 
-  const closeReturn = useCallback(
-    (outcome: 'opened' | 'continued' | 'let_go') => {
-      if (retRowId !== null) void store.closeReturn(retRowId, outcome);
-      setRet(null);
-      setRetLeaving(false);
-      setRetRowId(null);
-    },
-    [retRowId, store]
-  );
+  const clearReturn = useCallback(() => {
+    setRet(null);
+    setRetLeaving(false);
+    setRetRowId(null);
+  }, []);
 
-  const letGo = useCallback(() => {
-    setRetLeaving(true);
-    setTimeout(() => closeReturn('let_go'), motion.letGo);
-  }, [closeReturn]);
+  const openReturn = useCallback(() => {
+    if (!ret || retLeaving || retRowId === null || !returnVisible || !readNow.current) return;
+    const { reason, evidence } = ret;
+    const fragmentId = ret.material.id;
+    if (!resumeReturn({ fragmentId, reason, evidence }, material, nowFn())) return;
+    setFocusTarget({ id: fragmentId, returned: { reason, evidence } });
+    void store.closeReturn(retRowId, 'opened').catch(() => {});
+    clearReturn();
+  }, [ret, retLeaving, retRowId, returnVisible, material, nowFn, store, clearReturn]);
+
+  const letGo = useCallback((animate: boolean) => {
+    if (retLeaving || retRowId === null || !readNow.current) return;
+    void store.closeReturn(retRowId, 'let_go').catch(() => {});
+    if (animate) setRetLeaving(true);
+    else clearReturn();
+  }, [retLeaving, retRowId, store, clearReturn]);
+
+  useEffect(() => {
+    if (!retLeaving) return;
+    const timer = setTimeout(clearReturn, motion.letGo);
+    return () => clearTimeout(timer);
+  }, [retLeaving, clearReturn]);
 
   /* ---------------------------------------------------------------------- Find */
 
@@ -349,7 +371,7 @@ export function useRecord(
       if (focusId === m.id) setFocusId(null);
       await reload();
     },
-    [store, reload, focusId, nowFn]
+    [store, reload, focusId, nowFn, setFocusId]
   );
 
   const bringBack = useCallback(async () => {
@@ -417,7 +439,7 @@ export function useRecord(
     setEditingId(m.id);
     setEditText(m.body);
     setSelectedId(null);
-    setFocusId((current) => current ?? m.id);
+    setFocusTarget((current) => current ?? { id: m.id });
   }, []);
 
   const saveCorrection = useCallback(async () => {
@@ -442,7 +464,7 @@ export function useRecord(
       setFocusId(created.id);
       void bridge.mirrorFragment(created.id);
     }
-  }, [continueText, focusId, store, bridge, reload]);
+  }, [continueText, focusId, store, bridge, reload, setFocusId]);
 
   /* --------------------------------------------------------------------- traces */
 
@@ -463,6 +485,10 @@ export function useRecord(
 
   const focus = focusId ? (live.find((m) => m.id === focusId) ?? null) : null;
   const line = useMemo(() => (focus ? lineOf(focus, live) : []), [focus, live]);
+  const returnContext = useMemo(() => {
+    if (!readEnabled || !ready || !focus || !focusTarget?.returned) return null;
+    return resumeReturn({ fragmentId: focus.id, ...focusTarget.returned }, live, nowFn());
+  }, [readEnabled, ready, focus, focusTarget, live, nowFn]);
 
   const focusTraces: Trace[] = useMemo(
     () => (focus ? traces({ line, material: live, judgements }) : []),
@@ -528,7 +554,7 @@ export function useRecord(
     () =>
       flattenRecord({
         bands,
-        showReturn: Boolean(ret) && !anchor && !fieldBusy,
+        showReturn: Boolean(ret) && returnVisible,
         held: anchor || query ? [] : held,
         isEmptyRecord: ready && live.length === 0 && !query,
         findFoundNothing: Boolean(query) && findCount === 0,
@@ -537,18 +563,10 @@ export function useRecord(
         anchor,
         now,
       }),
-    [bands, ret, anchor, query, fieldBusy, held, ready, live.length, findCount, oldest, now]
+    [bands, ret, anchor, query, returnVisible, held, ready, live.length, findCount, oldest, now]
   );
 
-  const highlight = useMemo(() => {
-    const out: (string | null)[] = [];
-    if (query) out.push(query);
-    if (ret) {
-      out.push(ret.phraseOld);
-      out.push(ret.phraseNew);
-    }
-    return out.filter(Boolean);
-  }, [query, ret]);
+  const highlight = useMemo(() => query ? [query] : [], [query]);
 
   return {
     ready,
@@ -640,8 +658,10 @@ export function useRecord(
 
     ret,
     retLeaving,
-    closeReturn,
+    openReturn,
     letGo,
+    returnContext,
+    returned: Boolean(focusTarget?.returned),
 
     playingId,
     setPlayingId,

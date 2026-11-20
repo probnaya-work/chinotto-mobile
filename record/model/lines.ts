@@ -40,7 +40,7 @@ export function lineMeta(line: Material[], now: number): string | null {
 }
 
 /** A fold marker in place of the middle of a long line. */
-export type Fold = { kind: 'fold'; count: number; label: string };
+export type Fold = { kind: 'fold'; firstId: string; count: number; label: string };
 export type LineEntry = { kind: 'moment'; material: Material } | Fold;
 
 /** Lines longer than this fold in the middle rather than scrolling forever. */
@@ -53,20 +53,32 @@ export const FOLD_TAIL = 2;
  * Head, fold, tail — 2 and 2, as the prototype draws it. The fold names the span it hides
  * so what is missing is stated rather than merely absent.
  */
-export function foldLine(line: Material[], now: number, unfolded: boolean): LineEntry[] {
+export function foldLine(line: Material[], now: number, unfolded: boolean, revealId?: string): LineEntry[] {
+  const moment = (material: Material): LineEntry => ({ kind: 'moment', material });
   if (unfolded || line.length <= FOLD_THRESHOLD) {
-    return line.map((material) => ({ kind: 'moment' as const, material }));
+    return line.map(moment);
   }
-  const hidden = line.length - FOLD_HEAD - FOLD_TAIL;
-  const from = line[FOLD_HEAD];
-  const to = line[line.length - FOLD_TAIL - 1];
-  return [
-    ...line.slice(0, FOLD_HEAD).map((material) => ({ kind: 'moment' as const, material })),
-    {
-      kind: 'fold' as const,
-      count: hidden,
-      label: `${hidden} folded · ${monthLabel(from.at, now, true)} – ${monthLabel(to.at, now, true)}`,
-    },
-    ...line.slice(-FOLD_TAIL).map((material) => ({ kind: 'moment' as const, material })),
+  const middle = line.slice(FOLD_HEAD, -FOLD_TAIL);
+  const reveal = revealId ? middle.findIndex((m) => m.id === revealId) : -1;
+  const between = reveal === -1 ? foldedSpan(middle, now) : [
+    ...foldedSpan(middle.slice(0, reveal), now),
+    moment(middle[reveal]),
+    ...foldedSpan(middle.slice(reveal + 1), now),
   ];
+  return [
+    ...line.slice(0, FOLD_HEAD).map(moment),
+    ...between,
+    ...line.slice(-FOLD_TAIL).map(moment),
+  ];
+}
+
+function foldedSpan(span: Material[], now: number): Fold[] {
+  if (span.length === 0) return [];
+  const first = span[0];
+  const from = monthLabel(first.at, now, true);
+  const to = monthLabel(span[span.length - 1].at, now, true);
+  return [{
+    kind: 'fold', firstId: first.id, count: span.length,
+    label: `${span.length} folded · ${from}${span.length === 1 ? '' : ` – ${to}`}`,
+  }];
 }

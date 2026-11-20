@@ -110,6 +110,19 @@ describe('the Return', () => {
       expect(s.tail).toMatch(/^” at \d\d:\d\d$/);
     });
 
+    it('attributes a matched page title to its source', () => {
+      const earlier = material({ id: 'earlier', at: OLD, body: 'leave the window open' });
+      const page = material({
+        id: 'page', at: JUST_NOW, body: '', method: 'shared',
+        url: 'https://example.com/window', title: 'Leave the Window Open',
+      });
+      const result = returnFor({ material: [earlier, page], now: NOW })!;
+      expect(becauseSentence(result, NOW)).toMatchObject({
+        lead: 'a source had the words “',
+        quote: 'leave the window open',
+      });
+    });
+
     it('ignores a coincidental two-word overlap', () => {
       const a = material({ id: 'a', at: OLD, body: 'the meeting could have been a sentence' });
       const b = material({ id: 'b', at: JUST_NOW, body: 'the meeting ran late' });

@@ -555,3 +555,18 @@ gates the list and its first-line excerpts. Schema v11 adds an in-app delivery
 choice and a per-thought preview override. Both the choices and the global
 notification preference remain on the device. Quiet hours follow the device’s
 Focus settings. Automatic Return alerts are outside this phase.
+
+### Compact Return on the Record
+
+The in-app Return shows the old thought’s month and elapsed time, with one line
+of wording and two targets to open or let go. The existing capture field has
+priority. The Return waits when the keyboard is active, a moment is selected,
+recording is in progress, the app is in the background, or an overlay covers
+the edge. The existing evidence and cooldown rules still apply.
+
+Opening shows the date, original wording and grounded cause in the existing
+reader. The focus target stays visible when it falls inside a folded span.
+The reader recomputes the cause from current material and withdraws it if the
+evidence disappears. Continue and Hold are available in the reader. Dismissal
+is stored on tap, and Reduce Motion skips the invitation’s transition. This
+uses the existing Return tables, protection boundary and Continuation model.
