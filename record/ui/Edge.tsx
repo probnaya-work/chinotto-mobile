@@ -62,6 +62,7 @@ export type VoiceCaptureDisplayState = {
 
 export type EdgeProps = {
   input: string;
+  accessibilityHidden?: boolean;
   captureOnly?: boolean;
   onChangeInput: (text: string) => void;
   onSubmit: () => void;
@@ -220,6 +221,8 @@ export function Edge(props: EdgeProps) {
 
       <Animated.View
         testID="edge"
+        accessibilityElementsHidden={props.accessibilityHidden}
+        importantForAccessibility={props.accessibilityHidden ? 'no-hide-descendants' : 'auto'}
         onLayout={(e) => {
           const height = e.nativeEvent.layout.height;
           // Sub-pixel churn is not a change anybody can see, and passing it on would

@@ -24,6 +24,8 @@ import {
   TextInput,
   View,
   type LayoutChangeEvent,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from 'react-native';
 
 import { Marked } from './Marked';
@@ -45,6 +47,8 @@ import { dayLabel, fmtDur, fullDate, fmtTime, monthLabel } from '../model/time';
 import { parts, snippet } from '../model/words';
 import type { Trace } from '../model/traces';
 import type { RecordReturn } from '../model/returns';
+
+export type QuietScrollPosition = { normal: number; quiet: number; restore: number | null };
 
 export type FocusProps = {
   focus: Material;
@@ -88,6 +92,10 @@ export type FocusProps = {
   positionAtMoment?: boolean;
   returnContext?: RecordReturn | null;
   reducedMotion?: boolean;
+  quietReading: boolean;
+  quietPosition: React.RefObject<QuietScrollPosition>;
+  onEnterQuietReading: (offset: number) => void;
+  onExitQuietReading: () => void;
   onClose: () => void;
 };
 
@@ -102,10 +110,13 @@ const FOCUS_CHIP: VoiceChipSpec = {
 };
 
 export function Focus(props: FocusProps) {
-  const { ink, agency, rule, SURFACE, mode } = useRecordTheme();
+  const { ink, agency, rule, SURFACE, LIVE, mode } = useRecordTheme();
+  const { quietReading, quietPosition } = props;
 
   const slide = useRef(new Animated.Value(props.reducedMotion ? 1 : 0)).current;
   const scroll = useRef<ScrollView>(null);
+  const initialOffset = useRef({ x: 0, y: quietReading ? quietPosition.current.quiet : 0 });
+  const offset = useRef(initialOffset.current.y);
   const positioned = useRef<string | null>(null);
   const momentOffset = useRef<{ id: string; y: number } | null>(null);
   // Continue and correction sit on the keyboard for the same reason the edge does: they are
@@ -126,6 +137,27 @@ export function Focus(props: FocusProps) {
     return () => animation.stop();
   }, [slide, props.reducedMotion]);
 
+  const trackScroll = useCallback(({ nativeEvent }: NativeSyntheticEvent<NativeScrollEvent>) => {
+    offset.current = Math.max(0, nativeEvent.contentOffset.y);
+    if (quietReading) quietPosition.current.quiet = offset.current;
+  }, [quietReading, quietPosition]);
+
+  const restoreReaderPosition = useCallback(() => {
+    const y = quietPosition.current.restore;
+    if (quietReading || y === null || !scroll.current) return;
+    quietPosition.current.restore = null;
+    offset.current = y;
+    scroll.current.scrollTo({ y, animated: false });
+  }, [quietReading, quietPosition]);
+
+  // Content-size changes handle the normal relayout. A frame also covers exits whose
+  // content happens to be the same height in both modes.
+  useEffect(() => {
+    if (quietReading || quietPosition.current.restore === null) return;
+    const frameId = requestAnimationFrame(restoreReaderPosition);
+    return () => cancelAnimationFrame(frameId);
+  }, [quietReading, quietPosition, restoreReaderPosition]);
+
   const isLine = props.line.length > 1;
   const id = props.focus.id;
   const entries = foldLine(props.line, props.now, props.unfolded, id);
@@ -135,13 +167,15 @@ export function Focus(props: FocusProps) {
     momentOffset.current = { id, y };
     if (!positionAtMoment || positioned.current === id || !scroll.current) return;
     positioned.current = id;
+    if (quietReading || quietPosition.current.restore !== null) return;
     // The offset is inside the Line, so scrolling there leaves the normal top inset.
     scroll.current.scrollTo({ y, animated: false });
-  }, [id, positionAtMoment]);
+  }, [id, positionAtMoment, quietReading, quietPosition]);
   const canCompare = props.connections && !props.continuing && !props.editingId && props.focus.body.trim();
 
   return (
     <Animated.View
+      accessibilityViewIsModal={quietReading}
       style={{
         position: 'absolute',
         top: 0,
@@ -164,27 +198,40 @@ export function Focus(props: FocusProps) {
           alignItems: 'center',
         }}
       >
-        <Pressable onPress={props.onClose} accessibilityRole="button" hitSlop={12}>
-          <Text style={type({ size: 14, width: 90, color: ink.far })}>‹ edge</Text>
+        <Pressable onPress={quietReading ? props.onExitQuietReading : props.onClose}
+          accessibilityRole="button" hitSlop={quietReading ? undefined : 12}
+          style={({ pressed }) => quietReading ? {
+            minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8, opacity: pressed ? 0.7 : 1,
+          } : undefined}>
+          {quietReading ? (
+            <View pointerEvents="none" style={{ width: 10, height: 10, borderRadius: 5, borderWidth: 1.5, borderColor: LIVE }} />
+          ) : null}
+          <Text style={type({ size: 14, width: 90, color: ink.far })}>{quietReading ? 'exit quiet reading' : '‹ edge'}</Text>
         </Pressable>
-        <Text style={type({ size: 12, width: 90, color: ink.meta })}>
+        <Text style={[type({ size: 12, width: 90, color: ink.meta }),
+          quietReading ? { flexShrink: 1, marginLeft: 10, textAlign: 'right' } : undefined]}>
           {lineHeading(props.line, props.focus, props.now)}
         </Text>
       </View>
 
       <Animated.ScrollView
         ref={scroll}
+        testID="thought-reader"
+        contentOffset={initialOffset.current}
+        onScroll={trackScroll}
+        scrollEventThrottle={32}
+        onContentSizeChange={restoreReaderPosition}
         style={{ flex: 1, marginBottom: keyboardInset }}
         contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 26, paddingBottom: 140 }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
       >
-        {props.fromReminder ? (
+        {props.fromReminder && !quietReading ? (
           <Text style={[type({ size: 12, width: 90, color: ink.meta }), { marginBottom: 16 }]}>
             a reminder you set
           </Text>
         ) : null}
-        <View style={{ position: 'relative', paddingLeft: 18, gap: 22 }}>
+        <View style={{ position: 'relative', paddingLeft: 18, gap: quietReading ? 28 : 22 }}>
           {isLine ? (
             <View
               style={{
@@ -231,13 +278,14 @@ export function Focus(props: FocusProps) {
                 key={entry.material.id}
                 entry={entry}
                 onLayout={entry.material.id === id ? measureMoment : undefined}
+                onQuiet={() => props.onEnterQuietReading(offset.current)}
                 {...props}
               />
             )
           )}
         </View>
 
-        {props.traces.length || canCompare ? (
+        {!quietReading && (props.traces.length || canCompare) ? (
           <View
             style={{
               marginTop: 28,
@@ -359,7 +407,7 @@ export function Focus(props: FocusProps) {
                   continue
                 </Text>
               </Pressable>
-              <Pressable
+              {!quietReading ? <Pressable
                 onPress={() => props.onHold(props.focus)}
                 accessibilityRole="button"
                 style={{
@@ -381,7 +429,7 @@ export function Focus(props: FocusProps) {
                 >
                   {props.heldIds.has(props.focus.id) ? 'release' : 'hold'}
                 </Text>
-              </Pressable>
+              </Pressable> : null}
             </View>
           </View>
         )}
@@ -393,10 +441,12 @@ export function Focus(props: FocusProps) {
 function Moment({
   entry,
   onLayout,
+  onQuiet,
   ...props
 }: FocusProps & {
   entry: Extract<LineEntry, { kind: 'moment' }>;
   onLayout?: (event: LayoutChangeEvent) => void;
+  onQuiet: () => void;
 }) {
   const { ink, agency, rule, mode } = useRecordTheme();
 
@@ -404,13 +454,16 @@ function Moment({
   const isFocus = m.id === props.focus.id;
   const voice = isVoice(m);
   const editing = props.editingId === m.id;
-  const selected = props.selectedId === m.id;
+  const quietReading = props.quietReading;
+  const selected = !quietReading && props.selectedId === m.id;
 
   const body = displayText(m);
   const paragraphs = body.split(/\n\n+/);
   const when = dayLabel(m.at, props.now) === 'today' ? 'today' : fullDate(m.at);
-  const returnContext = isFocus ? props.returnContext : null;
+  const returnContext = isFocus && !quietReading ? props.returnContext : null;
   const match = returnContext?.phraseOld ?? null;
+  const showQuietAction = Boolean(body.trim() || isQuoteOnly(m) || props.line.length > 1);
+  const lineHeight = quietReading ? 1.47 : isFocus ? 1.3 : 1.32;
 
   return (
     <View onLayout={onLayout} style={{ position: 'relative' }}>
@@ -429,7 +482,7 @@ function Moment({
         <Text style={type({ size: 12, width: 90, color: ink.meta })}>
           {`${when} · ${fmtTime(m.at)} · ${sourceOf(m)}`}
         </Text>
-        {m.correctionCount > 0 ? (
+        {m.correctionCount > 0 && !quietReading ? (
           <Text
             onPress={() => props.onTogglePrevious(m.id)}
             style={type({ size: 12, width: 90, color: ink.meta })}
@@ -503,9 +556,10 @@ function Moment({
             </Text>
           ) : null}
 
-          <Pressable onPress={() => props.onSelect(selected ? null : m.id)}>
+          <Pressable accessible={quietReading ? false : undefined}
+            onPress={quietReading ? undefined : () => props.onSelect(selected ? null : m.id)}>
             <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-              {voice ? (
+              {voice && !quietReading ? (
                 <VoiceChip
                   seconds={Math.round((m.durationMs ?? 0) / 1000)}
                   missing={Boolean(m.audioMissing)}
@@ -522,7 +576,7 @@ function Moment({
                       ? type({
                           size: 20,
                           width: 100,
-                          lineHeight: 1.3,
+                          lineHeight,
                           tracking: -0.01,
                           italic: voice,
                           color: voice ? ink.far : ink.ink,
@@ -530,7 +584,7 @@ function Moment({
                       : type({
                           size: 16,
                           width: 94,
-                          lineHeight: 1.32,
+                          lineHeight,
                           italic: voice,
                           color: voice ? ink.far : ink.near,
                         })
@@ -542,8 +596,8 @@ function Moment({
                     parts={parts(p, [match])}
                     style={[
                       isFocus
-                        ? type({ size: 20, width: 100, lineHeight: 1.3, color: ink.ink })
-                        : type({ size: 16, width: 94, lineHeight: 1.32, color: ink.near }),
+                        ? type({ size: 20, width: 100, lineHeight, color: ink.ink })
+                        : type({ size: 16, width: 94, lineHeight, color: ink.near }),
                       { marginTop: 10 },
                     ]}
                   />
@@ -554,18 +608,25 @@ function Moment({
 
           {returnContext ? <ReturnContext value={returnContext} now={props.now} /> : null}
 
-          {isFocus && props.reminder && !props.continuing ? (
-            <View style={{ alignItems: 'flex-start' }}>
-              <Pressable
-                accessibilityRole="button"
-                onPress={props.reminder.onOpen}
-                style={{ minHeight: 44, minWidth: 44, justifyContent: 'center' }}
-              >
-                <Text style={type({ size: 14, width: 94, weight: agency.weight, color: agency.ink })}>
-                  {props.reminder.label}
-                </Text>
-              </Pressable>
-              {props.reminder.notice ? (
+          {isFocus && !quietReading && !props.continuing && (props.reminder || showQuietAction) ? (
+            <View>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 18, alignItems: 'flex-start' }}>
+                {props.reminder ? (
+                  <Pressable accessibilityRole="button" onPress={props.reminder.onOpen}
+                    style={{ minHeight: 48, minWidth: 48, justifyContent: 'center' }}>
+                    <Text style={type({ size: 14, width: 94, weight: agency.weight, color: agency.ink })}>
+                      {props.reminder.label}
+                    </Text>
+                  </Pressable>
+                ) : null}
+                {showQuietAction ? (
+                  <Pressable accessibilityRole="button" onPress={onQuiet}
+                    style={({ pressed }) => ({ minHeight: 48, minWidth: 48, justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}>
+                    <Text style={type({ size: 14, width: 94, color: ink.far })}>quiet reading</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+              {props.reminder?.notice ? (
                 <Text accessibilityRole="alert" style={type({ size: 13, width: 92, color: ink.far })}>
                   {props.reminder.notice}
                 </Text>
@@ -578,7 +639,7 @@ function Moment({
             </Text>
           ) : null}
 
-          {props.shownPrevious[m.id] && m.previousBody ? (
+          {!quietReading && props.shownPrevious[m.id] && m.previousBody ? (
             <Text
               style={[
                 type({ size: 14, width: 90, lineHeight: 1.35, italic: true, color: ink.meta }),

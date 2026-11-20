@@ -30,7 +30,7 @@ import {
   type VoiceCaptureDisplayState,
 } from './ui/Edge';
 import { dismissKeyboard, useKeyboardInset } from './ui/useKeyboardInset';
-import { Focus } from './ui/Focus';
+import { Focus, type QuietScrollPosition } from './ui/Focus';
 import { Launch, launchHoldFor } from './ui/Launch';
 import { Mark } from './ui/Mark';
 import { RecordList } from './ui/RecordList';
@@ -136,6 +136,21 @@ export function RecordApp(props: RecordAppProps) {
   const openExisting = record.openExisting;
   const isAuthoring = Boolean(record.editingId || record.continuing || props.voice.state);
   const editorOpen = Boolean(editor && editor.fragmentId === focusedId);
+  const quietPosition = useRef<QuietScrollPosition>({ normal: 0, quiet: 0, restore: null });
+
+  const enterQuietReading = (offset: number) => {
+    quietPosition.current = { normal: offset, quiet: offset, restore: null };
+    if (record.playingId !== null) {
+      props.audio?.stop();
+      record.setPlayingId(null);
+    }
+    record.setQuietReading(true);
+  };
+
+  const exitQuietReading = () => {
+    quietPosition.current.restore = quietPosition.current.normal;
+    record.setQuietReading(false);
+  };
 
   useEffect(() => {
     if (!reminders || !focusedId || locked) return;
@@ -191,12 +206,14 @@ export function RecordApp(props: RecordAppProps) {
 
   if (props.backRef) {
     props.backRef.current = () => {
+      if (locked) return false;
       if (editorOpen) { closeReminder(); return true; }
       const step = recordBackStep({
         yearsOpen: record.yearsOpen,
         focusOpen: Boolean(record.focus),
         correcting: record.editingId !== null,
         continuing: record.continuing,
+        quietReading: record.quietReading,
         anchored: Boolean(record.anchor),
         selected: record.selectedId !== null,
         finding: record.finding,
@@ -207,6 +224,9 @@ export function RecordApp(props: RecordAppProps) {
           return true;
         case 'cancel-correction':
           record.cancelCorrection();
+          return true;
+        case 'exit-quiet-reading':
+          exitQuietReading();
           return true;
         case 'stop-continue':
           record.stopContinue();
@@ -523,7 +543,7 @@ export function RecordApp(props: RecordAppProps) {
         them on screen at once. So this says only the thing iOS cannot: where in the record
         you are standing, and how to come back.
       */}
-      {record.anchor ? (
+      {record.anchor && !record.quietReading ? (
         <View
           style={{
             position: 'absolute',
@@ -561,6 +581,7 @@ export function RecordApp(props: RecordAppProps) {
           <RecordOpening reducedMotion={reducedMotion} />
         </View>
       ) : <RecordList
+        accessibilityHidden={record.quietReading}
         keyboardInset={keyboardInset}
         voice={capabilities.voice}
         edgeHeight={edgeHeight}
@@ -640,6 +661,7 @@ export function RecordApp(props: RecordAppProps) {
       />}
 
       <Edge
+        accessibilityHidden={record.quietReading}
         input={record.input}
         onChangeInput={record.setInput}
         onSubmit={record.submit}
@@ -663,7 +685,7 @@ export function RecordApp(props: RecordAppProps) {
         onHeightChange={setEdgeHeight}
       />
 
-      {record.focus ? (
+      {record.focus && (!props.privacy || record.ready) ? (
         <Focus
           focus={record.focus}
           line={record.line}
@@ -687,6 +709,10 @@ export function RecordApp(props: RecordAppProps) {
           positionAtMoment={record.positionAtMoment}
           returnContext={record.returnContext}
           reducedMotion={reducedMotion}
+          quietReading={record.quietReading}
+          quietPosition={quietPosition}
+          onEnterQuietReading={enterQuietReading}
+          onExitQuietReading={exitQuietReading}
           reminder={reminders ? {
             label: scheduledReminder?.fragmentId === record.focus.id
               ? `reminder · ${reminderDate(scheduledReminder.at)} · ${reminderTime(scheduledReminder.at)}` : 'remind me',

@@ -580,3 +580,17 @@ Dismissing a pair uses the existing local judgement table and applies in either
 direction. The same pair stays dismissed after a restart. Existing Lines are
 kept. This interaction reads the Record on-device and uses lexical overlap.
 The ranking considers word overlap first and elapsed time to break ties.
+
+### Quiet reading
+
+A contextual quiet reading action changes the presentation of the current
+reader for this visit. The same dated Line remains readable, with more space
+between rows. Traces, reminders, editing verbs and Hold are put away. The
+existing Continue field remains available. An open ring uses the current
+recording accent only during this mode.
+
+Exit quiet reading and platform Back restore the ordinary reader and its
+previous scroll position. Both keep any unfinished continuation. Device
+protection conceals the reader during relock and restores the authorized
+quiet session and draft after unlock. The mode state lives in memory and
+does not change notification or operating-system Focus settings.

@@ -34,7 +34,8 @@ import type { Material } from '../model/material';
 export type RecordListProps = {
   rows: Row[];
   now: number;
-  /** Phrases to highlight across every row — a Find query, or a Return's matched words. */
+  accessibilityHidden?: boolean;
+  /** Phrases to highlight across every row for Find. */
   highlight?: (string | null)[];
 
   selectedId: string | null;
@@ -338,6 +339,8 @@ export function RecordList(props: RecordListProps) {
     // the list itself never learns about keyboards and its scroll offset is never touched.
     <Animated.View
       testID="record-viewport"
+      accessibilityElementsHidden={props.accessibilityHidden}
+      importantForAccessibility={props.accessibilityHidden ? 'no-hide-descendants' : 'auto'}
       style={{
         position: 'absolute',
         // Full width, with the gutter as content padding rather than as the viewport's

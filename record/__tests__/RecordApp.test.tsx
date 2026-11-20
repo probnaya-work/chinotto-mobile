@@ -8,7 +8,7 @@
  */
 
 import React from 'react';
-import { AppState, Appearance, StatusBar, StyleSheet } from 'react-native';
+import { AppState, Appearance, ScrollView, StatusBar, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
@@ -1353,6 +1353,100 @@ describe('protected Record', () => {
   });
 });
 
+
+describe('quiet reading', () => {
+  beforeEach(() => { jest.useFakeTimers(); jest.setSystemTime(T0); });
+  afterEach(() => jest.useRealTimers());
+
+  it('leaves the Line and continuation visible and restores the reader on exit', async () => {
+    const h = harness(); await migrate(h.db);
+    const old = await h.store.capture({ body: 'past morning under the trees', at: T0 - 90 * MS_DAY });
+    const current = (await h.store.continueFrom(old.id, { body: 'a slower morning today' }))!;
+    const view = await mount(h);
+    await act(async () => { fireEvent.press(screen.getByText(current.body)); });
+    await act(async () => { fireEvent.press(screen.getByText(current.body)); });
+    expect(screen.getByRole('button', { name: 'look for a connection' })).toBeTruthy();
+    const scrollTo = jest.spyOn(ScrollView.prototype, 'scrollTo');
+    fireEvent.scroll(screen.getByTestId('thought-reader'), { nativeEvent: { contentOffset: { x: 0, y: 120 } } });
+
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: 'quiet reading' })); });
+    expect(screen.getByRole('button', { name: 'exit quiet reading' })).toBeTruthy();
+    expect(screen.queryByLabelText('capture')).toBeNull();
+    expect(screen.getByText('past morning under the trees')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'look for a connection' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'hold' })).toBeNull();
+    fireEvent.scroll(screen.getByTestId('thought-reader'), { nativeEvent: { contentOffset: { x: 0, y: 40 } } });
+
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: 'continue' })); });
+    fireEvent.changeText(screen.getByLabelText('a new moment, dated now'), 'a draft in the same Line');
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: 'exit quiet reading' })); });
+    await act(async () => { await jest.advanceTimersByTimeAsync(32); });
+    expect(scrollTo).toHaveBeenLastCalledWith({ y: 120, animated: false });
+    scrollTo.mockRestore();
+    expect(screen.getByLabelText('a new moment, dated now').props.value).toBe('a draft in the same Line');
+    expect(screen.getByRole('button', { name: '‹ edge' })).toBeTruthy();
+    expect(screen.getByLabelText('capture')).toBeTruthy();
+    expect(await h.store.loadRecord()).toHaveLength(2);
+    view.unmount(); h.db.close();
+  });
+
+  it('conceals a quiet draft on relock and restores it after unlock or platform Back', async () => {
+    const h = harness(); await migrate(h.db);
+    const thought = await h.store.capture({ body: 'private reading on Sunday' });
+    let unlocked = true;
+    const store = protectRecordStore(h.store, () => unlocked);
+    const backRef = { current: null as (() => boolean) | null };
+    const privacy = { locked: false, busy: false, error: null, onUnlock: jest.fn() };
+    const view = await mount(h, { store, backRef, privacy });
+    await act(async () => { fireEvent.press(screen.getByText(thought.body)); });
+    await act(async () => { fireEvent.press(screen.getByText(thought.body)); });
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: 'quiet reading' })); });
+    fireEvent.scroll(screen.getByTestId('thought-reader'), { nativeEvent: { contentOffset: { x: 0, y: 80 } } });
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: 'continue' })); });
+    fireEvent.changeText(screen.getByLabelText('a new moment, dated now'), 'keep these exact words');
+
+    unlocked = false;
+    view.rerender(<RecordApp {...defaults} store={store} bridge={h.bridge} backRef={backRef}
+      privacy={{ ...privacy, locked: true }} />);
+    expect(screen.queryByText(thought.body)).toBeNull();
+    expect(screen.queryByLabelText('a new moment, dated now')).toBeNull();
+    expect(backRef.current?.()).toBe(false);
+
+    unlocked = true;
+    await act(async () => {
+      view.rerender(<RecordApp {...defaults} store={store} bridge={h.bridge} backRef={backRef} privacy={privacy} />);
+    });
+    expect(screen.getByRole('button', { name: 'exit quiet reading' })).toBeTruthy();
+    expect(screen.getByTestId('thought-reader').props.contentOffset).toEqual({ x: 0, y: 80 });
+    expect(screen.getByLabelText('a new moment, dated now').props.value).toBe('keep these exact words');
+    await act(async () => { expect(backRef.current?.()).toBe(true); });
+    expect(screen.queryByRole('button', { name: 'exit quiet reading' })).toBeNull();
+    expect(screen.getByLabelText('a new moment, dated now').props.value).toBe('keep these exact words');
+    view.unmount(); h.db.close();
+  });
+
+  it('keeps quiet reading active after a dated continuation is saved', async () => {
+    const h = harness(); await migrate(h.db);
+    const thought = await h.store.capture({ body: 'the window was open' });
+    const view = await mount(h);
+    await act(async () => { fireEvent.press(screen.getByText(thought.body)); });
+    await act(async () => { fireEvent.press(screen.getByText(thought.body)); });
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: 'quiet reading' })); });
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: 'continue' })); });
+    const draft = screen.getByLabelText('a new moment, dated now');
+    await act(async () => {
+      jest.setSystemTime(T0 + 60000);
+      fireEvent.changeText(draft, 'the room finally felt like mine');
+      fireEvent(draft, 'submitEditing');
+    });
+    expect(screen.getByRole('button', { name: 'exit quiet reading' })).toBeTruthy();
+    expect(await h.store.loadRecord()).toEqual([
+      expect.objectContaining({ body: 'the room finally felt like mine', at: T0 + 60000, lineId: thought.id }),
+      expect.objectContaining({ body: thought.body, at: T0, lineId: thought.id }),
+    ]);
+    view.unmount(); h.db.close();
+  });
+});
 
 describe('thought reminders through the reader', () => {
   beforeEach(() => {

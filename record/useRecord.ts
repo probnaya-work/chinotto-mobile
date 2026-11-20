@@ -40,7 +40,12 @@ export type PendingRemoval = { material: Material; at: number };
 
 export type RecordState = ReturnType<typeof useRecord>;
 
-type FocusTarget = { id: string; returned?: Pick<RecordReturn, 'reason' | 'evidence'>; fromConnection?: boolean };
+type FocusTarget = {
+  id: string;
+  returned?: Pick<RecordReturn, 'reason' | 'evidence'>;
+  fromConnection?: boolean;
+  quietReading?: boolean;
+};
 
 export function useRecord(
   store: RecordStore,
@@ -75,6 +80,9 @@ export function useRecord(
   const focusId = focusTarget?.id ?? null;
   const setFocusId = useCallback((id: string | null) => {
     setFocusTarget(id === null ? null : { id });
+  }, []);
+  const setQuietReading = useCallback((quietReading: boolean) => {
+    setFocusTarget((target) => target ? { ...target, quietReading } : null);
   }, []);
   const [unfolded, setUnfolded] = useState(false);
   const [yearsOpen, setYearsOpen] = useState(false);
@@ -461,10 +469,11 @@ export function useRecord(
     await reload();
     if (created) {
       thoughtLanded();
-      setFocusId(created.id);
+      setFocusTarget((target) => target?.id === focusId
+        ? { id: created.id, quietReading: target.quietReading } : target);
       void bridge.mirrorFragment(created.id);
     }
-  }, [continueText, focusId, store, bridge, reload, setFocusId]);
+  }, [continueText, focusId, store, bridge, reload]);
 
   /* --------------------------------------------------------------------- traces */
 
@@ -605,6 +614,8 @@ export function useRecord(
     focus,
     focusId,
     setFocusId,
+    quietReading: Boolean(focusTarget?.quietReading),
+    setQuietReading,
     openExisting,
     line,
     focusTraces,

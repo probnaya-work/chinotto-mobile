@@ -56,6 +56,8 @@ describe('back, inside the record', () => {
       'cancel-correction'
     );
     expect(recordBackStep({ ...none, focusOpen: true, continuing: true })).toBe('stop-continue');
+    expect(recordBackStep({ ...none, focusOpen: true, continuing: true, quietReading: true }))
+      .toBe('exit-quiet-reading');
     expect(recordBackStep({ ...none, focusOpen: true, anchored: true })).toBe('close-focus');
     expect(recordBackStep({ ...none, anchored: true, selected: true })).toBe('clear-anchor');
     expect(recordBackStep({ ...none, selected: true })).toBe('clear-selection');

@@ -46,6 +46,7 @@ export type RecordBackState = {
   correcting: boolean;
   /** A continuation being written, inside focus. */
   continuing: boolean;
+  quietReading?: boolean;
   /** Standing somewhere back in time, rather than at the edge. */
   anchored: boolean;
   /** A D0 moment selected, with its verbs open. */
@@ -56,6 +57,7 @@ export type RecordBackState = {
 export type RecordBackStep =
   | 'close-years'
   | 'cancel-correction'
+  | 'exit-quiet-reading'
   | 'stop-continue'
   | 'close-focus'
   | 'clear-anchor'
@@ -66,6 +68,7 @@ export function recordBackStep(s: RecordBackState): RecordBackStep | null {
   if (s.yearsOpen) return 'close-years';
   if (s.focusOpen) {
     if (s.correcting) return 'cancel-correction';
+    if (s.quietReading) return 'exit-quiet-reading';
     if (s.continuing) return 'stop-continue';
     return 'close-focus';
   }
