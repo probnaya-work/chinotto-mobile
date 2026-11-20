@@ -198,11 +198,22 @@ export function createRecordStore(db: RecordDb, options: StoreOptions = {}) {
 
   async function traceJudgements(): Promise<Record<string, 'confirmed' | 'rejected'>> {
     const rows = await db.getAllAsync<{ related_id: string; judgement: 'confirmed' | 'rejected' }>(
-      'SELECT related_id, judgement FROM trace_judgements'
+      "SELECT related_id, judgement FROM trace_judgements WHERE kind <> 'connection'"
     );
     const out: Record<string, 'confirmed' | 'rejected'> = {};
     for (const r of rows) out[r.related_id] = r.judgement;
     return out;
+  }
+
+  async function connectionRejections(id: string): Promise<string[]> {
+    const rows = await db.getAllAsync<{ other_id: string }>(
+      `SELECT DISTINCT CASE WHEN fragment_id = ? THEN related_id ELSE fragment_id END AS other_id
+         FROM trace_judgements
+        WHERE (fragment_id = ? OR related_id = ?)
+          AND kind IN ('connection', 'inferred') AND judgement = 'rejected'`,
+      id, id, id
+    );
+    return rows.map((row) => row.other_id);
   }
 
   /* ------------------------------------------------------------------ capture */
@@ -703,6 +714,7 @@ export function createRecordStore(db: RecordDb, options: StoreOptions = {}) {
     wordingHistory,
     heldIds,
     traceJudgements,
+    connectionRejections,
     encountersOf,
     // write
     capture: serializeRecordWrite(capture),

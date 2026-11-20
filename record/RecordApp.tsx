@@ -684,7 +684,7 @@ export function RecordApp(props: RecordAppProps) {
           onHold={record.toggleHold}
           onRemove={removeMoment}
           fromReminder={record.focus.id === reminderArrival}
-          fromReturn={record.returned}
+          positionAtMoment={record.positionAtMoment}
           returnContext={record.returnContext}
           reducedMotion={reducedMotion}
           reminder={reminders ? {
@@ -704,8 +704,12 @@ export function RecordApp(props: RecordAppProps) {
           onPlay={(m) => void record.togglePlay(m)}
           traces={record.focusTraces}
           onOpenTrace={(m) => record.setFocusId(m.id)}
-          onConfirmTrace={(m) => void record.judgeTrace(m, 'confirmed')}
-          onRejectTrace={(m) => void record.judgeTrace(m, 'rejected')}
+          connections={record.ready && !editorOpen ? {
+            material: record.material,
+            rejections: props.store.connectionRejections,
+            dismiss: (source, related) => props.store.judgeTrace(source, related, 'connection', 'rejected'),
+            onReadRelated: record.openConnection,
+          } : undefined}
           continuing={record.continuing}
           continueText={record.continueText}
           onChangeContinueText={record.setContinueText}

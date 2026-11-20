@@ -28,6 +28,7 @@ import {
 
 import { Marked } from './Marked';
 import { ReturnContext } from './ReturnBlock';
+import { ConnectionPanel, type ConnectionData } from './ConnectionPanel';
 import { useKeyboardInset } from './useKeyboardInset';
 import { VoiceChip, type VoiceChipSpec } from './VoiceChip';
 import { motion } from './tokens';
@@ -42,7 +43,7 @@ import {
 } from '../model/material';
 import { dayLabel, fmtDur, fullDate, fmtTime, monthLabel } from '../model/time';
 import { parts, snippet } from '../model/words';
-import { tracesHeading, type Trace } from '../model/traces';
+import type { Trace } from '../model/traces';
 import type { RecordReturn } from '../model/returns';
 
 export type FocusProps = {
@@ -74,8 +75,7 @@ export type FocusProps = {
 
   traces: Trace[];
   onOpenTrace: (m: Material) => void;
-  onConfirmTrace: (m: Material) => void;
-  onRejectTrace: (m: Material) => void;
+  connections?: ConnectionData;
 
   continuing: boolean;
   continueText: string;
@@ -85,7 +85,7 @@ export type FocusProps = {
 
   reminder?: { label: string; onOpen: () => void; notice: string | null };
   fromReminder?: boolean;
-  fromReturn?: boolean;
+  positionAtMoment?: boolean;
   returnContext?: RecordReturn | null;
   reducedMotion?: boolean;
   onClose: () => void;
@@ -106,7 +106,8 @@ export function Focus(props: FocusProps) {
 
   const slide = useRef(new Animated.Value(props.reducedMotion ? 1 : 0)).current;
   const scroll = useRef<ScrollView>(null);
-  const positionedReturn = useRef<string | null>(null);
+  const positioned = useRef<string | null>(null);
+  const momentOffset = useRef<{ id: string; y: number } | null>(null);
   // Continue and correction sit on the keyboard for the same reason the edge does: they are
   // the bottom of this surface, not something floating over it.
   const keyboardInset = useKeyboardInset();
@@ -126,14 +127,18 @@ export function Focus(props: FocusProps) {
   }, [slide, props.reducedMotion]);
 
   const isLine = props.line.length > 1;
-  const returnId = props.fromReturn ? props.focus.id : undefined;
-  const entries = foldLine(props.line, props.now, props.unfolded, returnId);
-  const positionAtReturn = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
-    if (!returnId || positionedReturn.current === returnId || !scroll.current) return;
-    positionedReturn.current = returnId;
-    // The Moment's y is measured inside the Line, so the ScrollView keeps its normal top inset.
-    scroll.current.scrollTo({ y: nativeEvent.layout.y, animated: false });
-  }, [returnId]);
+  const id = props.focus.id;
+  const entries = foldLine(props.line, props.now, props.unfolded, id);
+  const positionAtMoment = props.positionAtMoment;
+  const measureMoment = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
+    const y = nativeEvent.layout.y;
+    momentOffset.current = { id, y };
+    if (!positionAtMoment || positioned.current === id || !scroll.current) return;
+    positioned.current = id;
+    // The offset is inside the Line, so scrolling there leaves the normal top inset.
+    scroll.current.scrollTo({ y, animated: false });
+  }, [id, positionAtMoment]);
+  const canCompare = props.connections && !props.continuing && !props.editingId && props.focus.body.trim();
 
   return (
     <Animated.View
@@ -225,14 +230,14 @@ export function Focus(props: FocusProps) {
               <Moment
                 key={entry.material.id}
                 entry={entry}
-                onLayout={entry.material.id === returnId ? positionAtReturn : undefined}
+                onLayout={entry.material.id === id ? measureMoment : undefined}
                 {...props}
               />
             )
           )}
         </View>
 
-        {props.traces.length ? (
+        {props.traces.length || canCompare ? (
           <View
             style={{
               marginTop: 28,
@@ -251,7 +256,7 @@ export function Focus(props: FocusProps) {
                 textTransform: 'uppercase',
               }}
             >
-              {tracesHeading(props.traces)}
+              traces
             </Text>
             {props.traces.slice(0, 4).map((t) => (
               <TraceRow
@@ -259,10 +264,16 @@ export function Focus(props: FocusProps) {
                 trace={t}
                 now={props.now}
                 onOpen={() => props.onOpenTrace(t.material)}
-                onYes={() => props.onConfirmTrace(t.material)}
-                onNo={() => props.onRejectTrace(t.material)}
               />
             ))}
+            {canCompare && props.connections ? (
+              <ConnectionPanel key={id} source={props.focus} data={props.connections}
+                onReadSource={() => {
+                  if (momentOffset.current?.id === id) {
+                    scroll.current?.scrollTo({ y: momentOffset.current.y, animated: false });
+                  }
+                }} />
+            ) : null}
           </View>
         ) : null}
       </Animated.ScrollView>
@@ -606,86 +617,33 @@ function Moment({
   );
 }
 
-/**
- * A trace row.
- *
- * `same words` is upright and shows the shared run in context. `a guess` is italic, says it
- * is a guess, and offers `yes · not this` — the two answers are the only way an inference
- * ever becomes a fact here.
- */
-function TraceRow({
-  trace,
-  now,
-  onOpen,
-  onYes,
-  onNo,
-}: {
-  trace: Trace;
-  now: number;
-  onOpen: () => void;
-  onYes: () => void;
-  onNo: () => void;
-}) {
-  const { ink, agency, evidence } = useRecordTheme();
-
-  const guess = trace.kind === 'guess';
-  const kindLabel = guess ? 'a guess' : trace.kind === 'same_source' ? 'same source' : 'same words';
+/** A recorded match in words or source. Possibilities have their own comparison. */
+function TraceRow({ trace, now, onOpen }: { trace: Trace; now: number; onOpen: () => void }) {
+  const { ink, evidence } = useRecordTheme();
+  const kindLabel = trace.kind === 'same_source' ? 'same source' : 'same words';
   const when =
     now - trace.material.at < 7 * 864e5
       ? dayLabel(trace.material.at, now)
       : monthLabel(trace.material.at, now);
-
   const text = trace.phrase
     ? snippet(displayText(trace.material).replace(/\n+/g, ' '), trace.phrase)
     : displayText(trace.material).split('\n')[0].slice(0, 90);
 
   return (
-    <View
-      style={{
-        borderLeftWidth: 2,
-        borderLeftColor: guess ? evidence.railInferred : evidence.rail,
-        paddingLeft: 14,
-      }}
+    <Pressable
+      onPress={onOpen}
+      accessibilityRole="button"
+      style={({ pressed }) => ({
+        borderLeftWidth: 2, borderLeftColor: evidence.rail, minHeight: 48,
+        paddingLeft: 14, paddingVertical: 4, opacity: pressed ? 0.7 : 1,
+      })}
     >
       <Text style={type({ size: 14, width: 90, color: ink.meta })}>{`${kindLabel} · ${when}`}</Text>
       <Marked
-        parts={parts(text, trace.phrase ? [trace.phrase] : [])}
+        parts={parts(text, [trace.phrase])}
         quiet
-        onPress={onOpen}
-        style={type({
-          size: 14,
-          width: 90,
-          lineHeight: 1.35,
-          italic: guess,
-          color: guess ? ink.dim : ink.far,
-        })}
+        style={type({ size: 14, width: 90, lineHeight: 1.35, color: ink.far })}
       />
-      {guess ? (
-        // A verdict on a guess is a decision somebody makes about their own record, and it
-        // is kept for good. Two words of 14pt type is not enough to hit — the body above
-        // opens the moment, so a near miss does something else entirely.
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-          <Pressable
-            onPress={onYes}
-            accessibilityRole="button"
-            hitSlop={{ top: 12, bottom: 12, left: 8, right: 6 }}
-          >
-            <Text style={type({ size: 14, width: 90, color: agency.ink, weight: agency.weight })}>
-              yes
-            </Text>
-          </Pressable>
-          <Text style={type({ size: 14, width: 90, color: ink.meta })}>{' · '}</Text>
-          <Pressable
-            onPress={onNo}
-            accessibilityRole="button"
-            hitSlop={{ top: 12, bottom: 12, left: 6, right: 12 }}
-          >
-            <Text style={type({ size: 14, width: 90, color: agency.ink, weight: agency.weight })}>
-              not this
-            </Text>
-          </Pressable>
-        </View>
-      ) : null}
-    </View>
+    </Pressable>
   );
 }

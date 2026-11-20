@@ -74,7 +74,7 @@ export type RecordPrivacy = ReturnType<typeof createPrivacy>;
 /** The UI never receives a private result that completed after a relock. */
 export function protectRecordStore<T extends object>(store: T, canRead: () => boolean, epoch = () => 0): T {
   const privateOperations = new Set([
-    'loadRecord', 'getFragment', 'wordingHistory', 'heldIds', 'traceJudgements', 'encountersOf',
+    'loadRecord', 'getFragment', 'wordingHistory', 'heldIds', 'traceJudgements', 'connectionRejections', 'encountersOf',
     'correct', 'continueFrom', 'linkContinuation', 'hold', 'release', 'remove', 'bringBack',
     'undoSecondsLeft', 'judgeTrace', 'recordReturn', 'closeReturn', 'recentlyReturned',
     'returnStatus', 'audioPathOf',

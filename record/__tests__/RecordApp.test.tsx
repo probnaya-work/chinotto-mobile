@@ -603,7 +603,7 @@ describe('the record surface', () => {
     h.db.close();
   });
 
-  it('keeps a "not this" for good, and stops guessing it', async () => {
+  it('shows a grounded connection on request and remembers its rejection for the pair', async () => {
     const h = harness();
     await migrate(h.db);
     // Shared vocabulary, no shared phrase — which is what makes it a guess rather than a
@@ -623,8 +623,12 @@ describe('the record surface', () => {
       await Promise.resolve();
     });
 
-    // A guess says it is one, and asks.
-    await waitFor(() => expect(screen.getByText(/a guess ·/)).toBeTruthy());
+    expect(screen.queryByText('possible connection')).toBeNull();
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: 'look for a connection' })); });
+    expect(screen.getByText('possible connection')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^this thought .*three words/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^another thought .*clear conscience/ })).toBeTruthy();
+    expect((await h.store.getFragment(mine.id))?.lineId).toBeNull();
 
     await act(async () => {
       fireEvent.press(screen.getByText('not this'));
@@ -632,12 +636,35 @@ describe('the record surface', () => {
     });
 
     // The verdict is canonical: it is written down, and it survives recomputation.
-    const judged = await h.db.getAllAsync<{ judgement: string }>(
-      'SELECT judgement FROM trace_judgements WHERE fragment_id = ?',
+    const judged = await h.db.getAllAsync<{ related_id: string; judgement: string; kind: string }>(
+      'SELECT related_id, judgement, kind FROM trace_judgements WHERE fragment_id = ?',
       mine.id
     );
-    expect(judged.map((r) => r.judgement)).toEqual(['rejected']);
-    await waitFor(() => expect(screen.queryByText(/a guess ·/)).toBeNull());
+    expect(judged).toEqual([{ related_id: 'f1', judgement: 'rejected', kind: 'connection' }]);
+    expect(await h.store.connectionRejections('f1')).toEqual([mine.id]);
+    expect(await h.store.connectionRejections('other')).toEqual([]);
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: 'look for a connection' })); });
+    expect(screen.getByText('no clear connection found')).toBeTruthy();
+    h.db.close();
+  });
+
+  it('opens a dated connection in the existing reader without creating a Line', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const olderAt = T0 - 700 * MS_DAY;
+    const other = await h.store.capture({ body: 'sorting is procrastination with a clear conscience', at: olderAt });
+    const mine = await h.store.capture({ body: 'conscience, procrastination, sorting: three words together' });
+    const view = await mount(h);
+    await act(async () => { fireEvent.press(screen.getByText(mine.body)); });
+    await act(async () => { fireEvent.press(screen.getByText(mine.body)); });
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: 'look for a connection' })); });
+    const passage = screen.getByRole('button', { name: /^another thought .*clear conscience/ });
+    expect(passage.props.accessibilityLabel).toContain(fullDate(olderAt));
+    await act(async () => { fireEvent.press(passage); });
+    expect(screen.getByText(`a fragment · ${fullDate(olderAt)}`)).toBeTruthy();
+    expect(screen.queryByText('possible connection')).toBeNull();
+    expect((await h.store.getFragment(other.id))?.lineId).toBeNull();
+    view.unmount();
     h.db.close();
   });
 

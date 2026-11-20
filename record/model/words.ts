@@ -42,6 +42,7 @@ export function stem(word: string): string {
 }
 
 export type Token = { w: string; s: string };
+const WORD = /[\p{L}\p{N}][\p{L}\p{M}\p{N}’']*/gu;
 
 /**
  * Up to 160 tokens. The cap is the prototype's and it matters at scale: a 10 000-word
@@ -51,7 +52,7 @@ export const tokens = (text: string | null | undefined): Token[] =>
   (String(text ?? '')
     .normalize('NFC')
     .toLowerCase()
-    .match(/[\p{L}\p{N}][\p{L}\p{M}\p{N}’']*/gu) ?? [])
+    .match(WORD) ?? [])
     .slice(0, 160)
     .map((w) => ({ w, s: stem(w) }));
 
@@ -103,17 +104,19 @@ export function sharedRun(ta: Token[], tb: Token[]): SharedRun | null {
 
 /** How many distinct substantial stems the second text shares with the first. */
 export function sharedCount(ta: Token[], tb: Token[]): number {
-  const A = new Set(ta.filter((t) => !STOP.has(t.w) && t.w.length > 2).map((t) => t.s));
+  const A = new Set(ta.filter(substantiveToken).map((t) => t.s));
   let n = 0;
   const seen = new Set<string>();
   for (const t of tb) {
-    if (!STOP.has(t.w) && A.has(t.s) && !seen.has(t.s)) {
+    if (substantiveToken(t) && A.has(t.s) && !seen.has(t.s)) {
       seen.add(t.s);
       n += 1;
     }
   }
   return n;
 }
+
+export const substantiveToken = (token: Token): boolean => token.w.length > 2 && !STOP.has(token.w);
 
 export type TextPart = {
   t: string;
@@ -122,6 +125,21 @@ export type TextPart = {
   /** Not matched. Both flags are carried because the template branches on each. */
   n: boolean;
 };
+
+/** Mark complete words without normalizing any of the displayed source text. */
+export function wordParts(source: string, words: ReadonlySet<string>): TextPart[] {
+  const result: TextPart[] = [];
+  let end = 0;
+  for (const match of source.matchAll(WORD)) {
+    const word = match[0];
+    if (!words.has(word.normalize('NFC').toLowerCase())) continue;
+    if (match.index > end) result.push({ t: source.slice(end, match.index), m: false, n: true });
+    result.push({ t: word, m: true, n: false });
+    end = match.index + word.length;
+  }
+  if (end < source.length) result.push({ t: source.slice(end), m: false, n: true });
+  return result;
+}
 
 /**
  * Splits `text` around every occurrence of any phrase, so the interface can highlight the

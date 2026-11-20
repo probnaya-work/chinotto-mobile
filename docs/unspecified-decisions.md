@@ -570,3 +570,13 @@ The reader recomputes the cause from current material and withdraws it if the
 evidence disappears. Continue and Hold are available in the reader. Dismissal
 is stored on tap, and Reduce Motion skips the invitation’s transition. This
 uses the existing Return tables, protection boundary and Continuation model.
+
+### Possible connections in the mobile reader
+
+Observed Traces stay in the reader. Vocabulary-based suggestions appear only
+on request. The reader shows one candidate with two dated excerpts and marks
+shared words within each excerpt. Both excerpts lead back to their sources.
+Dismissing a pair uses the existing local judgement table and applies in either
+direction. The same pair stays dismissed after a restart. Existing Lines are
+kept. This interaction reads the Record on-device and uses lexical overlap.
+The ranking considers word overlap first and elapsed time to break ties.

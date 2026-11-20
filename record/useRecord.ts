@@ -40,7 +40,7 @@ export type PendingRemoval = { material: Material; at: number };
 
 export type RecordState = ReturnType<typeof useRecord>;
 
-type FocusTarget = { id: string; returned?: Pick<RecordReturn, 'reason' | 'evidence'> };
+type FocusTarget = { id: string; returned?: Pick<RecordReturn, 'reason' | 'evidence'>; fromConnection?: boolean };
 
 export function useRecord(
   store: RecordStore,
@@ -468,16 +468,10 @@ export function useRecord(
 
   /* --------------------------------------------------------------------- traces */
 
-  const judgeTrace = useCallback(
-    async (related: Material, verdict: 'confirmed' | 'rejected') => {
-      if (!focusId) return;
-      await store.judgeTrace(focusId, related.id, 'inferred', verdict);
-      // "yes" is not only a verdict — it says these belong to one line, so it links them.
-      if (verdict === 'confirmed') await store.linkContinuation(focusId, related.id);
-      await reload();
-    },
-    [focusId, store, reload]
-  );
+  const openConnection = useCallback((id: string) => {
+    setSelectedId(null);
+    setFocusTarget({ id, fromConnection: true });
+  }, []);
 
   /* ---------------------------------------------------------------- what to draw */
 
@@ -491,7 +485,7 @@ export function useRecord(
   }, [readEnabled, ready, focus, focusTarget, live, nowFn]);
 
   const focusTraces: Trace[] = useMemo(
-    () => (focus ? traces({ line, material: live, judgements }) : []),
+    () => (focus ? traces({ line, material: live, judgements, includeGuesses: false }) : []),
     [focus, line, live, judgements]
   );
 
@@ -654,14 +648,14 @@ export function useRecord(
     toggleHold,
     holdRefused,
     maxHeld: MAX_HELD,
-    judgeTrace,
+    openConnection,
 
     ret,
     retLeaving,
     openReturn,
     letGo,
     returnContext,
-    returned: Boolean(focusTarget?.returned),
+    positionAtMoment: Boolean(focusTarget?.returned || focusTarget?.fromConnection),
 
     playingId,
     setPlayingId,
