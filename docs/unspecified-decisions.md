@@ -594,3 +594,15 @@ previous scroll position. Both keep any unfinished continuation. Device
 protection conceals the reader during relock and restores the authorized
 quiet session and draft after unlock. The mode state lives in memory and
 does not change notification or operating-system Focus settings.
+
+### Similarity in meaning
+
+On iOS 17 and later the reader checks up to 48 excerpts of at most 240 UTF-16
+units after the lexical path finds none. Candidates are sampled across the
+loaded Record and must be eligible for a new connection. Apple's
+`NLContextualEmbedding` compares excerpts confidently recognized as the same
+language. The first experiment uses normalized token pooling, minimum cosine
+0.82 with a 0.05 lead over the next match, and 0.90 for a single comparable
+excerpt. These are starting values for native quality checks. Vectors are
+temporary. Language model assets can be requested on first use. The reader
+withdraws suggestions when either analyzed excerpt or its eligibility changes.

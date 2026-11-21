@@ -24,6 +24,9 @@ import { createReminders } from '../reminders';
 import { fullDate, MS_DAY } from '../model/time';
 import { postponeReminder, reminderPresets, reminderTime } from '../reminderTime';
 import { testReminderNotifications } from '../__testsupport__/reminderNotifications';
+import { scoreMeaning } from '../nativeConnections';
+
+jest.mock('../nativeConnections', () => ({ scoreMeaning: jest.fn(async () => null) }));
 
 const T0 = new Date('2026-09-19T17:10:00.000Z').getTime();
 
@@ -666,6 +669,28 @@ describe('the record surface', () => {
     expect((await h.store.getFragment(other.id))?.lineId).toBeNull();
     view.unmount();
     h.db.close();
+  });
+
+  it('shows exact dated originals when the local meaning model suggests a pair', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const earlier = await h.store.capture({
+      body: 'Silence feels harder to sit through than another distraction.', at: T0 - 800 * MS_DAY,
+    });
+    const recent = await h.store.capture({ body: 'I keep filling every pause with a screen.' });
+    jest.mocked(scoreMeaning).mockClear().mockResolvedValueOnce({ scores: [0.94] });
+    const view = await mount(h);
+    try {
+      await act(async () => { fireEvent.press(screen.getByText(recent.body)); });
+      await act(async () => { fireEvent.press(screen.getByText(recent.body)); });
+      expect(scoreMeaning).not.toHaveBeenCalled();
+      await act(async () => { fireEvent.press(screen.getByRole('button', { name: 'look for a connection' })); });
+      expect(screen.getByText('a possible similarity in meaning · compared on this device')).toBeTruthy();
+      const passage = screen.getByRole('button', { name: /another thought .*Silence feels harder/ });
+      expect(passage.props.accessibilityLabel).toContain(fullDate(earlier.at));
+      await act(async () => { fireEvent.press(passage); });
+      expect(screen.getByText(`a fragment · ${fullDate(earlier.at)}`)).toBeTruthy();
+    } finally { view.unmount(); h.db.close(); }
   });
 
   it('says the shelf is full rather than doing nothing', async () => {
