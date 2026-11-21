@@ -93,9 +93,9 @@ export async function prepareNativeRestore(db: RecordDb, uri: string, signal: Ab
           installed.push(path);
           const journal = new File(recovery, `restore-${batch}-${nextVoice}.json`);
           const pending = new File(recovery, `restore-${batch}-${nextVoice}.pending`);
-          pending.create(); pending.write(JSON.stringify([path])); pending.move(journal);
+          pending.create(); pending.write(JSON.stringify([path])); pending.moveSync(journal);
           journals.push(journal);
-          staged.get(id)!.move(target);
+          staged.get(id)!.moveSync(target);
           if (target.size !== audio.bytes) throw new Error('A recording could not be restored completely.');
         }
         return path;

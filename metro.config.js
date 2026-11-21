@@ -6,12 +6,7 @@ const projectRoot = __dirname;
 /** @type {import('expo/metro-config').ExpoMetroConfig} */
 const config = getDefaultConfig(projectRoot);
 
-// pnpm installs real packages under node_modules/.pnpm and symlinks scopes like
-// @react-native-firebase/* — Metro must follow symlinks or imports fail at bundle time.
-config.resolver = {
-  ...config.resolver,
-  unstable_enableSymlinks: true,
-};
+// Make pnpm's virtual store visible to Metro.
 const pnpmStore = path.join(projectRoot, 'node_modules', '.pnpm');
 config.watchFolders = [...new Set([...(config.watchFolders ?? []), pnpmStore])];
 

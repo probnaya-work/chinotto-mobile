@@ -1,10 +1,10 @@
 /**
- * iOS home screen widget (Expo Widgets alpha). Isolated entry: safe to adjust or remove
- * if the alpha API changes. Renders only in the widget extension bundle — not in Expo Go.
+ * iOS home screen widget entry for Expo Widgets.
  */
 import { Text, VStack } from '@expo/ui/swift-ui';
 import {
   background,
+  containerBackground,
   font,
   foregroundStyle,
   padding,
@@ -26,6 +26,7 @@ function CaptureHomeWidget(_props: Record<string, never>, _env: WidgetEnvironmen
       spacing={6}
       modifiers={[
         widgetURL(CHINOTTO_WIDGET_CAPTURE_URL),
+        containerBackground(WIDGET_SURFACE, 'widget'),
         padding({ all: 14 }),
         background(WIDGET_SURFACE, shapes.roundedRectangle({ cornerRadius: 16, roundedCornerStyle: 'continuous' })),
       ]}

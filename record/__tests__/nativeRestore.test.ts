@@ -27,7 +27,7 @@ jest.mock('expo-file-system', () => {
     create() { fs.writeFileSync(this.uri, ''); }
     write(text: string) { fs.writeFileSync(this.uri, text); }
     text() { return Promise.resolve(fs.readFileSync(this.uri, 'utf8')); }
-    move(target: File) { fs.renameSync(this.uri, target.uri); this.uri = target.uri; }
+    moveSync(target: File) { fs.renameSync(this.uri, target.uri); this.uri = target.uri; }
     copy(target: File) { fs.copyFileSync(this.uri, target.uri, fs.constants.COPYFILE_EXCL); }
     delete() { fs.unlinkSync(this.uri); }
     open() {

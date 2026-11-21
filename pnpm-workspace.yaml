@@ -1,5 +1,5 @@
 patchedDependencies:
-  expo-widgets@55.0.7: patches/expo-widgets@55.0.7.patch
+  expo-widgets@57.0.28: patches/expo-widgets@57.0.28.patch
 
 # @react-native-firebase/remote-config peer-depends on @react-native-firebase/analytics (no
 # `optional: true` in its peerDependenciesMeta), but its podspec depends only on RNFBApp and
@@ -10,9 +10,3 @@ patchedDependencies:
 # links the peer into remote-config's own node_modules if it's resolvable, so it doesn't work
 # here. Disabling auto-install-peers repository-wide is what actually keeps it out.
 autoInstallPeers: false
-
-# Expo 55.0.8 already autolinks this native Constants version. Keep the notifications
-# package on that same module so Metro and CocoaPods cannot see different copies.
-overrides:
-  expo-notifications>expo-constants: 55.0.9
-  expo-notifications>expo-application: 55.0.10
