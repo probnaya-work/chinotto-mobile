@@ -18,6 +18,7 @@ import React, { useCallback, useEffect, useRef } from 'react';
 import {
   Animated,
   Easing,
+  Platform,
   Pressable,
   Text,
   TextInput,
@@ -31,7 +32,8 @@ import {
 
 import { Marked } from './Marked';
 import { ReturnContext } from './ReturnBlock';
-import { ConnectionPanel, type ConnectionData } from './ConnectionPanel';
+import { ConnectionPanel, type ConnectionData, type ConnectionPanelHandle } from './ConnectionPanel';
+import { ThoughtActionsMenu, type ThoughtAction } from './ThoughtActionsMenu';
 import { useKeyboardInset } from './useKeyboardInset';
 import { VoiceChip, type VoiceChipSpec } from './VoiceChip';
 import { motion } from './tokens';
@@ -48,6 +50,7 @@ import { dayLabel, fmtDur, fullDate, fmtTime, monthLabel } from '../model/time';
 import { parts, snippet } from '../model/words';
 import type { Trace } from '../model/traces';
 import type { RecordReturn } from '../model/returns';
+import { supportsLiquidGlassMenu } from '../platform';
 
 export type QuietScrollPosition = { normal: number; quiet: number; restore: number | null };
 
@@ -89,6 +92,7 @@ export type FocusProps = {
   onSubmitContinue: () => void;
 
   reminder?: { label: string; onOpen: () => void; notice: string | null };
+  reminderEditorOpen: boolean;
   fromReminder?: boolean;
   positionAtMoment?: boolean;
   returnContext?: RecordReturn | null;
@@ -122,6 +126,9 @@ export function Focus(props: FocusProps) {
   const offset = useRef(initialOffset.current.y);
   const positioned = useRef<string | null>(null);
   const momentOffset = useRef<{ id: string; y: number } | null>(null);
+  const comparison = useRef<ConnectionPanelHandle>(null);
+  const comparisonOffset = useRef<{ id: string; y: number } | null>(null);
+  const revealComparison = useRef<string | null>(null);
   // Continue and correction sit on the keyboard for the same reason the edge does: they are
   // the bottom of this surface, not something floating over it.
   const keyboardInset = useKeyboardInset();
@@ -175,6 +182,57 @@ export function Focus(props: FocusProps) {
     scroll.current.scrollTo({ y, animated: false });
   }, [id, positionAtMoment, quietReading, quietPosition]);
   const canCompare = props.connections && !props.continuing && !props.editingId && props.focus.body.trim();
+  const useMenu = supportsLiquidGlassMenu(Platform.OS, Platform.Version);
+  const canReadQuietly = Boolean(displayText(props.focus).trim() || isQuoteOnly(props.focus) || isLine);
+  const readQuietly = () => props.onEnterQuietReading(offset.current);
+
+  function lookForConnection() {
+    revealComparison.current = id;
+    comparison.current?.look();
+    if (comparisonOffset.current?.id === id) {
+      scroll.current?.scrollTo({ y: comparisonOffset.current.y, animated: !props.reducedMotion });
+    }
+  }
+
+  const actions: ThoughtAction[] = [];
+  if (useMenu && !quietReading && !props.continuing && !props.editingId && !props.reminderEditorOpen) {
+    if (props.reminder) actions.push({ id: 'reminder', label: props.reminder.label, onPress: props.reminder.onOpen });
+    if (canReadQuietly) actions.push({ id: 'quiet', label: 'quiet reading', onPress: readQuietly });
+    if (canCompare) actions.push({ id: 'connection', label: 'look for a connection', onPress: lookForConnection });
+  }
+
+  const menu = actions.length ? <ThoughtActionsMenu actions={actions} /> : null;
+  const back = (
+    <Pressable onPress={quietReading ? props.onExitQuietReading : props.onClose}
+      accessibilityRole="button" hitSlop={quietReading ? undefined : 12}
+      style={({ pressed }) => quietReading ? {
+        minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8, opacity: pressed ? 0.7 : 1,
+      } : undefined}>
+      {quietReading ? (
+        <View pointerEvents="none" style={{ width: 10, height: 10, borderRadius: 5, borderWidth: 1.5, borderColor: LIVE }} />
+      ) : null}
+      <Text style={[type({ size: 14, width: 90, color: ink.far }), { flexShrink: 1 }]}>
+        {quietReading ? 'exit quiet reading' : '‹ edge'}
+      </Text>
+    </Pressable>
+  );
+  const connectionPanel = !quietReading && canCompare && props.connections ? (
+    <ConnectionPanel key={id} ref={useMenu ? comparison : undefined}
+      source={props.focus} data={props.connections} fontScale={fontScale} showLookAction={!useMenu}
+      onLayout={useMenu ? ({ nativeEvent }: LayoutChangeEvent) => {
+        const { y } = nativeEvent.layout;
+        comparisonOffset.current = { id, y };
+        if (revealComparison.current !== id) return;
+        revealComparison.current = null;
+        scroll.current?.scrollTo({ y, animated: !props.reducedMotion });
+      } : undefined}
+      onReadSource={() => {
+        if (momentOffset.current?.id === id) {
+          scroll.current?.scrollTo({ y: momentOffset.current.y, animated: false });
+        }
+      }}
+    />
+  ) : null;
 
   return (
     <Animated.View
@@ -204,22 +262,18 @@ export function Focus(props: FocusProps) {
           gap: stacked ? 8 : undefined,
         }}
       >
-        <Pressable onPress={quietReading ? props.onExitQuietReading : props.onClose}
-          accessibilityRole="button" hitSlop={quietReading ? undefined : 12}
-          style={({ pressed }) => quietReading ? {
-            minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8, opacity: pressed ? 0.7 : 1,
-          } : undefined}>
-          {quietReading ? (
-            <View pointerEvents="none" style={{ width: 10, height: 10, borderRadius: 5, borderWidth: 1.5, borderColor: LIVE }} />
-          ) : null}
-          <Text style={[type({ size: 14, width: 90, color: ink.far }), { flexShrink: 1 }]}>
-            {quietReading ? 'exit quiet reading' : '‹ edge'}
-          </Text>
-        </Pressable>
+        {stacked && menu ? (
+          <View style={{ alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            {back}
+            {menu}
+          </View>
+        ) : back}
         <Text style={[type({ size: 12, width: 90, color: ink.meta }),
-          stacked ? undefined : { flexShrink: 1, marginLeft: 10, textAlign: 'right' }]}>
+          stacked ? undefined : { flexShrink: 1, marginLeft: 10, textAlign: 'right' },
+          !stacked && menu ? { flexGrow: 1, marginRight: 6 } : undefined]}>
           {lineHeading(props.line, props.focus, props.now)}
         </Text>
+        {!stacked ? menu : null}
       </View>
 
       <Animated.ScrollView
@@ -287,14 +341,15 @@ export function Focus(props: FocusProps) {
                 fontScale={fontScale}
                 entry={entry}
                 onLayout={entry.material.id === id ? measureMoment : undefined}
-                onQuiet={() => props.onEnterQuietReading(offset.current)}
+                onQuiet={canReadQuietly ? readQuietly : undefined}
+                showInlineActions={!useMenu}
                 {...props}
               />
             )
           )}
         </View>
 
-        {!quietReading && (props.traces.length || canCompare) ? (
+        {!quietReading && (props.traces.length > 0 || (!useMenu && connectionPanel)) ? (
           <View
             style={{
               marginTop: 28,
@@ -324,16 +379,10 @@ export function Focus(props: FocusProps) {
                 onOpen={() => props.onOpenTrace(t.material)}
               />
             ))}
-            {canCompare && props.connections ? (
-              <ConnectionPanel key={id} source={props.focus} data={props.connections} fontScale={fontScale}
-                onReadSource={() => {
-                  if (momentOffset.current?.id === id) {
-                    scroll.current?.scrollTo({ y: momentOffset.current.y, animated: false });
-                  }
-                }} />
-            ) : null}
+            {!useMenu ? connectionPanel : null}
           </View>
         ) : null}
+        {useMenu ? connectionPanel : null}
       </Animated.ScrollView>
 
       <Animated.View
@@ -451,12 +500,14 @@ function Moment({
   fontScale,
   onLayout,
   onQuiet,
+  showInlineActions,
   ...props
 }: FocusProps & {
   entry: Extract<LineEntry, { kind: 'moment' }>;
   fontScale: number;
   onLayout?: (event: LayoutChangeEvent) => void;
-  onQuiet: () => void;
+  onQuiet?: () => void;
+  showInlineActions: boolean;
 }) {
   const { ink, agency, rule, mode } = useRecordTheme();
 
@@ -472,7 +523,6 @@ function Moment({
   const when = dayLabel(m.at, props.now) === 'today' ? 'today' : fullDate(m.at);
   const returnContext = isFocus && !quietReading ? props.returnContext : null;
   const match = returnContext?.phraseOld ?? null;
-  const showQuietAction = Boolean(body.trim() || isQuoteOnly(m) || props.line.length > 1);
   const lineHeight = quietReading ? 1.47 : isFocus ? 1.3 : 1.32;
 
   return (
@@ -619,24 +669,27 @@ function Moment({
 
           {returnContext ? <ReturnContext value={returnContext} now={props.now} /> : null}
 
-          {isFocus && !quietReading && !props.continuing && (props.reminder || showQuietAction) ? (
+          {isFocus && !quietReading && !props.continuing &&
+            (props.reminder?.notice || (showInlineActions && (props.reminder || onQuiet))) ? (
             <View>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 18, alignItems: 'flex-start' }}>
-                {props.reminder ? (
-                  <Pressable accessibilityRole="button" onPress={props.reminder.onOpen}
-                    style={{ minHeight: 48, minWidth: 48, justifyContent: 'center' }}>
-                    <Text style={type({ size: 14, width: 94, weight: agency.weight, color: agency.ink })}>
-                      {props.reminder.label}
-                    </Text>
-                  </Pressable>
-                ) : null}
-                {showQuietAction ? (
-                  <Pressable accessibilityRole="button" onPress={onQuiet}
-                    style={({ pressed }) => ({ minHeight: 48, minWidth: 48, justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}>
-                    <Text style={type({ size: 14, width: 94, color: ink.far })}>quiet reading</Text>
-                  </Pressable>
-                ) : null}
-              </View>
+              {showInlineActions ? (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 18, alignItems: 'flex-start' }}>
+                  {props.reminder ? (
+                    <Pressable accessibilityRole="button" onPress={props.reminder.onOpen}
+                      style={{ minHeight: 48, minWidth: 48, justifyContent: 'center' }}>
+                      <Text style={type({ size: 14, width: 94, weight: agency.weight, color: agency.ink })}>
+                        {props.reminder.label}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                  {onQuiet ? (
+                    <Pressable accessibilityRole="button" onPress={onQuiet}
+                      style={({ pressed }) => ({ minHeight: 48, minWidth: 48, justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}>
+                      <Text style={type({ size: 14, width: 94, color: ink.far })}>quiet reading</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              ) : null}
               {props.reminder?.notice ? (
                 <Text accessibilityRole="alert" style={type({ size: 13, width: 92, color: ink.far })}>
                   {props.reminder.notice}
