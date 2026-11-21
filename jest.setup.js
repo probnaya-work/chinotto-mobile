@@ -195,9 +195,30 @@ jest.mock('expo-widgets', () => ({
 
 jest.mock('@expo/ui/swift-ui', () => {
   const React = require('react');
-  const { View } = require('react-native');
+  const { Pressable, Text, View } = require('react-native');
   const Passthrough = (p) => React.createElement(View, p, p.children);
   return {
+    Host: Passthrough,
+    Image: () => null,
+    Button: ({ label, onPress }) => React.createElement(Pressable, {
+      accessibilityRole: 'button', accessibilityLabel: label, onPress,
+    }, React.createElement(Text, null, label)),
+    Menu: ({ modifiers, children }) => {
+      const [open, setOpen] = React.useState(false);
+      return React.createElement(View, null,
+        React.createElement(Pressable, {
+          accessibilityRole: 'button',
+          accessibilityLabel: modifiers.find(({ label }) => label)?.label,
+          onPress: () => setOpen(!open),
+        }),
+        open ? React.Children.map(children, (item) => React.cloneElement(item, {
+          onPress: () => {
+            setOpen(false);
+            item.props.onPress();
+          },
+        })) : null
+      );
+    },
     Text: Passthrough,
     VStack: Passthrough,
     Link: Passthrough,
@@ -206,12 +227,17 @@ jest.mock('@expo/ui/swift-ui', () => {
 });
 
 jest.mock('@expo/ui/swift-ui/modifiers', () => ({
+  accessibilityLabel: (label) => ({ label }),
+  buttonStyle: jest.fn(() => ({})),
+  contentShape: jest.fn(() => ({})),
+  frame: jest.fn(() => ({})),
   font: jest.fn(() => ({})),
   foregroundStyle: jest.fn(() => ({})),
   padding: jest.fn(() => ({})),
   widgetURL: jest.fn(() => ({})),
   background: jest.fn(() => ({})),
   shapes: {
+    rectangle: jest.fn(() => ({ shape: 'rectangle' })),
     roundedRectangle: jest.fn(() => ({ shape: 'roundedRectangle' })),
   },
 }));

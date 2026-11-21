@@ -594,3 +594,15 @@ previous scroll position. Both keep any unfinished continuation. Device
 protection conceals the reader during relock and restores the authorized
 quiet session and draft after unlock. The mode state lives in memory and
 does not change notification or operating-system Focus settings.
+
+### Thought actions menu
+
+On iOS 26 and later, the reader groups the available reminder, quiet reading,
+and connection actions in its upper-right ellipsis menu. The trigger uses the
+reader's ink and has a 44-point target. SwiftUI draws the open menu with the
+system material and appearance. At larger text sizes, the header puts the
+back button and menu on their own row so the date or Line heading can wrap.
+The reader keeps inline actions on older iOS versions and Android. The menu
+moves out of the way during quiet reading, editing, and writing a continuation.
+Choosing a connection takes the reader to the existing result below the
+thought, and reminder status messages stay in the reader.
