@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { AppState, ScrollView, Text } from 'react-native';
 import { firstLine } from '../model/material';
 import type { ReminderPermission, ReminderPreferences, Reminders, ReminderStatus } from '../reminders';
+import type { ReturnAlerts } from '../returnAlerts';
 import { reminderDate, reminderTime } from '../reminderTime';
 import type { RecordStore } from '../store';
 import { useRecordTheme } from './appearance';
@@ -10,6 +11,8 @@ import { type } from './type';
 
 type NotificationSettingsProps = {
   reminders: Reminders;
+  returnAlerts?: ReturnAlerts;
+  onReturnAlertsChanged?: () => void;
   openSystemSettings: () => void;
   openScheduled: () => void;
 };
@@ -48,8 +51,11 @@ function Note({ children, alert = false }: { children: string; alert?: boolean }
   );
 }
 
-export function NotificationSettings({ reminders, openSystemSettings, openScheduled }: NotificationSettingsProps) {
+export function NotificationSettings({
+  reminders, returnAlerts, onReturnAlertsChanged, openSystemSettings, openScheduled,
+}: NotificationSettingsProps) {
   const [prefs, setPrefs] = useState<ReminderPreferences | null>(null);
+  const [returnAlertsOn, setReturnAlertsOn] = useState<boolean>();
   const [permission, setPermission] = useState<ReminderPermission | null>();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -63,6 +69,16 @@ export function NotificationSettings({ reminders, openSystemSettings, openSchedu
     );
     return () => { active = false; };
   }, [reminders, refresh]);
+
+  useEffect(() => {
+    if (!returnAlerts) return;
+    let active = true;
+    void returnAlerts.enabled().then(
+      (on) => { if (active) setReturnAlertsOn(on); },
+      () => { if (active) setError('could not read Return alerts.'); },
+    );
+    return () => { active = false; };
+  }, [returnAlerts, refresh]);
 
   useEffect(() => {
     let active = true;
@@ -92,6 +108,21 @@ export function NotificationSettings({ reminders, openSystemSettings, openSchedu
     }
   }
 
+  async function toggleReturnAlerts() {
+    if (busy || !returnAlerts || returnAlertsOn === undefined) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await returnAlerts.setEnabled(!returnAlertsOn);
+    } catch {
+      setError('could not update Return alerts on this iphone.');
+    } finally {
+      setRefresh((value) => value + 1);
+      onReturnAlertsChanged?.();
+      setBusy(false);
+    }
+  }
+
   const permissionLine = permission === 'granted' ? 'alerts allowed by iOS'
     : permission === 'denied' ? 'alerts off in iPhone Settings'
     : permission === 'ask' ? 'will ask when you set your first alert'
@@ -105,7 +136,12 @@ export function NotificationSettings({ reminders, openSystemSettings, openSchedu
             status={prefs.paused ? 'paused' : 'on'} accessibilityRole="switch" checked={!prefs.paused}
             disabled={busy} onPress={() => void apply({ ...prefs, paused: !prefs.paused })} />
           <SettingRow title="scheduled reminders" detail="view, change or cancel a time"
-            action="open ›" onPress={openScheduled} divider={false} />
+            action="open ›" onPress={openScheduled} divider={returnAlertsOn !== undefined} />
+          {returnAlertsOn !== undefined ? (
+            <SettingRow title="Return alerts" detail="at most one a week, when there’s a reason to revisit an older thought"
+              status={returnAlertsOn ? 'on' : 'off'} accessibilityRole="switch" checked={returnAlertsOn}
+              disabled={busy} onPress={() => void toggleReturnAlerts()} divider={false} />
+          ) : null}
         </> : null}
       </Section>
       {prefs ? (
@@ -116,7 +152,10 @@ export function NotificationSettings({ reminders, openSystemSettings, openSchedu
           <Note>thought text stays inside chinotto.</Note>
         </Section>
       ) : null}
-      <Note>for quiet hours, use your iPhone’s Focus settings.</Note>
+      <Section label="quiet hours" gap={8}>
+        <Note>iPhone Focus can silence other apps while Chinotto is open. In iPhone Settings, choose Focus, pick a Focus, then choose Add Schedule › App › Chinotto.</Note>
+        <Note>quiet reading puts secondary controls away in the reader. iPhone Focus manages interruptions.</Note>
+      </Section>
       {error ? <>
         <Note alert>{error}</Note>
         <SettingRow title="try again" onPress={busy ? undefined : () => {

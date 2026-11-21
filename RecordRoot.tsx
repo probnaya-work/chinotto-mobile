@@ -314,7 +314,7 @@ function RecordRootContent() {
     []
   );
 
-  /** The widget and the scheme both mean one thing: put the caret in the field. */
+  /** Voice capture can arrive before the Record mounts. */
   const [voiceOnOpen, setVoiceOnOpen] = useState(false);
   useEffect(() => {
     const handle = (url: string | null | undefined) => {
