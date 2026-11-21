@@ -26,6 +26,7 @@ import {
   View,
   type GestureResponderEvent,
   useWindowDimensions,
+  type TextInputInstance,
   type TextInputProps,
 } from 'react-native';
 
@@ -66,7 +67,7 @@ export type EdgeProps = {
   captureOnly?: boolean;
   onChangeInput: (text: string) => void;
   onSubmit: () => void;
-  inputRef?: React.RefObject<TextInput | null>;
+  inputRef?: React.RefObject<TextInputInstance | null>;
 
   /** True while the field has focus; the caret hides when it does. */
   focused: boolean;
@@ -456,7 +457,7 @@ export function Edge(props: EdgeProps) {
  */
 const FIELD_ONE_LINE = Math.round(edge.fieldSize * 1.3) + FIELD_PADDING_Y * 2;
 
-const CaptureField = React.forwardRef<TextInput, TextInputProps>(function CaptureField(
+const CaptureField = React.forwardRef<TextInputInstance, TextInputProps>(function CaptureField(
   { value, style, ...rest },
   ref
 ) {

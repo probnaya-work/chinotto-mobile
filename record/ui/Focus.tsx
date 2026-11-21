@@ -19,7 +19,6 @@ import {
   Animated,
   Easing,
   Pressable,
-  ScrollView,
   Text,
   TextInput,
   View,
@@ -27,6 +26,7 @@ import {
   type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  type ScrollViewInstance,
 } from 'react-native';
 
 import { Marked } from './Marked';
@@ -117,7 +117,7 @@ export function Focus(props: FocusProps) {
   const stacked = fontScale >= 1.3;
 
   const slide = useRef(new Animated.Value(props.reducedMotion ? 1 : 0)).current;
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
   const initialOffset = useRef({ x: 0, y: quietReading ? quietPosition.current.quiet : 0 });
   const offset = useRef(initialOffset.current.y);
   const positioned = useRef<string | null>(null);

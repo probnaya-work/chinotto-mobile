@@ -20,6 +20,7 @@ import { RecordApp } from '../RecordApp';
 import { protectRecordStore } from '../privacy';
 import { AppearanceProvider } from '../ui/appearance';
 import { LAUNCH_HOLD } from '../ui/Launch';
+import { motion } from '../ui/tokens';
 import { createReminders } from '../reminders';
 import { fullDate, MS_DAY } from '../model/time';
 import { postponeReminder, reminderPresets, reminderTime } from '../reminderTime';
@@ -74,7 +75,7 @@ async function mount(h: ReturnType<typeof harness>, over: Partial<AppProps> = {}
 
 describe('the record surface', () => {
   beforeEach(() => {
-    jest.useFakeTimers();
+    jest.useFakeTimers({ doNotFake: ['setImmediate'] });
     jest.setSystemTime(T0);
   });
   afterEach(() => {
@@ -986,9 +987,12 @@ describe('the record surface', () => {
     expect(screen.getByLabelText('capture')).toBeTruthy();
 
     await act(async () => {
-      jest.advanceTimersByTime(LAUNCH_HOLD + 520 + 50);
+      await jest.advanceTimersByTimeAsync(LAUNCH_HOLD);
     });
-    await waitFor(() => expect(screen.queryByText('chinotto')).toBeNull());
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(motion.launchOut + 50);
+    });
+    expect(screen.queryByText('chinotto')).toBeNull();
     view.unmount();
     h.db.close();
   });
