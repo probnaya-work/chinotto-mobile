@@ -23,6 +23,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
   type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -112,6 +113,8 @@ const FOCUS_CHIP: VoiceChipSpec = {
 export function Focus(props: FocusProps) {
   const { ink, agency, rule, SURFACE, LIVE, mode } = useRecordTheme();
   const { quietReading, quietPosition } = props;
+  const { fontScale } = useWindowDimensions();
+  const stacked = fontScale >= 1.3;
 
   const slide = useRef(new Animated.Value(props.reducedMotion ? 1 : 0)).current;
   const scroll = useRef<ScrollView>(null);
@@ -190,12 +193,15 @@ export function Focus(props: FocusProps) {
     >
       <View style={{ height: 54 }} />
       <View
+        key={fontScale}
+        testID="thought-reader-header"
         style={{
           paddingHorizontal: 24,
           paddingTop: 12,
-          flexDirection: 'row',
+          flexDirection: stacked ? 'column' : 'row',
           justifyContent: 'space-between',
-          alignItems: 'center',
+          alignItems: stacked ? 'flex-start' : 'center',
+          gap: stacked ? 8 : undefined,
         }}
       >
         <Pressable onPress={quietReading ? props.onExitQuietReading : props.onClose}
@@ -206,10 +212,12 @@ export function Focus(props: FocusProps) {
           {quietReading ? (
             <View pointerEvents="none" style={{ width: 10, height: 10, borderRadius: 5, borderWidth: 1.5, borderColor: LIVE }} />
           ) : null}
-          <Text style={type({ size: 14, width: 90, color: ink.far })}>{quietReading ? 'exit quiet reading' : '‹ edge'}</Text>
+          <Text style={[type({ size: 14, width: 90, color: ink.far }), { flexShrink: 1 }]}>
+            {quietReading ? 'exit quiet reading' : '‹ edge'}
+          </Text>
         </Pressable>
         <Text style={[type({ size: 12, width: 90, color: ink.meta }),
-          quietReading ? { flexShrink: 1, marginLeft: 10, textAlign: 'right' } : undefined]}>
+          stacked ? undefined : { flexShrink: 1, marginLeft: 10, textAlign: 'right' }]}>
           {lineHeading(props.line, props.focus, props.now)}
         </Text>
       </View>
@@ -221,13 +229,13 @@ export function Focus(props: FocusProps) {
         onScroll={trackScroll}
         scrollEventThrottle={32}
         onContentSizeChange={restoreReaderPosition}
-        style={{ flex: 1, marginBottom: keyboardInset }}
-        contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 26, paddingBottom: 140 }}
+        style={{ flex: 1, marginBottom: stacked ? 0 : keyboardInset }}
+        contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 26, paddingBottom: stacked ? 24 : 140 }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
       >
         {props.fromReminder && !quietReading ? (
-          <Text style={[type({ size: 12, width: 90, color: ink.meta }), { marginBottom: 16 }]}>
+          <Text key={fontScale} style={[type({ size: 12, width: 90, color: ink.meta }), { marginBottom: 16 }]}>
             a reminder you set
           </Text>
         ) : null}
@@ -248,7 +256,7 @@ export function Focus(props: FocusProps) {
           {entries.map((entry) =>
             entry.kind === 'fold' ? (
               <Pressable
-                key={`fold:${entry.firstId}`}
+                key={`fold:${entry.firstId}:${fontScale}`}
                 accessibilityRole="button"
                 accessibilityLabel={`${entry.label} · unfold`}
                 onPress={props.onUnfold}
@@ -276,6 +284,7 @@ export function Focus(props: FocusProps) {
             ) : (
               <Moment
                 key={entry.material.id}
+                fontScale={fontScale}
                 entry={entry}
                 onLayout={entry.material.id === id ? measureMoment : undefined}
                 onQuiet={() => props.onEnterQuietReading(offset.current)}
@@ -296,6 +305,7 @@ export function Focus(props: FocusProps) {
             }}
           >
             <Text
+              key={fontScale}
               style={{
                 fontFamily: face(90),
                 fontSize: 10,
@@ -308,14 +318,14 @@ export function Focus(props: FocusProps) {
             </Text>
             {props.traces.slice(0, 4).map((t) => (
               <TraceRow
-                key={t.material.id}
+                key={`${t.material.id}:${fontScale}`}
                 trace={t}
                 now={props.now}
                 onOpen={() => props.onOpenTrace(t.material)}
               />
             ))}
             {canCompare && props.connections ? (
-              <ConnectionPanel key={id} source={props.focus} data={props.connections}
+              <ConnectionPanel key={id} source={props.focus} data={props.connections} fontScale={fontScale}
                 onReadSource={() => {
                   if (momentOffset.current?.id === id) {
                     scroll.current?.scrollTo({ y: momentOffset.current.y, animated: false });
@@ -327,16 +337,11 @@ export function Focus(props: FocusProps) {
       </Animated.ScrollView>
 
       <Animated.View
-        style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          bottom: keyboardInset,
-          paddingHorizontal: 24,
-          paddingTop: 12,
-          paddingBottom: 44,
-          backgroundColor: SURFACE,
-        }}
+        style={[
+          { paddingHorizontal: 24, paddingTop: 12, paddingBottom: 44, backgroundColor: SURFACE },
+          stacked ? { marginBottom: keyboardInset }
+            : { position: 'absolute', left: 0, right: 0, bottom: keyboardInset },
+        ]}
       >
         {props.continuing ? (
           <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 12 }}>
@@ -361,7 +366,10 @@ export function Focus(props: FocusProps) {
               selectionColor={ink.ink}
               style={[
                 type({ size: 20, width: 100, lineHeight: 1.3 }),
-                { flex: 1, color: ink.ink, paddingVertical: 12, maxHeight: 180 },
+                {
+                  flex: 1, color: ink.ink, paddingVertical: 12, maxHeight: 180,
+                  minHeight: stacked ? Math.min(180, Math.ceil(26 * fontScale) + 24) : undefined,
+                },
               ]}
             />
             <Pressable
@@ -378,18 +386,18 @@ export function Focus(props: FocusProps) {
                 marginBottom: 6,
               }}
             >
-              <Text style={{ fontFamily: face(100), fontSize: 20, color: agency.ground }}>↑</Text>
+              <Text allowFontScaling={false} style={{ fontFamily: face(100), fontSize: 20, color: agency.ground }}>↑</Text>
             </Pressable>
           </View>
         ) : (
-          <View style={{ gap: 8 }}>
+          <View key={fontScale} style={{ gap: 8 }}>
             <Text style={type({ size: 12, width: 90, color: ink.meta })}>continue · a new moment, dated now</Text>
-            <View style={{ flexDirection: 'row', gap: 10 }}>
+            <View testID="thought-reader-actions" style={{ flexDirection: stacked ? 'column' : 'row', gap: 10 }}>
               <Pressable
                 onPress={props.onStartContinue}
                 accessibilityRole="button"
                 style={{
-                  flex: 1,
+                  flex: stacked ? undefined : 1,
                   minHeight: 56,
                   paddingVertical: 10,
                   backgroundColor: agency.ink,
@@ -440,11 +448,13 @@ export function Focus(props: FocusProps) {
 
 function Moment({
   entry,
+  fontScale,
   onLayout,
   onQuiet,
   ...props
 }: FocusProps & {
   entry: Extract<LineEntry, { kind: 'moment' }>;
+  fontScale: number;
   onLayout?: (event: LayoutChangeEvent) => void;
   onQuiet: () => void;
 }) {
@@ -478,7 +488,8 @@ function Moment({
         }}
       />
 
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 4 }}>
+      {/* Refresh measured native text on a size change. The scroll view and editors stay mounted. */}
+      <View key={`dates:${fontScale}`} style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 4 }}>
         <Text style={type({ size: 12, width: 90, color: ink.meta })}>
           {`${when} · ${fmtTime(m.at)} · ${sourceOf(m)}`}
         </Text>
@@ -516,7 +527,7 @@ function Moment({
               },
             ]}
           />
-          <View style={{ flexDirection: 'row', gap: 14, marginTop: 8 }}>
+          <View key={fontScale} style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginTop: 8 }}>
             {/* The sentence states the contract of a correction, before you commit to it. */}
             <Text style={type({ size: 12, width: 90, color: ink.meta })}>
               wording only · date and earlier wording stay
@@ -539,7 +550,7 @@ function Moment({
           </View>
         </>
       ) : (
-        <>
+        <React.Fragment key={`body:${fontScale}`}>
           {isQuoteOnly(m) ? (
             <Text
               style={[
@@ -651,7 +662,7 @@ function Moment({
           ) : null}
 
           {selected ? (
-            <View style={{ flexDirection: 'row', gap: 16, marginTop: 10 }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginTop: 10 }}>
               <Text
                 onPress={() => props.onCorrect(m)}
                 style={type({ size: 14, width: 92, color: agency.ink, weight: agency.weight })}
@@ -672,7 +683,7 @@ function Moment({
               </Text>
             </View>
           ) : null}
-        </>
+        </React.Fragment>
       )}
     </View>
   );

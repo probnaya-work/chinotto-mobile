@@ -19,9 +19,10 @@ export type ConnectionData = {
   onReadRelated: (id: string) => void;
 };
 
-export function ConnectionPanel({ source, data, onReadSource }: {
+export function ConnectionPanel({ source, data, fontScale, onReadSource }: {
   source: Material;
   data: ConnectionData;
+  fontScale: number;
   onReadSource: () => void;
 }) {
   const { ink, rule } = useRecordTheme();
@@ -62,7 +63,7 @@ export function ConnectionPanel({ source, data, onReadSource }: {
   }
 
   return (
-    <View style={{ gap: 8 }}>
+    <View key={fontScale} style={{ gap: 8 }}>
       {state === 'closed' ? (
         <ConnectionAction label="look for a connection" onPress={() => void look()} />
       ) : state === 'looking' ? (

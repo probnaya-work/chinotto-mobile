@@ -8,7 +8,7 @@
  */
 
 import React from 'react';
-import { AppState, Appearance, ScrollView, StatusBar, StyleSheet } from 'react-native';
+import { AppState, Appearance, Dimensions, ScrollView, StatusBar, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
@@ -1445,6 +1445,47 @@ describe('quiet reading', () => {
       expect.objectContaining({ body: thought.body, at: T0, lineId: thought.id }),
     ]);
     view.unmount(); h.db.close();
+  });
+
+  it('stacks reader controls at large text sizes and keeps a quiet draft through a size change', async () => {
+    const h = harness(); await migrate(h.db);
+    const original = await h.store.capture({ body: 'a blue cup on the windowsill', at: T0 - 90 * MS_DAY });
+    const current = (await h.store.continueFrom(original.id, { body: 'I still remember it' }))!;
+    const initial = { window: Dimensions.get('window'), screen: Dimensions.get('screen') };
+    const setFontScale = (fontScale: number) => Dimensions.set({
+      window: { ...initial.window, fontScale },
+      screen: { ...initial.screen, fontScale },
+    });
+
+    setFontScale(3.5);
+    const view = await mount(h);
+    try {
+      await act(async () => { fireEvent.press(screen.getByText(current.body)); });
+      await act(async () => { fireEvent.press(screen.getByText(current.body)); });
+      const reader = screen.getByTestId('thought-reader');
+      const continueButton = () => screen.getByRole('button', { name: 'continue' });
+      const readerLayout = (id: string) => StyleSheet.flatten(screen.getByTestId(id).props.style).flexDirection;
+      expect(readerLayout('thought-reader-header')).toBe('column');
+      expect(readerLayout('thought-reader-actions')).toBe('column');
+
+      await act(async () => { setFontScale(1); });
+      expect(screen.getByTestId('thought-reader')).toBe(reader);
+      expect(readerLayout('thought-reader-header')).toBe('row');
+      expect(readerLayout('thought-reader-actions')).toBe('row');
+
+      await act(async () => { fireEvent.press(screen.getByRole('button', { name: 'quiet reading' })); });
+      await act(async () => { fireEvent.press(continueButton()); });
+      const draft = screen.getByLabelText('a new moment, dated now');
+      fireEvent.changeText(draft, 'the cup is still here');
+      await act(async () => { setFontScale(3.5); });
+      expect(screen.getByLabelText('a new moment, dated now')).toBe(draft);
+      expect(draft.props.value).toBe('the cup is still here');
+      expect(screen.getByRole('button', { name: 'exit quiet reading' })).toBeTruthy();
+    } finally {
+      view.unmount();
+      Dimensions.set(initial);
+      h.db.close();
+    }
   });
 });
 
