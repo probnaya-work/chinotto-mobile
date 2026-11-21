@@ -55,7 +55,7 @@ import type { ReturnAlerts } from './returnAlerts';
 import { reminderDate, reminderTime } from './reminderTime';
 import { ReminderSheet, reminderDraft, type ReminderDraft } from './ui/ReminderSheet';
 
-export type ReminderOpenRequest = { id: string; source: 'notification' | 'scheduled' | 'return-alert' };
+export type ReminderOpenRequest = { id: string; source: 'notification' | 'scheduled' | 'return-alert' | 'widget' };
 
 export type RecordAppProps = {
   store: RecordStore;
@@ -176,9 +176,10 @@ export function RecordApp(props: RecordAppProps) {
     let current = true;
     void (async () => {
       try {
-        if (reminderRequest.source === 'return-alert') {
-          const returned = await returnAlerts?.open(reminderRequest.id, props.store, () => current);
-          const thought = returned?.material;
+        if (reminderRequest.source === 'widget' || reminderRequest.source === 'return-alert') {
+          const fromReturn = reminderRequest.source === 'return-alert';
+          const returned = fromReturn ? await returnAlerts?.open(reminderRequest.id, props.store, () => current) : null;
+          const thought = fromReturn ? returned?.material : await props.store.getFragment(reminderRequest.id);
           if (!current) return;
           if (thought && thought.removedAt === null) {
             openExisting(thought, returned ?? undefined);
@@ -187,7 +188,7 @@ export function RecordApp(props: RecordAppProps) {
             setReminderNotice(null);
           } else {
             setReminderNotice({
-              text: 'this return is no longer available',
+              text: fromReturn ? 'this return is no longer available' : 'this thought is no longer available',
               fragmentId: null,
             });
           }
@@ -216,7 +217,9 @@ export function RecordApp(props: RecordAppProps) {
         onReminderHandled?.(reminderRequest, fromNotification || dueInApp);
       } catch (error) {
         if (current && !(error instanceof RecordLocked)) {
-          const text = reminderRequest.source === 'return-alert' ? 'could not open this return' : 'could not open this reminder';
+          const text = reminderRequest.source === 'widget' ? 'could not open this thought'
+            : reminderRequest.source === 'return-alert' ? 'could not open this return'
+              : 'could not open this reminder';
           setReminderNotice({ text, fragmentId: null });
           onReminderHandled?.(reminderRequest, false);
         }

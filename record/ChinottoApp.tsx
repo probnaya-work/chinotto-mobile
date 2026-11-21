@@ -60,6 +60,7 @@ import {
   REMOTE_INGEST_AFTER_SYNC_MODAL_MS,
 } from '../sync/remoteIngestStreamNotify';
 import { refreshWidgetThoughtsFromLocalDb } from '../widgets/widgetThoughtsBridge';
+import { parseWidgetDeepLink } from '../widgets/parseWidgetDeepLink';
 import { firstLine, type Material } from './model/material';
 import { dayLabel, fmtTime, monthLabel } from './model/time';
 import { urlKey } from './urlKey';
@@ -652,19 +653,21 @@ export function ChinottoApp({ services }: { services: Services }) {
   /* --------------------------------------------------------------- deep links */
 
   useEffect(() => {
+    let current = true;
+    let newerURL = false;
     const open = (url: string) => {
-      // `chinotto://capture` and the widget's deep link both mean one thing: put the caret
-      // in the field. There is nowhere else to go.
-      if (url.includes('capture') || url.includes('widget')) {
-        setSurface({ kind: 'record' });
-        setShare(null);
-      }
+      const action = parseWidgetDeepLink(url);
+      if (!action) return false;
+      setSurface({ kind: 'record' });
+      setShare(null);
+      setReminderRequest(action.type === 'thought' ? { id: action.thoughtId, source: 'widget' } : null);
+      return true;
     };
     void Linking.getInitialURL().then((url) => {
-      if (url) open(url);
-    });
-    const sub = Linking.addEventListener('url', (e) => open(e.url));
-    return () => sub.remove();
+      if (current && !newerURL && url) open(url);
+    }).catch(() => {});
+    const sub = Linking.addEventListener('url', ({ url }) => { if (open(url)) newerURL = true; });
+    return () => { current = false; sub.remove(); };
   }, []);
 
   /* --------------------------------------------------------------------- back */

@@ -693,6 +693,29 @@ describe('the record surface', () => {
     } finally { view.unmount(); h.db.close(); }
   });
 
+  it('waits for device unlock before opening a thought from its widget link', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const thought = await h.store.capture({ body: 'the exact older thought from the widget', at: T0 - 800 * MS_DAY });
+    let unlocked = false;
+    const store = protectRecordStore(h.store, () => unlocked);
+    const privacy = { locked: true, busy: false, error: null, onUnlock: jest.fn() };
+    const onReminderHandled = jest.fn();
+    const reminderRequest = { id: thought.id, source: 'widget' as const };
+    const props = { store, privacy, reminderRequest, onReminderHandled };
+    const view = await mount(h, props);
+    try {
+      expect(screen.queryByText(thought.body)).toBeNull();
+      expect(onReminderHandled).not.toHaveBeenCalled();
+      unlocked = true;
+      await act(async () => {
+        view.rerender(<RecordApp {...defaults} {...props} bridge={h.bridge} privacy={{ ...privacy, locked: false }} />);
+      });
+      expect(screen.getByText(`a fragment · ${fullDate(thought.at)}`)).toBeTruthy();
+      expect(onReminderHandled).toHaveBeenCalledWith(reminderRequest, false);
+    } finally { view.unmount(); h.db.close(); }
+  });
+
   it('says the shelf is full rather than doing nothing', async () => {
     const h = harness();
     await migrate(h.db);
