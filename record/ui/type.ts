@@ -114,8 +114,8 @@ export function type(spec: {
   return {
     fontFamily: face(spec.width, { weight: spec.weight, italic: spec.italic }),
     fontSize: spec.size,
-    lineHeight: spec.lineHeight === undefined ? undefined : spec.size * spec.lineHeight,
-    letterSpacing: spec.tracking === undefined ? undefined : spec.size * spec.tracking,
-    color: spec.color,
+    ...(spec.lineHeight === undefined ? {} : { lineHeight: spec.size * spec.lineHeight }),
+    ...(spec.tracking === undefined ? {} : { letterSpacing: spec.size * spec.tracking }),
+    ...(spec.color === undefined ? {} : { color: spec.color }),
   };
 }
