@@ -24,6 +24,9 @@ import { createReminders } from '../reminders';
 import { fullDate, MS_DAY } from '../model/time';
 import { postponeReminder, reminderPresets, reminderTime } from '../reminderTime';
 import { testReminderNotifications } from '../__testsupport__/reminderNotifications';
+import { scoreMeaning } from '../nativeConnections';
+
+jest.mock('../nativeConnections', () => ({ scoreMeaning: jest.fn(async () => null) }));
 
 const T0 = new Date('2026-09-19T17:10:00.000Z').getTime();
 
@@ -666,6 +669,51 @@ describe('the record surface', () => {
     expect((await h.store.getFragment(other.id))?.lineId).toBeNull();
     view.unmount();
     h.db.close();
+  });
+
+  it('shows exact dated originals when the local meaning model suggests a pair', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const earlier = await h.store.capture({
+      body: 'Silence feels harder to sit through than another distraction.', at: T0 - 800 * MS_DAY,
+    });
+    const recent = await h.store.capture({ body: 'I keep filling every pause with a screen.' });
+    jest.mocked(scoreMeaning).mockClear().mockResolvedValueOnce({ scores: [0.94] });
+    const view = await mount(h);
+    try {
+      await act(async () => { fireEvent.press(screen.getByText(recent.body)); });
+      await act(async () => { fireEvent.press(screen.getByText(recent.body)); });
+      expect(scoreMeaning).not.toHaveBeenCalled();
+      await act(async () => { fireEvent.press(screen.getByRole('button', { name: 'look for a connection' })); });
+      expect(screen.getByText('a possible similarity in meaning · compared on this device')).toBeTruthy();
+      const passage = screen.getByRole('button', { name: /another thought .*Silence feels harder/ });
+      expect(passage.props.accessibilityLabel).toContain(fullDate(earlier.at));
+      await act(async () => { fireEvent.press(passage); });
+      expect(screen.getByText(`a fragment · ${fullDate(earlier.at)}`)).toBeTruthy();
+    } finally { view.unmount(); h.db.close(); }
+  });
+
+  it('waits for device unlock before opening a thought from its widget link', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const thought = await h.store.capture({ body: 'the exact older thought from the widget', at: T0 - 800 * MS_DAY });
+    let unlocked = false;
+    const store = protectRecordStore(h.store, () => unlocked);
+    const privacy = { locked: true, busy: false, error: null, onUnlock: jest.fn() };
+    const onReminderHandled = jest.fn();
+    const reminderRequest = { id: thought.id, source: 'widget' as const };
+    const props = { store, privacy, reminderRequest, onReminderHandled };
+    const view = await mount(h, props);
+    try {
+      expect(screen.queryByText(thought.body)).toBeNull();
+      expect(onReminderHandled).not.toHaveBeenCalled();
+      unlocked = true;
+      await act(async () => {
+        view.rerender(<RecordApp {...defaults} {...props} bridge={h.bridge} privacy={{ ...privacy, locked: false }} />);
+      });
+      expect(screen.getByText(`a fragment · ${fullDate(thought.at)}`)).toBeTruthy();
+      expect(onReminderHandled).toHaveBeenCalledWith(reminderRequest, false);
+    } finally { view.unmount(); h.db.close(); }
   });
 
   it('says the shelf is full rather than doing nothing', async () => {

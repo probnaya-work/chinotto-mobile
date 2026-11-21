@@ -5,6 +5,7 @@ Chinotto Mobile is **local-first**. Your thoughts stay on your device in SQLite.
 ## Your data
 
 - **Record text** is stored on the device by default. With optional sync on iOS, text, earlier wordings and continuation links are also stored in the synced copy. It is not sent to analytics or included in crash-style telemetry.
+- **Possible connections** use excerpts from the local Record only when you ask. On supported iPhones, Apple's Natural Language model can compare their meaning on-device. iOS may download language model files. Compared excerpts and model vectors stay on the phone, and Chinotto does not save the vectors.
 - **Export** — Settings can prepare a portable ZIP of the local Record, including correction history and retained audio. It works offline and opens the system share interface. The Record can be restored from it on iPhone or Mac; accounts and device settings are not included.
 - **Account deletion** — when signed in for sync, Settings → Account → Delete Account removes your cloud data and Firebase account. Local entries on the device are kept.
 

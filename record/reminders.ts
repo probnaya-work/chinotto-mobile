@@ -97,6 +97,7 @@ export function createReminders(
 
     // Remove orphaned, paused, and replaced previews before arming any new requests.
     for (const [id, discreet] of pending) {
+      if (!id.startsWith(REMINDER_PREFIX)) continue;
       const reminder = owned.get(id);
       if (!reminder || reminder.delivery === 'in-app' || prefs.paused ||
           (reminder.at > now() && discreet !== discreetFor(reminder))) {

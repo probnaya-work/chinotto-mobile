@@ -60,6 +60,7 @@ import {
   REMOTE_INGEST_AFTER_SYNC_MODAL_MS,
 } from '../sync/remoteIngestStreamNotify';
 import { refreshWidgetThoughtsFromLocalDb } from '../widgets/widgetThoughtsBridge';
+import { parseWidgetDeepLink } from '../widgets/parseWidgetDeepLink';
 import { firstLine, type Material } from './model/material';
 import { dayLabel, fmtTime, monthLabel } from './model/time';
 import { urlKey } from './urlKey';
@@ -67,6 +68,7 @@ import { appBackStep } from './back';
 import { capabilitiesFor, type PlatformCapabilities } from './platform';
 import type { RecordDb } from './db';
 import { createReminders, type ReminderNotifications, type Reminders } from './reminders';
+import { createReturnAlerts, RETURN_ALERT_PREFIX, type ReturnAlerts } from './returnAlerts';
 
 export type Services = {
   db: RecordDb;
@@ -140,13 +142,17 @@ export function ChinottoApp({ services }: { services: Services }) {
   const reminders = useMemo(() => notifications
     ? createReminders(services.db, notifications, services.newId) : undefined,
     [notifications, services.db, services.newId]);
+  const returnAlerts = useMemo(() => notifications
+    ? createReturnAlerts(services.db, notifications, services.newId) : undefined,
+    [notifications, services.db, services.newId]);
+  const [returnAlertsChanged, setReturnAlertsChanged] = useState(0);
   const [reminderRequest, setReminderRequest] = useState<ReminderOpenRequest | null>(null);
   const [remindersChanged, setRemindersChanged] = useState(0);
   useEffect(() => {
     if (!notifications || !reminders) return;
     const refresh = () => { void reminders.reconcile().catch(() => {}); };
     const unsubscribe = notifications.subscribe((id) => {
-      setReminderRequest({ id, source: 'notification' });
+      setReminderRequest({ id, source: id.startsWith(RETURN_ALERT_PREFIX) ? 'return-alert' : 'notification' });
       setSurface({ kind: 'record' });
     });
     refresh();
@@ -155,7 +161,7 @@ export function ChinottoApp({ services }: { services: Services }) {
   }, [notifications, reminders]);
   const reminderHandled = useCallback((request: ReminderOpenRequest, consume: boolean) => {
     setReminderRequest((current) => current === request ? null : current);
-    if (request.source === 'notification') notifications?.acknowledge(request.id);
+    if (request.source === 'notification' || request.source === 'return-alert') notifications?.acknowledge(request.id);
     if (consume) void reminders?.consume(request.id).then(() => setRemindersChanged((n) => n + 1)).catch(() => {});
   }, [notifications, reminders]);
 
@@ -647,19 +653,21 @@ export function ChinottoApp({ services }: { services: Services }) {
   /* --------------------------------------------------------------- deep links */
 
   useEffect(() => {
+    let current = true;
+    let newerURL = false;
     const open = (url: string) => {
-      // `chinotto://capture` and the widget's deep link both mean one thing: put the caret
-      // in the field. There is nowhere else to go.
-      if (url.includes('capture') || url.includes('widget')) {
-        setSurface({ kind: 'record' });
-        setShare(null);
-      }
+      const action = parseWidgetDeepLink(url);
+      if (!action) return false;
+      setSurface({ kind: 'record' });
+      setShare(null);
+      setReminderRequest(action.type === 'thought' ? { id: action.thoughtId, source: 'widget' } : null);
+      return true;
     };
     void Linking.getInitialURL().then((url) => {
-      if (url) open(url);
-    });
-    const sub = Linking.addEventListener('url', (e) => open(e.url));
-    return () => sub.remove();
+      if (current && !newerURL && url) open(url);
+    }).catch(() => {});
+    const sub = Linking.addEventListener('url', ({ url }) => { if (open(url)) newerURL = true; });
+    return () => { current = false; sub.remove(); };
   }, []);
 
   /* --------------------------------------------------------------------- back */
@@ -733,6 +741,8 @@ export function ChinottoApp({ services }: { services: Services }) {
           onUnlock: () => void services.privacy?.request('unlock') }}
         bridge={bridge}
         reminders={reminders}
+        returnAlerts={returnAlerts}
+        returnAlertsChanged={returnAlertsChanged}
         remindersChanged={remindersChanged}
         reminderRequest={surface.kind === 'record' && !share && !sync.open ? reminderRequest : null}
         onReminderHandled={reminderHandled}
@@ -785,6 +795,8 @@ export function ChinottoApp({ services }: { services: Services }) {
           sync={sync}
           services={services}
           reminders={reminders}
+          returnAlerts={returnAlerts}
+          onReturnAlertsChanged={() => setReturnAlertsChanged((n) => n + 1)}
           recordStore={surfaceStore}
           onManageReminder={(id) => {
             setReminderRequest({ id, source: 'scheduled' });
@@ -909,6 +921,8 @@ function SettingsSurface(props: {
   sync: ReturnType<typeof useSyncSurface>;
   services: Services;
   reminders?: Reminders;
+  returnAlerts?: ReturnAlerts;
+  onReturnAlertsChanged: () => void;
   recordStore: RecordStore;
   onManageReminder: (id: string) => void;
   capabilities: PlatformCapabilities;
@@ -993,6 +1007,8 @@ function SettingsSurface(props: {
       ) : props.page === 'notifications' ? (
         <NotificationSettings
           reminders={props.reminders}
+          returnAlerts={props.returnAlerts}
+          onReturnAlertsChanged={props.onReturnAlertsChanged}
           openSystemSettings={props.services.openSystemSettings}
           openScheduled={() => props.setPage('scheduled')}
         />

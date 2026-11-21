@@ -86,15 +86,20 @@ export function useRecord(
   }, []);
   const [unfolded, setUnfolded] = useState(false);
   const [yearsOpen, setYearsOpen] = useState(false);
-  const openExisting = useCallback((moment: Material) => {
+  const openExisting = useCallback((moment: Material, returned?: RecordReturn) => {
     // A scheduled moment can be older than the normal Record window.
-    setMaterial((rows) => rows.some(({ id }) => id === moment.id)
-      ? rows.map((row) => row.id === moment.id ? moment : row)
-      : [...rows, moment].sort((a, b) => b.at - a.at));
+    setMaterial((rows) => {
+      const opened = new Map(rows.map((row) => [row.id, row]));
+      opened.set(moment.id, moment);
+      if (returned) opened.set(returned.because.id, returned.because);
+      return [...opened.values()].sort((a, b) => b.at - a.at);
+    });
     setSelectedId(null);
     setYearsOpen(false);
-    setFocusId(moment.id);
-  }, [setFocusId]);
+    setFocusTarget(returned
+      ? { id: moment.id, returned: { reason: returned.reason, evidence: returned.evidence } }
+      : { id: moment.id });
+  }, []);
 
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -617,6 +622,7 @@ export function useRecord(
     quietReading: Boolean(focusTarget?.quietReading),
     setQuietReading,
     openExisting,
+    clearReturn,
     line,
     focusTraces,
     unfolded,
