@@ -3,7 +3,7 @@
 const path = require('path');
 
 // Load `.env` for native config (`extra`) — Metro may still inline `EXPO_PUBLIC_*` separately; this keeps paywall flag reliable after `expo run:ios` / prebuild.
-require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+require('dotenv').config({ path: path.resolve(__dirname, '.env'), quiet: true });
 
 const {
   assertEasPaywallHasProductionRevenueCatIosKey,
