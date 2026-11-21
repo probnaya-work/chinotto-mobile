@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import React, { useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { Pressable, Text, View, type LayoutChangeEvent } from 'react-native';
 
 import { connectionBetween, possibleConnection } from '../model/connections';
 import type { Material } from '../model/material';
@@ -19,11 +19,16 @@ export type ConnectionData = {
   onReadRelated: (id: string) => void;
 };
 
-export function ConnectionPanel({ source, data, fontScale, onReadSource }: {
+export type ConnectionPanelHandle = { look: () => void };
+
+export function ConnectionPanel({ source, data, fontScale, onReadSource, onLayout, showLookAction = true, ref }: {
   source: Material;
   data: ConnectionData;
   fontScale: number;
   onReadSource: () => void;
+  onLayout?: (event: LayoutChangeEvent) => void;
+  showLookAction?: boolean;
+  ref?: React.Ref<ConnectionPanelHandle>;
 }) {
   const { ink, rule } = useRecordTheme();
   const [state, setState] = useState<PanelState>('closed');
@@ -41,6 +46,7 @@ export function ConnectionPanel({ source, data, fontScale, onReadSource }: {
   }, [source, data.material, id]);
 
   async function look() {
+    if (state === 'looking' || (typeof state === 'object' && state.dismissing)) return;
     setState('looking');
     try {
       const rejected = await data.rejections(source.id);
@@ -62,8 +68,12 @@ export function ConnectionPanel({ source, data, fontScale, onReadSource }: {
     }
   }
 
+  useImperativeHandle(ref, () => ({ look }));
+
+  if (state === 'closed' && !showLookAction) return null;
+
   return (
-    <View key={fontScale} style={{ gap: 8 }}>
+    <View key={fontScale} onLayout={onLayout} style={{ gap: 8, marginTop: showLookAction ? 0 : 20 }}>
       {state === 'closed' ? (
         <ConnectionAction label="look for a connection" onPress={() => void look()} />
       ) : state === 'looking' ? (

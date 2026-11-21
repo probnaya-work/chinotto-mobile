@@ -713,6 +713,7 @@ export function RecordApp(props: RecordAppProps) {
           quietPosition={quietPosition}
           onEnterQuietReading={enterQuietReading}
           onExitQuietReading={exitQuietReading}
+          reminderEditorOpen={editorOpen}
           reminder={reminders ? {
             label: scheduledReminder?.fragmentId === record.focus.id
               ? `reminder · ${reminderDate(scheduledReminder.at)} · ${reminderTime(scheduledReminder.at)}` : 'remind me',
