@@ -3,7 +3,7 @@
     "name": "Chinotto",
     "owner": "bogart-labs",
     "slug": "chinotto-mobile",
-    "version": "2.1.0",
+    "version": "3.0.0",
     "scheme": "chinotto",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": false,
-      "buildNumber": "43",
+      "buildNumber": "46",
       "bundleIdentifier": "com.chinotto.mobile",
       "googleServicesFile": "./GoogleService-Info.plist",
       "associatedDomains": ["applinks:getchinotto.app"],
@@ -26,11 +26,23 @@
         ]
       },
       "infoPlist": {
+        "UIApplicationSceneManifest": {
+          "UIApplicationSupportsMultipleScenes": false,
+          "UISceneConfigurations": {
+            "UIWindowSceneSessionRoleApplication": [
+              {
+                "UISceneConfigurationName": "Chinotto Record",
+                "UISceneDelegateClassName": "$(PRODUCT_MODULE_NAME).ChinottoSceneDelegate"
+              }
+            ]
+          }
+        },
         "UIDeviceFamily": [1],
         "ITSAppUsesNonExemptEncryption": false,
         "NSMicrophoneUsageDescription": "Chinotto uses the microphone so you can tap the circle and speak instead of typing. The recording itself is kept on this iPhone as part of your record, so you can hear a moment back later — not only read what was heard.",
         "NSPhotoLibraryUsageDescription": "Chinotto uses the iOS share sheet for items you explicitly choose to share. The system may request photo-library access in that flow; Chinotto does not browse your library or access photos in the background.",
-        "NSSpeechRecognitionUsageDescription": "Chinotto turns what you say into text on this iPhone, as a first draft of the words. The recording stays on the device and remains the original."
+        "NSSpeechRecognitionUsageDescription": "Chinotto turns what you say into text on this iPhone, as a first draft of the words. The recording stays on the device and remains the original.",
+        "NSFaceIDUsageDescription": "Chinotto uses Face ID to open your protected Record. You can always capture a new thought without unlocking."
       }
     },
     "android": {
@@ -146,6 +158,12 @@
           "backgroundColor": "#141416",
           "resizeMode": "contain",
           "imageWidth": 120
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Chinotto uses Face ID to open your protected Record. You can always capture a new thought without unlocking."
         }
       ]
     ]

@@ -14,7 +14,7 @@ function bytes(view: DataView): Uint8Array {
   return new Uint8Array(view.buffer);
 }
 
-function crc32(previous: number, chunk: Uint8Array): number {
+export function crc32(previous: number, chunk: Uint8Array): number {
   let crc = previous;
   for (const byte of chunk) {
     crc ^= byte;

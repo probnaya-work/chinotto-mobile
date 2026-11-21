@@ -11,6 +11,7 @@ describe('retained audio paths', () => {
   it('accepts what audioPathFor writes', () => {
     expect(isRetainedAudioPath(audioPathFor('3f2b9c1e-0000-4000-8000-000000000001'))).toBe(true);
     expect(audioPathFor('n1_123')).toBe(`${AUDIO_DIR}/n1_123.m4a`);
+    expect(isRetainedAudioPath('chinotto/audio/restored-original.caf')).toBe(true);
   });
 
   it.each([
@@ -18,7 +19,7 @@ describe('retained audio paths', () => {
     'chinotto/audio/../../Library/x.m4a',
     'chinotto/audio/sub/x.m4a',
     'chinotto/audio/.hidden.m4a',
-    'chinotto/audio/x.caf',
+    'chinotto/audio/x.mp3',
     'chinotto/themes.txt',
     '/chinotto/audio/x.m4a',
     'x.m4a',

@@ -14,6 +14,9 @@ jest.mock('../tombstoneFlush', () => ({
 jest.mock('../userThemeFlush', () => ({
   flushSyncUserThemeOutbox: jest.fn().mockResolvedValue(undefined),
 }));
+jest.mock('../recordMetadataSync', () => ({
+  flushRecordMetadata: jest.fn().mockResolvedValue(undefined),
+}));
 
 jest.mock('../syncQueue', () => ({
   getPendingSyncItems: jest.fn(),

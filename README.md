@@ -22,20 +22,22 @@ Optional sync with Chinotto desktop on iOS (Chinotto Pro).
 ## Features
 
 - Capture thoughts instantly
-- One continuous stream instead of documents and folders
-- Full-text search
-- Move through your history by year and month
-- Quiet recall when an older thought still matters
-- Related thoughts surface in context on the stream
-- Share in from other apps (iOS)
+- One continuous Record, with original capture dates
+- Find remembered words or move through dates, months and years
+- Continue adds a linked moment dated now; Correct keeps earlier wording
+- Follow Lines and revisit older moments when recent writing gives them a reason to return
+- Bring a page or selected text into the Record from another app (iOS)
 - iOS Home Widget — quick capture and recent thoughts
-- Voice capture
-- Optional text sync with Chinotto desktop on iOS
+- Voice capture with retained original audio and on-device transcription where available
+- Optional Face ID or device-code protection for reading, with capture still available
+- Dark or warm light appearance, system text size and lifted contrast
+- Optional sync of words, dates, Lines and wording history with Chinotto on Mac (iOS)
 
 ## Data ownership
 
 - **Local storage** — the Record starts on your device in SQLite
 - **Export** — a user-initiated ZIP of the Record, correction history and original audio; no account or subscription needed
+- **Restore** — preview a Chinotto archive and add missing moments without duplicating existing ones; a local recovery copy precedes the merge
 - **Account deletion** — when signed in for sync, remove cloud data from Settings → Account
 
 See [Privacy](docs/privacy.md) for local storage, optional sync, and analytics.
@@ -53,4 +55,4 @@ New versions ship through the App Store. The app may prompt when a newer version
 ## Related
 
 - [Chinotto desktop](https://github.com/probnaya-work/chinotto) — primary thinking surface
-- [Chinotto web](https://github.com/AleksandrMalinin/chinotto-web) — web companion / info site
+- [Chinotto website](https://github.com/probnaya-work/chinotto-site) — product information

@@ -31,6 +31,7 @@ export type SyncPorts = {
   online: () => boolean | null;
   /** How much is waiting in the outbox. */
   pendingCount: () => Promise<number>;
+  failedCount?: () => Promise<number>;
   /** The devices the cloud knows about, or null when it has not been read yet. */
   devices: () => Promise<RemoteDevice[] | null>;
   thisDeviceId: () => string | null;
@@ -47,6 +48,7 @@ export function useSyncSurface(
   nowFn = Date.now
 ) {
   const [pending, setPending] = useState(0);
+  const [failed, setFailed] = useState(0);
   const [devices, setDevices] = useState<RemoteDevice[] | null>(null);
   const [conflict, setConflict] = useState<WordingConflict | null>(null);
   const [open, setOpen] = useState(false);
@@ -58,6 +60,7 @@ export function useSyncSurface(
 
   const refresh = useCallback(async () => {
     setPending(await ports.pendingCount());
+    setFailed(await ports.failedCount?.() ?? 0);
     setDevices(await ports.devices());
 
     const open = await bridge.openConflicts();
@@ -111,8 +114,7 @@ export function useSyncSurface(
   /**
    * The quiet notice at the edge.
    *
-   * Only three things are ever worth interrupting for, and none of them is "working
-   * normally". When sync is on and nothing is wrong, this is null and the edge stays quiet.
+   * Only actionable facts are worth interrupting for. When sync is on and nothing is wrong, this is null and the edge stays quiet.
    */
   const notice: { text: string; urgent: boolean } | null = conflict
     ? { text: 'one moment was worded twice · both kept', urgent: false }
@@ -122,7 +124,9 @@ export function useSyncSurface(
         ? { text: 'this phone was removed from the record · it stays here', urgent: false }
         : state === 'on' && offline && pending > 0
           ? { text: `offline · ${pending} waiting`, urgent: false }
-          : null;
+          : state === 'on' && failed > 0
+            ? { text: 'some changes are still on this phone · open sync', urgent: false }
+            : null;
 
   return {
     open,
@@ -147,6 +151,8 @@ export function useSyncSurface(
     })(),
 
     deviceError,
+    pendingError: state === 'on' && failed > 0
+      ? 'some history or links could not be sent · kept here; sync will retry' : null,
 
     askRemoveDevice: (id: string) => {
       setDeviceError(null);

@@ -4,8 +4,8 @@ Chinotto Mobile is **local-first**. Your thoughts stay on your device in SQLite.
 
 ## Your data
 
-- **Record text** is stored on the device by default. With optional sync on iOS, text is also stored in the synced copy. It is not sent to analytics or included in crash-style telemetry.
-- **Export** — Settings can prepare a portable ZIP of the local Record, including correction history and retained audio. It works offline and opens the system share interface. It is a copy, not a restorable app backup.
+- **Record text** is stored on the device by default. With optional sync on iOS, text, earlier wordings and continuation links are also stored in the synced copy. It is not sent to analytics or included in crash-style telemetry.
+- **Export** — Settings can prepare a portable ZIP of the local Record, including correction history and retained audio. It works offline and opens the system share interface. The Record can be restored from it on iPhone or Mac; accounts and device settings are not included.
 - **Account deletion** — when signed in for sync, Settings → Account → Delete Account removes your cloud data and Firebase account. Local entries on the device are kept.
 
 ## Voice
@@ -25,9 +25,9 @@ Chinotto Mobile is **local-first**. Your thoughts stay on your device in SQLite.
 
 ## Optional sync
 
-When you enable sync and sign in with Apple, entries can sync with Chinotto desktop via Firebase. Sync is optional; the app remains fully usable without it.
+When you enable sync and sign in with Apple, Record text, earlier wordings and continuation links can sync with Chinotto desktop via Firebase. Sync is optional; the app remains fully usable without it.
 
-Removing a moment erases its wording, history, relationships and derived material on this device after the eight-second undo window. If sync is on, the removal reaches your other signed-in devices; original audio stays local to the device that recorded it and is erased there. The cloud copy is marked removed, but its text remains in cloud storage until you delete the cloud account.
+Removing a moment erases its wording, history, relationships and derived material on this device after the eight-second undo window. If sync is on, the removal reaches your other signed-in devices; original audio stays local to the device that recorded it and is erased there. The cloud copy is marked removed, but its text and Record metadata remain in cloud storage until you delete the cloud account.
 
 ## Analytics (opt-in)
 
@@ -40,3 +40,29 @@ When enabled, Chinotto sends only simple event names and numbers — for example
 - personal identifiers
 
 Analytics help understand how the app is used. You can turn them off at any time in Settings.
+
+
+## Optional device protection
+
+You can protect reading the Record with Face ID / Touch ID or your device code on iPhone,
+and Touch ID or your Mac password on Mac. Protection is off by default. Changing the setting
+requires system authentication; Chinotto does not collect biometric data or store a separate PIN.
+The Record locks on cold launch and after you leave the app. You can still capture a new thought.
+The setting is local to each device and does not change your sync account.
+
+Protected history, search and playback stay hidden until authentication. iPhone widgets show
+capture only while protection is enabled. Chinotto covers private content for background previews.
+On Mac, outgoing sync reads wait until the protected Record is reopened; new captures are kept
+locally. This access control does not encrypt the database, backups, exports or cloud storage.
+An export is a plain copy under your control and can be read outside Chinotto.
+
+
+## Restoring an archive
+
+Archives are verified locally and previewed before any moments are added. Existing or previously
+removed IDs are skipped. A consistent database recovery copy is kept on this device before a
+nonempty restore; it is not uploaded or encrypted by device authentication. Temporary archive
+staging is removed after use or retried on launch. The file picker may download a ZIP from your
+chosen Files provider. Chinotto itself does not send archive contents to a server. If sync is
+already enabled, restored text/history/links join its normal sync path; original audio stays
+local. See [portable archives](record-archive.md) for recovery locations and compatibility.

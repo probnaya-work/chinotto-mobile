@@ -16,10 +16,11 @@
  * a real SQLite engine with a deterministic world, rather than against a fake database.
  */
 
+import { RETURN_COOLDOWN_MS, type SavedReturn } from './model/returns';
 import { rebuildLineIndex } from './lineIndex';
 import { NOT_BLANK } from './migrate';
 import { domainOf, soleUrlIn, urlKey } from './urlKey';
-import type { RecordDb } from './db';
+import { serializeRecordWrite, type RecordDb } from './db';
 import type {
   CaptureMethod,
   CaptureOrigin,
@@ -104,6 +105,8 @@ export function createRecordStore(db: RecordDb, options: StoreOptions = {}) {
 
   /* ------------------------------------------------------------------ reading */
 
+  // A moment has one row in the stream even when an archive retains several sources.
+  // Its earliest encounter represents it here; encountersOf keeps every source available.
   const SELECT = `
     SELECT f.id, f.body, f.captured_at, f.capture_method, f.capture_origin,
            f.corrected_at, f.correction_count, f.removed_at,
@@ -117,7 +120,7 @@ export function createRecordStore(db: RecordDb, options: StoreOptions = {}) {
            vt.state AS transcript_state
       FROM fragments f
       LEFT JOIN line_index li ON li.fragment_id = f.id
-      LEFT JOIN encounters e ON e.fragment_id = f.id
+      LEFT JOIN encounters e ON e.id = (SELECT id FROM encounters WHERE fragment_id=f.id ORDER BY id LIMIT 1)
       LEFT JOIN encounter_enrichment en ON en.encounter_id = e.id
       LEFT JOIN voice_captures v ON v.fragment_id = f.id
       LEFT JOIN voice_transcripts vt ON vt.fragment_id = f.id
@@ -195,11 +198,22 @@ export function createRecordStore(db: RecordDb, options: StoreOptions = {}) {
 
   async function traceJudgements(): Promise<Record<string, 'confirmed' | 'rejected'>> {
     const rows = await db.getAllAsync<{ related_id: string; judgement: 'confirmed' | 'rejected' }>(
-      'SELECT related_id, judgement FROM trace_judgements'
+      "SELECT related_id, judgement FROM trace_judgements WHERE kind <> 'connection'"
     );
     const out: Record<string, 'confirmed' | 'rejected'> = {};
     for (const r of rows) out[r.related_id] = r.judgement;
     return out;
+  }
+
+  async function connectionRejections(id: string): Promise<string[]> {
+    const rows = await db.getAllAsync<{ other_id: string }>(
+      `SELECT DISTINCT CASE WHEN fragment_id = ? THEN related_id ELSE fragment_id END AS other_id
+         FROM trace_judgements
+        WHERE (fragment_id = ? OR related_id = ?)
+          AND kind IN ('connection', 'inferred') AND judgement = 'rejected'`,
+      id, id, id
+    );
+    return rows.map((row) => row.other_id);
   }
 
   /* ------------------------------------------------------------------ capture */
@@ -511,8 +525,13 @@ export function createRecordStore(db: RecordDb, options: StoreOptions = {}) {
     reason: string,
     evidence: { kind: string; detail: string; occurredAt: number; relatedId: string }
   ): Promise<number> {
+    if (!['repeated_language', 'same_source', 'line_continued'].includes(reason)) {
+      throw new Error('unsupported Return reason');
+    }
     let returnId = 0;
     await db.withTransactionAsync(async () => {
+      const status = await returnStatus();
+      if (status.open || (status.lastAt !== null && now() - status.lastAt < RETURN_COOLDOWN_MS)) return;
       const res = await db.runAsync(
         'INSERT INTO returns (fragment_id, surfaced_at, reason) VALUES (?, ?, ?)',
         fragmentId,
@@ -545,6 +564,23 @@ export function createRecordStore(db: RecordDb, options: StoreOptions = {}) {
       iso(now()),
       returnId
     );
+  }
+
+  async function returnStatus(): Promise<{ open: SavedReturn | null; lastAt: number | null }> {
+    const last = await db.getFirstAsync<{ at: string | null }>('SELECT MAX(surfaced_at) AS at FROM returns');
+    const row = await db.getFirstAsync<{
+      id: number; fragment_id: string; reason: string; kind: 'shared_phrase' | 'url' | 'continuation';
+      detail: string; occurred_at: string; related_id: string;
+    }>(`SELECT r.id, r.fragment_id, r.reason, e.kind, e.detail, e.occurred_at, e.related_id
+          FROM returns r JOIN return_evidence e ON e.return_id = r.id
+          WHERE r.outcome IS NULL ORDER BY r.surfaced_at DESC LIMIT 1`);
+    return {
+      lastAt: last?.at ? Date.parse(last.at) : null,
+      open: row ? {
+        id: row.id, fragmentId: row.fragment_id, reason: row.reason,
+        evidence: { kind: row.kind, detail: row.detail, occurredAt: Date.parse(row.occurred_at), relatedId: row.related_id },
+      } : null,
+    };
   }
 
   /** Ids surfaced within the window, so the same thing is not pressed twice. */
@@ -678,28 +714,30 @@ export function createRecordStore(db: RecordDb, options: StoreOptions = {}) {
     wordingHistory,
     heldIds,
     traceJudgements,
+    connectionRejections,
     encountersOf,
     // write
-    capture,
-    correct,
-    continueFrom,
-    linkContinuation,
-    hold,
-    release,
-    remove,
-    bringBack,
+    capture: serializeRecordWrite(capture),
+    correct: serializeRecordWrite(correct),
+    continueFrom: serializeRecordWrite(continueFrom),
+    linkContinuation: serializeRecordWrite(linkContinuation),
+    hold: serializeRecordWrite(hold),
+    release: serializeRecordWrite(release),
+    remove: serializeRecordWrite(remove),
+    bringBack: serializeRecordWrite(bringBack),
     dueRemovals,
     undoSecondsLeft,
-    markRemovalPublished,
-    judgeTrace,
-    recordReturn,
-    closeReturn,
+    markRemovalPublished: serializeRecordWrite(markRemovalPublished),
+    judgeTrace: serializeRecordWrite(judgeTrace),
+    recordReturn: serializeRecordWrite(recordReturn),
+    closeReturn: serializeRecordWrite(closeReturn),
     recentlyReturned,
-    setTranscript,
-    markAudioMissing,
-    markAudioIncomplete,
+    returnStatus,
+    setTranscript: serializeRecordWrite(setTranscript),
+    markAudioMissing: serializeRecordWrite(markAudioMissing),
+    markAudioIncomplete: serializeRecordWrite(markAudioIncomplete),
     audioPathOf,
-    setEnrichment,
+    setEnrichment: serializeRecordWrite(setEnrichment),
   };
 }
 

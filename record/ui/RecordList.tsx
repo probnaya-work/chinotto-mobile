@@ -11,6 +11,7 @@
  * item, because a band can be four hundred moments long.
  */
 
+import { useRecordTheme } from './appearance';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
@@ -23,7 +24,7 @@ import {
 } from 'react-native';
 
 import { HeldRow, MomentRow } from './MomentRow';
-import { agency, bandLabel, frame, ink, rule } from './tokens';
+import { frame } from './tokens';
 import { face, type } from './type';
 import type { Row } from './rows';
 import { yearBarHeight, type YearSummary } from '../model/bands';
@@ -33,7 +34,8 @@ import type { Material } from '../model/material';
 export type RecordListProps = {
   rows: Row[];
   now: number;
-  /** Phrases to highlight across every row — a Find query, or a Return's matched words. */
+  accessibilityHidden?: boolean;
+  /** Phrases to highlight across every row for Find. */
   highlight?: (string | null)[];
 
   selectedId: string | null;
@@ -203,6 +205,8 @@ function ScrollFocusMotion({
 }
 
 export function RecordList(props: RecordListProps) {
+  const { ink, bandLabel } = useRecordTheme();
+
   const [scrollFocus, setScrollFocus] = useState<ScrollFocus>(noScrollFocus);
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 10 }).current;
   const onViewableItemsChanged = useRef(
@@ -318,7 +322,7 @@ export function RecordList(props: RecordListProps) {
           return (
             <Text
               style={[
-                type({ size: 12, width: 90, color: ink.faint }),
+                type({ size: 12, width: 90, color: ink.meta }),
                 { marginBottom: 22 },
               ]}
             >
@@ -327,7 +331,7 @@ export function RecordList(props: RecordListProps) {
           );
       }
     },
-    [props, scrollFocus]
+    [props, scrollFocus, ink, bandLabel]
   );
 
   return (
@@ -335,6 +339,8 @@ export function RecordList(props: RecordListProps) {
     // the list itself never learns about keyboards and its scroll offset is never touched.
     <Animated.View
       testID="record-viewport"
+      accessibilityElementsHidden={props.accessibilityHidden}
+      importantForAccessibility={props.accessibilityHidden ? 'no-hide-descendants' : 'auto'}
       style={{
         position: 'absolute',
         // Full width, with the gutter as content padding rather than as the viewport's
@@ -392,6 +398,8 @@ function YearsBand({
   years: YearSummary[];
   onPress: (year: number) => void;
 }) {
+  const { ink, agency, rule } = useRecordTheme();
+
   return (
     <View style={{ marginBottom: 16 }}>
       {/* Newest year lowest, matching the band's own reversal. */}

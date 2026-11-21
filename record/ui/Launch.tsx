@@ -18,11 +18,12 @@
  * then crossfades.
  */
 
+import { useRecordTheme } from './appearance';
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, Text, View } from 'react-native';
 
 import { Mark } from './Mark';
-import { agency, ink, motion, SURFACE } from './tokens';
+import { motion } from './tokens';
 import { type } from './type';
 
 export type LaunchProps = {
@@ -49,6 +50,8 @@ const DOT_ORIGINS = [
 ] as const;
 
 export function Launch({ leaving, onFinished, reducedMotion }: LaunchProps) {
+  const { ink, agency, SURFACE } = useRecordTheme();
+
   // 0 → nothing has arrived, 1 → fully arrived.
   const dots = useRef(DOT_ORIGINS.map(() => new Animated.Value(0))).current;
   const ring = useRef(new Animated.Value(0)).current;
@@ -262,6 +265,8 @@ export function Launch({ leaving, onFinished, reducedMotion }: LaunchProps) {
  * 64-unit box scaled to 94.
  */
 function Dot({ index }: { index: number }) {
+  const { ink } = useRecordTheme();
+
   const GEOMETRY = [
     { cy: 23, r: 8 },
     { cy: 38, r: 4.5 },

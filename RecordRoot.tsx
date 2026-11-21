@@ -13,6 +13,7 @@
  * desktop/mobile transition is over.
  */
 
+import { useRecordTheme, AppearanceProvider } from './record/ui/appearance';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Platform, View } from 'react-native';
 import { randomUUID } from 'expo-crypto';
@@ -21,9 +22,11 @@ import { useIncomingShare } from 'expo-sharing';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { ChinottoApp, type Services } from './record/ChinottoApp';
+import { nativeRecordPrivacy } from './record/nativePrivacy';
+import { recoverInterruptedRestores, cleanupAbandonedRestores } from './record/nativeRestore';
 import { cleanupAbandonedExports } from './record/exportTemp';
 import { ensureThisDevice, HEARTBEAT_MS, isRevoked, type ThisDevice } from './record/devices';
-import { SURFACE } from './record/ui/tokens';
+
 import { SystemFrame } from './record/ui/systemInsets';
 import { capabilitiesFor } from './record/platform';
 import type { VoiceEngine } from './record/voice';
@@ -88,6 +91,7 @@ import { insertPendingSyncItem, removePendingSyncItemsForEntry } from './sync/sy
 import { enqueueSyncTombstoneWithDb } from './sync/tombstoneOutbox';
 import { addFirestoreIngestSuppressionWithDb } from './sync/ingestSuppression';
 import type { RecordDb } from './record/db';
+import { nativeReminders } from './record/nativeReminders';
 
 const APP_VERSION = getRuntimeAppVersion();
 
@@ -203,9 +207,12 @@ const audioPlayback: AudioPlaybackPort = {
   subscribe: (handlers) => subscribeAudioPlayback(handlers),
 };
 
-export default function RecordRoot() {
+function RecordRootContent() {
+  const { SURFACE } = useRecordTheme();
+
+  const privacy = useMemo(() => CAPABILITIES.systemName === 'ios' ? nativeRecordPrivacy() : undefined, []);
   useEffect(() => {
-    try { cleanupAbandonedExports(); } catch { /* The next launch retries. */ }
+    try { cleanupAbandonedRestores(); cleanupAbandonedExports(); } catch { /* The next launch retries. */ }
   }, []);
   const [db, setDb] = useState<SQLiteDatabase | null>(null);
 
@@ -337,7 +344,6 @@ export default function RecordRoot() {
   const handledShare = useRef(false);
   const [shareSeen, setShareSeen] = useState(0);
 
-
   useEffect(() => {
     if (!sharePayloads || sharePayloads.length === 0) handledShare.current = false;
   }, [sharePayloads]);
@@ -348,6 +354,7 @@ export default function RecordRoot() {
       // `getDatabase` runs the ladder. Nothing renders before it resolves, because a
       // surface drawn against the wrong schema would be worse than a blank field.
       const opened = await getDatabase();
+      await recoverInterruptedRestores(opened);
       if (!alive) return;
       setDb(opened);
       const registered = await ensureThisDevice(opened as unknown as RecordDb, {
@@ -369,6 +376,8 @@ export default function RecordRoot() {
 
     return {
       db: asRecordDb,
+      privacy,
+      reminderNotifications: nativeReminders,
       voiceEngine,
       newId: randomUUID,
       deviceName: () => deviceName(),
@@ -430,7 +439,18 @@ export default function RecordRoot() {
         online: () => null,
         pendingCount: async () => {
           const row = await asRecordDb.getFirstAsync<{ n: number }>(
-            "SELECT COUNT(*) AS n FROM sync_queue WHERE status = 'pending'"
+            `SELECT COUNT(*) AS n FROM (
+              SELECT json_extract(payload, '$.id') AS id FROM sync_queue WHERE status = 'pending'
+              UNION SELECT s.fragment_id FROM record_sync_state s
+                JOIN fragments f ON f.id = s.fragment_id WHERE s.dirty = 1 AND f.removed_at IS NULL AND TRIM(f.body) <> ''
+            )`
+          );
+          return row?.n ?? 0;
+        },
+        failedCount: async () => {
+          const row = await asRecordDb.getFirstAsync<{ n: number }>(
+            `SELECT COUNT(*) AS n FROM record_sync_state s JOIN fragments f ON f.id = s.fragment_id
+              WHERE s.dirty = 1 AND s.error IS NOT NULL AND f.removed_at IS NULL`
           );
           return row?.n ?? 0;
         },
@@ -487,4 +507,8 @@ export default function RecordRoot() {
       <ChinottoApp services={services} />
     </SystemFrame>
   );
+}
+
+export default function RecordRoot() {
+  return <AppearanceProvider><RecordRootContent /></AppearanceProvider>;
 }

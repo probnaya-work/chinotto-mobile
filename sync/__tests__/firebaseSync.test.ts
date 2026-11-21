@@ -93,7 +93,6 @@ describe('firebasePushEntry', () => {
         text: entry.text,
         createdAt: entry.createdAt,
         updatedAt: { _serverTimestamp: true },
-        deletedAt: { _deleteField: true },
         theme: null,
       },
       { merge: true }

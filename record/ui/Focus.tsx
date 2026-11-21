@@ -13,7 +13,8 @@
  *     above it. The placeholder says so.
  */
 
-import React, { useEffect, useRef } from 'react';
+import { useRecordTheme } from './appearance';
+import React, { useCallback, useEffect, useRef } from 'react';
 import {
   Animated,
   Easing,
@@ -22,12 +23,18 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
+  type LayoutChangeEvent,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from 'react-native';
 
 import { Marked } from './Marked';
+import { ReturnContext } from './ReturnBlock';
+import { ConnectionPanel, type ConnectionData } from './ConnectionPanel';
 import { useKeyboardInset } from './useKeyboardInset';
 import { VoiceChip, type VoiceChipSpec } from './VoiceChip';
-import { agency, evidence, ink, motion, rule, SURFACE } from './tokens';
+import { motion } from './tokens';
 import { face, type } from './type';
 import { foldLine, lineHeading, type LineEntry } from '../model/lines';
 import {
@@ -39,7 +46,10 @@ import {
 } from '../model/material';
 import { dayLabel, fmtDur, fullDate, fmtTime, monthLabel } from '../model/time';
 import { parts, snippet } from '../model/words';
-import { tracesHeading, type Trace } from '../model/traces';
+import type { Trace } from '../model/traces';
+import type { RecordReturn } from '../model/returns';
+
+export type QuietScrollPosition = { normal: number; quiet: number; restore: number | null };
 
 export type FocusProps = {
   focus: Material;
@@ -70,8 +80,7 @@ export type FocusProps = {
 
   traces: Trace[];
   onOpenTrace: (m: Material) => void;
-  onConfirmTrace: (m: Material) => void;
-  onRejectTrace: (m: Material) => void;
+  connections?: ConnectionData;
 
   continuing: boolean;
   continueText: string;
@@ -79,6 +88,15 @@ export type FocusProps = {
   onStartContinue: () => void;
   onSubmitContinue: () => void;
 
+  reminder?: { label: string; onOpen: () => void; notice: string | null };
+  fromReminder?: boolean;
+  positionAtMoment?: boolean;
+  returnContext?: RecordReturn | null;
+  reducedMotion?: boolean;
+  quietReading: boolean;
+  quietPosition: React.RefObject<QuietScrollPosition>;
+  onEnterQuietReading: (offset: number) => void;
+  onExitQuietReading: () => void;
   onClose: () => void;
 };
 
@@ -93,24 +111,74 @@ const FOCUS_CHIP: VoiceChipSpec = {
 };
 
 export function Focus(props: FocusProps) {
-  const slide = useRef(new Animated.Value(0)).current;
+  const { ink, agency, rule, SURFACE, LIVE, mode } = useRecordTheme();
+  const { quietReading, quietPosition } = props;
+  const { fontScale } = useWindowDimensions();
+  const stacked = fontScale >= 1.3;
+
+  const slide = useRef(new Animated.Value(props.reducedMotion ? 1 : 0)).current;
+  const scroll = useRef<ScrollView>(null);
+  const initialOffset = useRef({ x: 0, y: quietReading ? quietPosition.current.quiet : 0 });
+  const offset = useRef(initialOffset.current.y);
+  const positioned = useRef<string | null>(null);
+  const momentOffset = useRef<{ id: string; y: number } | null>(null);
   // Continue and correction sit on the keyboard for the same reason the edge does: they are
   // the bottom of this surface, not something floating over it.
   const keyboardInset = useKeyboardInset();
   useEffect(() => {
-    Animated.timing(slide, {
+    if (props.reducedMotion) {
+      slide.setValue(1);
+      return;
+    }
+    const animation = Animated.timing(slide, {
       toValue: 1,
       duration: motion.pushIn,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
-    }).start();
-  }, [slide]);
+    });
+    animation.start();
+    return () => animation.stop();
+  }, [slide, props.reducedMotion]);
+
+  const trackScroll = useCallback(({ nativeEvent }: NativeSyntheticEvent<NativeScrollEvent>) => {
+    offset.current = Math.max(0, nativeEvent.contentOffset.y);
+    if (quietReading) quietPosition.current.quiet = offset.current;
+  }, [quietReading, quietPosition]);
+
+  const restoreReaderPosition = useCallback(() => {
+    const y = quietPosition.current.restore;
+    if (quietReading || y === null || !scroll.current) return;
+    quietPosition.current.restore = null;
+    offset.current = y;
+    scroll.current.scrollTo({ y, animated: false });
+  }, [quietReading, quietPosition]);
+
+  // Content-size changes handle the normal relayout. A frame also covers exits whose
+  // content happens to be the same height in both modes.
+  useEffect(() => {
+    if (quietReading || quietPosition.current.restore === null) return;
+    const frameId = requestAnimationFrame(restoreReaderPosition);
+    return () => cancelAnimationFrame(frameId);
+  }, [quietReading, quietPosition, restoreReaderPosition]);
 
   const isLine = props.line.length > 1;
-  const entries = foldLine(props.line, props.now, props.unfolded);
+  const id = props.focus.id;
+  const entries = foldLine(props.line, props.now, props.unfolded, id);
+  const positionAtMoment = props.positionAtMoment;
+  const measureMoment = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
+    const y = nativeEvent.layout.y;
+    momentOffset.current = { id, y };
+    if (!positionAtMoment || positioned.current === id || !scroll.current) return;
+    positioned.current = id;
+    if (quietReading || quietPosition.current.restore !== null) return;
+    // The offset is inside the Line, so scrolling there leaves the normal top inset.
+    scroll.current.scrollTo({ y, animated: false });
+  }, [id, positionAtMoment, quietReading, quietPosition]);
+  const canCompare = props.connections && !props.continuing && !props.editingId && props.focus.body.trim();
 
   return (
     <Animated.View
+      accessibilityViewIsModal={quietReading}
       style={{
         position: 'absolute',
         top: 0,
@@ -125,29 +193,53 @@ export function Focus(props: FocusProps) {
     >
       <View style={{ height: 54 }} />
       <View
+        key={fontScale}
+        testID="thought-reader-header"
         style={{
           paddingHorizontal: 24,
           paddingTop: 12,
-          flexDirection: 'row',
+          flexDirection: stacked ? 'column' : 'row',
           justifyContent: 'space-between',
-          alignItems: 'center',
+          alignItems: stacked ? 'flex-start' : 'center',
+          gap: stacked ? 8 : undefined,
         }}
       >
-        <Pressable onPress={props.onClose} accessibilityRole="button" hitSlop={12}>
-          <Text style={type({ size: 14, width: 90, color: ink.far })}>‹ edge</Text>
+        <Pressable onPress={quietReading ? props.onExitQuietReading : props.onClose}
+          accessibilityRole="button" hitSlop={quietReading ? undefined : 12}
+          style={({ pressed }) => quietReading ? {
+            minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8, opacity: pressed ? 0.7 : 1,
+          } : undefined}>
+          {quietReading ? (
+            <View pointerEvents="none" style={{ width: 10, height: 10, borderRadius: 5, borderWidth: 1.5, borderColor: LIVE }} />
+          ) : null}
+          <Text style={[type({ size: 14, width: 90, color: ink.far }), { flexShrink: 1 }]}>
+            {quietReading ? 'exit quiet reading' : '‹ edge'}
+          </Text>
         </Pressable>
-        <Text style={type({ size: 12, width: 90, color: ink.meta })}>
+        <Text style={[type({ size: 12, width: 90, color: ink.meta }),
+          stacked ? undefined : { flexShrink: 1, marginLeft: 10, textAlign: 'right' }]}>
           {lineHeading(props.line, props.focus, props.now)}
         </Text>
       </View>
 
       <Animated.ScrollView
-        style={{ flex: 1, marginBottom: keyboardInset }}
-        contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 26, paddingBottom: 140 }}
+        ref={scroll}
+        testID="thought-reader"
+        contentOffset={initialOffset.current}
+        onScroll={trackScroll}
+        scrollEventThrottle={32}
+        onContentSizeChange={restoreReaderPosition}
+        style={{ flex: 1, marginBottom: stacked ? 0 : keyboardInset }}
+        contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 26, paddingBottom: stacked ? 24 : 140 }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
       >
-        <View style={{ position: 'relative', paddingLeft: 18, gap: 22 }}>
+        {props.fromReminder && !quietReading ? (
+          <Text key={fontScale} style={[type({ size: 12, width: 90, color: ink.meta }), { marginBottom: 16 }]}>
+            a reminder you set
+          </Text>
+        ) : null}
+        <View style={{ position: 'relative', paddingLeft: 18, gap: quietReading ? 28 : 22 }}>
           {isLine ? (
             <View
               style={{
@@ -163,12 +255,20 @@ export function Focus(props: FocusProps) {
 
           {entries.map((entry) =>
             entry.kind === 'fold' ? (
-              <View key="fold" style={{ position: 'relative' }}>
+              <Pressable
+                key={`fold:${entry.firstId}:${fontScale}`}
+                accessibilityRole="button"
+                accessibilityLabel={`${entry.label} · unfold`}
+                onPress={props.onUnfold}
+                style={({ pressed }) => ({
+                  position: 'relative', minHeight: 48, justifyContent: 'center', opacity: pressed ? 0.7 : 1,
+                })}
+              >
                 <View
                   style={{
                     position: 'absolute',
                     left: -16,
-                    top: 6,
+                    top: 22,
                     width: 4,
                     height: 4,
                     backgroundColor: ink.meta,
@@ -176,18 +276,25 @@ export function Focus(props: FocusProps) {
                 />
                 <Text style={type({ size: 12, width: 90, color: ink.meta })}>
                   {`${entry.label} · `}
-                  <Text onPress={props.onUnfold} style={{ color: agency.ink, fontFamily: face(90, { weight: agency.weight }) }}>
+                  <Text style={{ color: agency.ink, fontFamily: face(90, { weight: agency.weight }) }}>
                     unfold
                   </Text>
                 </Text>
-              </View>
+              </Pressable>
             ) : (
-              <Moment key={entry.material.id} entry={entry} {...props} />
+              <Moment
+                key={entry.material.id}
+                fontScale={fontScale}
+                entry={entry}
+                onLayout={entry.material.id === id ? measureMoment : undefined}
+                onQuiet={() => props.onEnterQuietReading(offset.current)}
+                {...props}
+              />
             )
           )}
         </View>
 
-        {props.traces.length ? (
+        {!quietReading && (props.traces.length || canCompare) ? (
           <View
             style={{
               marginTop: 28,
@@ -198,6 +305,7 @@ export function Focus(props: FocusProps) {
             }}
           >
             <Text
+              key={fontScale}
               style={{
                 fontFamily: face(90),
                 fontSize: 10,
@@ -206,37 +314,39 @@ export function Focus(props: FocusProps) {
                 textTransform: 'uppercase',
               }}
             >
-              {tracesHeading(props.traces)}
+              traces
             </Text>
             {props.traces.slice(0, 4).map((t) => (
               <TraceRow
-                key={t.material.id}
+                key={`${t.material.id}:${fontScale}`}
                 trace={t}
                 now={props.now}
                 onOpen={() => props.onOpenTrace(t.material)}
-                onYes={() => props.onConfirmTrace(t.material)}
-                onNo={() => props.onRejectTrace(t.material)}
               />
             ))}
+            {canCompare && props.connections ? (
+              <ConnectionPanel key={id} source={props.focus} data={props.connections} fontScale={fontScale}
+                onReadSource={() => {
+                  if (momentOffset.current?.id === id) {
+                    scroll.current?.scrollTo({ y: momentOffset.current.y, animated: false });
+                  }
+                }} />
+            ) : null}
           </View>
         ) : null}
       </Animated.ScrollView>
 
       <Animated.View
-        style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          bottom: keyboardInset,
-          paddingHorizontal: 24,
-          paddingTop: 12,
-          paddingBottom: 44,
-          backgroundColor: SURFACE,
-        }}
+        style={[
+          { paddingHorizontal: 24, paddingTop: 12, paddingBottom: 44, backgroundColor: SURFACE },
+          stacked ? { marginBottom: keyboardInset }
+            : { position: 'absolute', left: 0, right: 0, bottom: keyboardInset },
+        ]}
       >
         {props.continuing ? (
           <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 12 }}>
             <TextInput
+              keyboardAppearance={mode}
               accessibilityLabel="a new moment, dated now"
               autoFocus
               // Chinotto keeps the casing somebody chose. `dinner friday` is how they wrote
@@ -256,7 +366,10 @@ export function Focus(props: FocusProps) {
               selectionColor={ink.ink}
               style={[
                 type({ size: 20, width: 100, lineHeight: 1.3 }),
-                { flex: 1, color: ink.ink, paddingVertical: 12, maxHeight: 180 },
+                {
+                  flex: 1, color: ink.ink, paddingVertical: 12, maxHeight: 180,
+                  minHeight: stacked ? Math.min(180, Math.ceil(26 * fontScale) + 24) : undefined,
+                },
               ]}
             />
             <Pressable
@@ -265,61 +378,67 @@ export function Focus(props: FocusProps) {
               accessibilityLabel="leave it"
               style={{
                 width: 48,
-                height: 48,
+                minHeight: 48,
+                paddingVertical: 10,
                 backgroundColor: agency.ink,
                 alignItems: 'center',
                 justifyContent: 'center',
                 marginBottom: 6,
               }}
             >
-              <Text style={{ fontFamily: face(100), fontSize: 20, color: agency.ground }}>↑</Text>
+              <Text allowFontScaling={false} style={{ fontFamily: face(100), fontSize: 20, color: agency.ground }}>↑</Text>
             </Pressable>
           </View>
         ) : (
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <Pressable
-              onPress={props.onStartContinue}
-              accessibilityRole="button"
-              style={{
-                flex: 1,
-                height: 56,
-                backgroundColor: agency.ink,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Text
+          <View key={fontScale} style={{ gap: 8 }}>
+            <Text style={type({ size: 12, width: 90, color: ink.meta })}>continue · a new moment, dated now</Text>
+            <View testID="thought-reader-actions" style={{ flexDirection: stacked ? 'column' : 'row', gap: 10 }}>
+              <Pressable
+                onPress={props.onStartContinue}
+                accessibilityRole="button"
                 style={{
-                  fontFamily: face(92, { weight: agency.weight }),
-                  fontSize: 17,
-                  color: agency.ground,
+                  flex: stacked ? undefined : 1,
+                  minHeight: 56,
+                  paddingVertical: 10,
+                  backgroundColor: agency.ink,
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
-                continue
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => props.onHold(props.focus)}
-              accessibilityRole="button"
-              style={{
-                height: 56,
-                paddingHorizontal: 22,
-                borderWidth: 1,
-                borderColor: ink.faint,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Text
+                <Text
+                  style={{
+                    fontFamily: face(92, { weight: agency.weight }),
+                    fontSize: 17,
+                    color: agency.ground,
+                  }}
+                >
+                  continue
+                </Text>
+              </Pressable>
+              {!quietReading ? <Pressable
+                onPress={() => props.onHold(props.focus)}
+                accessibilityRole="button"
                 style={{
-                  fontFamily: face(92, { weight: agency.weight }),
-                  fontSize: 16,
-                  color: agency.ink,
+                  minHeight: 56,
+                  paddingVertical: 10,
+                  paddingHorizontal: 22,
+                  borderWidth: 1,
+                  borderColor: ink.faint,
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
-                {props.heldIds.has(props.focus.id) ? 'release' : 'hold'}
-              </Text>
-            </Pressable>
+                <Text
+                  style={{
+                    fontFamily: face(92, { weight: agency.weight }),
+                    fontSize: 16,
+                    color: agency.ink,
+                  }}
+                >
+                  {props.heldIds.has(props.focus.id) ? 'release' : 'hold'}
+                </Text>
+              </Pressable> : null}
+            </View>
           </View>
         )}
       </Animated.View>
@@ -329,20 +448,35 @@ export function Focus(props: FocusProps) {
 
 function Moment({
   entry,
+  fontScale,
+  onLayout,
+  onQuiet,
   ...props
-}: FocusProps & { entry: Extract<LineEntry, { kind: 'moment' }> }) {
+}: FocusProps & {
+  entry: Extract<LineEntry, { kind: 'moment' }>;
+  fontScale: number;
+  onLayout?: (event: LayoutChangeEvent) => void;
+  onQuiet: () => void;
+}) {
+  const { ink, agency, rule, mode } = useRecordTheme();
+
   const m = entry.material;
   const isFocus = m.id === props.focus.id;
   const voice = isVoice(m);
   const editing = props.editingId === m.id;
-  const selected = props.selectedId === m.id;
+  const quietReading = props.quietReading;
+  const selected = !quietReading && props.selectedId === m.id;
 
   const body = displayText(m);
   const paragraphs = body.split(/\n\n+/);
   const when = dayLabel(m.at, props.now) === 'today' ? 'today' : fullDate(m.at);
+  const returnContext = isFocus && !quietReading ? props.returnContext : null;
+  const match = returnContext?.phraseOld ?? null;
+  const showQuietAction = Boolean(body.trim() || isQuoteOnly(m) || props.line.length > 1);
+  const lineHeight = quietReading ? 1.47 : isFocus ? 1.3 : 1.32;
 
   return (
-    <View style={{ position: 'relative' }}>
+    <View onLayout={onLayout} style={{ position: 'relative' }}>
       <View
         style={{
           position: 'absolute',
@@ -354,14 +488,15 @@ function Moment({
         }}
       />
 
-      <View style={{ flexDirection: 'row', gap: 10, marginBottom: 4 }}>
+      {/* Refresh measured native text on a size change. The scroll view and editors stay mounted. */}
+      <View key={`dates:${fontScale}`} style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 4 }}>
         <Text style={type({ size: 12, width: 90, color: ink.meta })}>
           {`${when} · ${fmtTime(m.at)} · ${sourceOf(m)}`}
         </Text>
-        {m.correctionCount > 0 ? (
+        {m.correctionCount > 0 && !quietReading ? (
           <Text
             onPress={() => props.onTogglePrevious(m.id)}
-            style={type({ size: 12, width: 90, color: ink.faint })}
+            style={type({ size: 12, width: 90, color: ink.meta })}
           >
             {`corrected · ${props.shownPrevious[m.id] ? 'hide' : 'show'}`}
           </Text>
@@ -371,6 +506,7 @@ function Moment({
       {editing ? (
         <>
           <TextInput
+            keyboardAppearance={mode}
             accessibilityLabel="correct the wording"
             autoFocus
             autoCapitalize="none"
@@ -391,7 +527,7 @@ function Moment({
               },
             ]}
           />
-          <View style={{ flexDirection: 'row', gap: 14, marginTop: 8 }}>
+          <View key={fontScale} style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginTop: 8 }}>
             {/* The sentence states the contract of a correction, before you commit to it. */}
             <Text style={type({ size: 12, width: 90, color: ink.meta })}>
               wording only · date and earlier wording stay
@@ -414,7 +550,7 @@ function Moment({
           </View>
         </>
       ) : (
-        <>
+        <React.Fragment key={`body:${fontScale}`}>
           {isQuoteOnly(m) ? (
             <Text
               style={[
@@ -431,9 +567,10 @@ function Moment({
             </Text>
           ) : null}
 
-          <Pressable onPress={() => props.onSelect(selected ? null : m.id)}>
+          <Pressable accessible={quietReading ? false : undefined}
+            onPress={quietReading ? undefined : () => props.onSelect(selected ? null : m.id)}>
             <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-              {voice ? (
+              {voice && !quietReading ? (
                 <VoiceChip
                   seconds={Math.round((m.durationMs ?? 0) / 1000)}
                   missing={Boolean(m.audioMissing)}
@@ -444,13 +581,13 @@ function Moment({
               ) : null}
               <View style={{ flex: 1 }}>
                 <Marked
-                  parts={parts(paragraphs[0], [])}
+                  parts={parts(paragraphs[0], [match])}
                   style={
                     isFocus
                       ? type({
                           size: 20,
                           width: 100,
-                          lineHeight: 1.3,
+                          lineHeight,
                           tracking: -0.01,
                           italic: voice,
                           color: voice ? ink.far : ink.ink,
@@ -458,36 +595,62 @@ function Moment({
                       : type({
                           size: 16,
                           width: 94,
-                          lineHeight: 1.32,
+                          lineHeight,
                           italic: voice,
                           color: voice ? ink.far : ink.near,
                         })
                   }
                 />
                 {paragraphs.slice(1).map((p, i) => (
-                  <Text
+                  <Marked
                     key={i}
+                    parts={parts(p, [match])}
                     style={[
                       isFocus
-                        ? type({ size: 20, width: 100, lineHeight: 1.3, color: ink.ink })
-                        : type({ size: 16, width: 94, lineHeight: 1.32, color: ink.near }),
+                        ? type({ size: 20, width: 100, lineHeight, color: ink.ink })
+                        : type({ size: 16, width: 94, lineHeight, color: ink.near }),
                       { marginTop: 10 },
                     ]}
-                  >
-                    {p}
-                  </Text>
+                  />
                 ))}
               </View>
             </View>
           </Pressable>
 
+          {returnContext ? <ReturnContext value={returnContext} now={props.now} /> : null}
+
+          {isFocus && !quietReading && !props.continuing && (props.reminder || showQuietAction) ? (
+            <View>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 18, alignItems: 'flex-start' }}>
+                {props.reminder ? (
+                  <Pressable accessibilityRole="button" onPress={props.reminder.onOpen}
+                    style={{ minHeight: 48, minWidth: 48, justifyContent: 'center' }}>
+                    <Text style={type({ size: 14, width: 94, weight: agency.weight, color: agency.ink })}>
+                      {props.reminder.label}
+                    </Text>
+                  </Pressable>
+                ) : null}
+                {showQuietAction ? (
+                  <Pressable accessibilityRole="button" onPress={onQuiet}
+                    style={({ pressed }) => ({ minHeight: 48, minWidth: 48, justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}>
+                    <Text style={type({ size: 14, width: 94, color: ink.far })}>quiet reading</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+              {props.reminder?.notice ? (
+                <Text accessibilityRole="alert" style={type({ size: 13, width: 92, color: ink.far })}>
+                  {props.reminder.notice}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
           {m.url ? (
             <Text style={[type({ size: 12, width: 90, color: ink.meta }), { marginTop: 4 }]}>
               {m.title ? `${m.domain ?? ''} · ${m.title}` : (m.domain ?? m.url)}
             </Text>
           ) : null}
 
-          {props.shownPrevious[m.id] && m.previousBody ? (
+          {!quietReading && props.shownPrevious[m.id] && m.previousBody ? (
             <Text
               style={[
                 type({ size: 14, width: 90, lineHeight: 1.35, italic: true, color: ink.meta }),
@@ -499,7 +662,7 @@ function Moment({
           ) : null}
 
           {selected ? (
-            <View style={{ flexDirection: 'row', gap: 16, marginTop: 10 }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginTop: 10 }}>
               <Text
                 onPress={() => props.onCorrect(m)}
                 style={type({ size: 14, width: 92, color: agency.ink, weight: agency.weight })}
@@ -520,90 +683,39 @@ function Moment({
               </Text>
             </View>
           ) : null}
-        </>
+        </React.Fragment>
       )}
     </View>
   );
 }
 
-/**
- * A trace row.
- *
- * `same words` is upright and shows the shared run in context. `a guess` is italic, says it
- * is a guess, and offers `yes · not this` — the two answers are the only way an inference
- * ever becomes a fact here.
- */
-function TraceRow({
-  trace,
-  now,
-  onOpen,
-  onYes,
-  onNo,
-}: {
-  trace: Trace;
-  now: number;
-  onOpen: () => void;
-  onYes: () => void;
-  onNo: () => void;
-}) {
-  const guess = trace.kind === 'guess';
-  const kindLabel = guess ? 'a guess' : trace.kind === 'same_source' ? 'same source' : 'same words';
+/** A recorded match in words or source. Possibilities have their own comparison. */
+function TraceRow({ trace, now, onOpen }: { trace: Trace; now: number; onOpen: () => void }) {
+  const { ink, evidence } = useRecordTheme();
+  const kindLabel = trace.kind === 'same_source' ? 'same source' : 'same words';
   const when =
     now - trace.material.at < 7 * 864e5
       ? dayLabel(trace.material.at, now)
       : monthLabel(trace.material.at, now);
-
   const text = trace.phrase
     ? snippet(displayText(trace.material).replace(/\n+/g, ' '), trace.phrase)
     : displayText(trace.material).split('\n')[0].slice(0, 90);
 
   return (
-    <View
-      style={{
-        borderLeftWidth: 2,
-        borderLeftColor: guess ? evidence.railInferred : evidence.rail,
-        paddingLeft: 14,
-      }}
+    <Pressable
+      onPress={onOpen}
+      accessibilityRole="button"
+      style={({ pressed }) => ({
+        borderLeftWidth: 2, borderLeftColor: evidence.rail, minHeight: 48,
+        paddingLeft: 14, paddingVertical: 4, opacity: pressed ? 0.7 : 1,
+      })}
     >
       <Text style={type({ size: 14, width: 90, color: ink.meta })}>{`${kindLabel} · ${when}`}</Text>
       <Marked
-        parts={parts(text, trace.phrase ? [trace.phrase] : [])}
+        parts={parts(text, [trace.phrase])}
         quiet
-        onPress={onOpen}
-        style={type({
-          size: 14,
-          width: 90,
-          lineHeight: 1.35,
-          italic: guess,
-          color: guess ? ink.dim : ink.far,
-        })}
+        style={type({ size: 14, width: 90, lineHeight: 1.35, color: ink.far })}
       />
-      {guess ? (
-        // A verdict on a guess is a decision somebody makes about their own record, and it
-        // is kept for good. Two words of 14pt type is not enough to hit — the body above
-        // opens the moment, so a near miss does something else entirely.
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-          <Pressable
-            onPress={onYes}
-            accessibilityRole="button"
-            hitSlop={{ top: 12, bottom: 12, left: 8, right: 6 }}
-          >
-            <Text style={type({ size: 14, width: 90, color: agency.ink, weight: agency.weight })}>
-              yes
-            </Text>
-          </Pressable>
-          <Text style={type({ size: 14, width: 90, color: ink.meta })}>{' · '}</Text>
-          <Pressable
-            onPress={onNo}
-            accessibilityRole="button"
-            hitSlop={{ top: 12, bottom: 12, left: 6, right: 12 }}
-          >
-            <Text style={type({ size: 14, width: 90, color: agency.ink, weight: agency.weight })}>
-              not this
-            </Text>
-          </Pressable>
-        </View>
-      ) : null}
-    </View>
+    </Pressable>
   );
 }

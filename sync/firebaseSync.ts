@@ -1,5 +1,4 @@
 import {
-  deleteField,
   doc,
   getFirestore,
   initializeFirestore,
@@ -45,7 +44,7 @@ export function getOrInitFirestore(): Firestore {
 
 /**
  * Idempotent Firestore upsert: `users/{uid}/entries/{entry.id}` with merge.
- * Sends `text`, `createdAt`, `updatedAt` (parity with desktop Phase 2+); clears `deletedAt` when reviving.
+ * Sends `text`, `createdAt`, `updatedAt`; an active upsert never clears a remote removal.
  * Requires a signed-in Firebase user (Sign in with Apple for stable sync). Queue stays pending until then.
  * Retries are safe if remote dedupes by document id (see docs/internal/sync/sync.md).
  */
@@ -72,7 +71,6 @@ export async function firebasePushEntry(entry: Entry, theme?: EntryTheme | null)
       text: entry.text,
       createdAt: entry.createdAt,
       updatedAt: serverTimestamp(),
-      deletedAt: deleteField(),
       ...themePayload,
     },
     { merge: true }

@@ -40,9 +40,10 @@ export type TracesInput = {
   material: Material[];
   /** `fragmentId -> relatedId -> judgement`, from `trace_judgements`. */
   judgements?: Record<string, 'confirmed' | 'rejected'> | null;
+  includeGuesses?: boolean;
 };
 
-export function traces({ line, material, judgements = null }: TracesInput): Trace[] {
+export function traces({ line, material, judgements = null, includeGuesses = true }: TracesInput): Trace[] {
   const inLine = new Set(line.map((m) => m.id));
   const lineTokens = line.map((m) => tokens(displayText(m)));
   const lineUrlKeys = new Set(line.map((m) => m.urlKey).filter((k): k is string => Boolean(k)));
@@ -79,7 +80,7 @@ export function traces({ line, material, judgements = null }: TracesInput): Trac
     for (const t of lineTokens) {
       const r = sharedRun(tc, t);
       if (r && (!run || r.len > run.len)) run = r;
-      count = Math.max(count, sharedCount(tc, t));
+      if (includeGuesses) count = Math.max(count, sharedCount(tc, t));
     }
 
     if (run) {

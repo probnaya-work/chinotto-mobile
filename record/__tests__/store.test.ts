@@ -528,3 +528,22 @@ describe('at scale', () => {
     expect(Date.now() - started).toBeLessThan(4000);
   });
 });
+
+it('keeps one open Return and a durable twenty-hour pause after dismissal', async () => {
+  const db = openTestDb(); await migrate(db);
+  let now = Date.UTC(2026, 10, 15);
+  const store = createRecordStore(db, { now: () => now });
+  try {
+    await store.capture({ id: 'old', body: 'old' });
+    await store.capture({ id: 'cause', body: 'cause' });
+    const evidence = { kind: 'shared_phrase', detail: 'actual repeated words', occurredAt: now, relatedId: 'cause' };
+    const id = await store.recordReturn('old', 'repeated_language', evidence);
+    expect((await store.returnStatus()).open!.id).toBe(id);
+    expect(await store.recordReturn('old', 'repeated_language', evidence)).toBe(0);
+    await store.closeReturn(id, 'let_go');
+    now += 20 * 3600_000 - 1;
+    expect(await store.recordReturn('old', 'repeated_language', evidence)).toBe(0);
+    now += 1;
+    expect(await store.recordReturn('old', 'repeated_language', evidence)).toBeGreaterThan(id);
+  } finally { db.close(); }
+});

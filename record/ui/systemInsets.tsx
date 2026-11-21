@@ -15,6 +15,7 @@
  * On iOS none of this is mounted: no provider, no frame, the same tree as before.
  */
 
+import { useRecordTheme } from './appearance';
 import React, { useContext } from 'react';
 import { Platform, View } from 'react-native';
 import {
@@ -24,7 +25,6 @@ import {
   type EdgeInsets,
 } from 'react-native-safe-area-context';
 
-import { SURFACE } from './tokens';
 
 /** What the design already leaves the status bar, in points. `frame.statusBarHeight`. */
 export const DESIGN_TOP_ALLOWANCE = 54;
@@ -59,6 +59,8 @@ export function useKeyboardBase(): number {
 }
 
 function AndroidFrame({ children }: { children: React.ReactNode }) {
+  const { SURFACE } = useRecordTheme();
+
   const inset = frameInsetsFor(useContext(SafeAreaInsetsContext));
   return (
     <View style={{ flex: 1, backgroundColor: SURFACE }}>
@@ -69,6 +71,8 @@ function AndroidFrame({ children }: { children: React.ReactNode }) {
 
 /** Wraps the app. A pass-through anywhere but Android. */
 export function SystemFrame({ children }: { children: React.ReactNode }) {
+  const { SURFACE } = useRecordTheme();
+
   if (Platform.OS !== 'android') return <>{children}</>;
   return (
     // Seeded from the window's metrics, because the provider otherwise renders nothing until

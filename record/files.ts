@@ -103,7 +103,7 @@ export function audioPathFor(fragmentId: string, extension = 'm4a'): string {
 }
 
 /** A retained recording's path, as this module writes them: one plain file in `AUDIO_DIR`. */
-const RETAINED_AUDIO = /^chinotto\/audio\/[A-Za-z0-9_-][A-Za-z0-9._-]*\.m4a$/;
+const RETAINED_AUDIO = /^chinotto\/audio\/[A-Za-z0-9_-][A-Za-z0-9._-]*\.(?:m4a|caf)$/;
 
 /** True for a path that is plainly one of the Record's own recordings, and nothing else. */
 export function isRetainedAudioPath(relativePath: string): boolean {

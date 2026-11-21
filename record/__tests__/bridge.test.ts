@@ -3,6 +3,7 @@ import { migrate } from '../migrate';
 import { createBridge, type LegacyEntryRow } from '../bridge';
 import { createRecordStore, UNDO_WINDOW_MS } from '../store';
 import { applyRemoteTombstonesWithDb } from '../../storage/entryRepository';
+import { runSerializedDb } from '../../storage/runSerializedDb';
 
 const T0 = new Date('2026-09-19T17:10:00.000Z').getTime();
 
@@ -174,7 +175,7 @@ describe('Record → legacy', () => {
   it('catches up everything the legacy table has not seen', async () => {
     const { db, store, bridge } = await fresh();
     for (let i = 0; i < 20; i += 1) await store.capture({ body: `moment ${i}` });
-    await db.execAsync('DELETE FROM entries');
+    await runSerializedDb(() => db.execAsync('DELETE FROM entries'));
 
     expect(await bridge.mirrorCatchUp()).toBe(20);
     expect(await entries(db)).toHaveLength(20);
@@ -414,7 +415,7 @@ describe('what arrives over the wire', () => {
     const m = await h.store.capture({ body: 'ferry at 16:40' });
     // Capture already mirrored this out, so what ingest brings back is the same row with
     // different words — which is exactly the case this is about.
-    await h.db.runAsync('UPDATE entries SET text = ? WHERE id = ?', 'ferry at 18:40', m.id);
+    await runSerializedDb(() => h.db.runAsync('UPDATE entries SET text = ? WHERE id = ?', 'ferry at 18:40', m.id));
 
     expect(await h.bridge.projectCatchUp()).toEqual({ created: 0, conflicts: 1 });
 

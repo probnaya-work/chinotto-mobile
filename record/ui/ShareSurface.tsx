@@ -12,11 +12,12 @@
  * not.
  */
 
+import { useRecordTheme } from './appearance';
 import React from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { Mark } from './Mark';
-import { agency, ink, rule, SURFACE } from './tokens';
+
 import { face, type } from './type';
 
 export type ShareSurfaceProps = {
@@ -39,6 +40,8 @@ export type ShareSurfaceProps = {
 };
 
 export function ShareSurface(props: ShareSurfaceProps) {
+  const { ink, agency, rule, SURFACE } = useRecordTheme();
+
   return (
     <View
       style={{
@@ -109,7 +112,8 @@ export function ShareSurface(props: ShareSurfaceProps) {
             accessibilityRole="button"
             style={{
               flex: 1,
-              height: 56,
+              minHeight: 56,
+              paddingVertical: 10,
               backgroundColor: agency.ink,
               alignItems: 'center',
               justifyContent: 'center',
@@ -129,7 +133,8 @@ export function ShareSurface(props: ShareSurfaceProps) {
             onPress={props.onNotNow}
             accessibilityRole="button"
             style={{
-              height: 56,
+              minHeight: 56,
+              paddingVertical: 10,
               paddingHorizontal: 20,
               borderWidth: 1,
               borderColor: ink.faint,

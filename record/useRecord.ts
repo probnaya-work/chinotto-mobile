@@ -14,6 +14,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useFindInput } from './useFindInput';
+import { RecordLocked } from './privacy';
 
 import { bandsFor, lastMonthWithData, yearsSummary, type Anchor } from './model/bands';
 import { parseAnchor, resolveAnchor } from './model/anchors';
@@ -21,9 +23,9 @@ import { suggestContinuation, type ContinuationOffer } from './model/continuatio
 import { findSummary, readField, guessFor, type Guess } from './model/find';
 import { lineOf } from './model/lines';
 import { firstLine, type Material } from './model/material';
-import { returnFor, type RecordReturn } from './model/returns';
+import { returnFor, resumeReturn, RETURN_COOLDOWN_MS, SAME_FRAGMENT_COOLDOWN_MS, type RecordReturn } from './model/returns';
 import { traces, type Trace } from './model/traces';
-import { monthLabel, MS_DAY } from './model/time';
+import { monthLabel } from './model/time';
 import { flattenRecord, type Row } from './ui/rows';
 import { motion } from './ui/tokens';
 import { thoughtLanded } from './feedback';
@@ -31,8 +33,6 @@ import { NO_PLAYBACK, type AudioPlaybackPort } from './playback';
 import type { RecordBridge } from './bridge';
 import { HoldLimitReached, MAX_HELD, type RecordStore } from './store';
 
-/** Do not press the same thing again within this. */
-const RETURN_COOLDOWN_MS = 7 * MS_DAY;
 /** How long after launch the Return is allowed to arrive. Capture comes first. */
 const RETURN_DELAY_MS = 1600;
 
@@ -40,36 +40,27 @@ export type PendingRemoval = { material: Material; at: number };
 
 export type RecordState = ReturnType<typeof useRecord>;
 
+type FocusTarget = {
+  id: string;
+  returned?: Pick<RecordReturn, 'reason' | 'evidence'>;
+  fromConnection?: boolean;
+  quietReading?: boolean;
+};
+
 export function useRecord(
   store: RecordStore,
   bridge: RecordBridge,
   nowFn = Date.now,
-  audio: AudioPlaybackPort = NO_PLAYBACK
+  audio: AudioPlaybackPort = NO_PLAYBACK,
+  readEnabled = true,
+  returnCovered = false
 ) {
   const [material, setMaterial] = useState<Material[]>([]);
   const [heldIds, setHeldIds] = useState<Set<string>>(new Set());
   const [judgements, setJudgements] = useState<Record<string, 'confirmed' | 'rejected'>>({});
   const [ready, setReady] = useState(false);
 
-  const [inputState, setInputState] = useState('');
-
-  /**
-   * What is in the field right now, as opposed to what the last render was told.
-   *
-   * Return arrives as its own native event, immediately after the keystroke before it. The
-   * submit handler is a closure over state, and state is a render behind — so pressing Return
-   * straight after the last letter submitted the text *without that letter*. Typed `back`,
-   * kept `bac`.
-   *
-   * Nothing about capture is allowed to be a render behind, so the value is mirrored here
-   * synchronously and submit reads this rather than the render's copy.
-   */
-  const inputNow = useRef('');
-  const input = inputState;
-  const setInput = useCallback((text: string) => {
-    inputNow.current = text;
-    setInputState(text);
-  }, []);
+  const { input, inputNow, setInput, startFind, leaveFind, finding, captureInput, setCaptureInput } = useFindInput();
   const [inputFocused, setInputFocused] = useState(false);
   const [anchor, setAnchor] = useState<Anchor | null>(null);
 
@@ -83,12 +74,28 @@ export function useRecord(
   useEffect(() => {
     if (anchor) setInputFocused(false);
   }, [anchor]);
-  const [byMeaning, setByMeaning] = useState(false);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [focusId, setFocusId] = useState<string | null>(null);
+  const [focusTarget, setFocusTarget] = useState<FocusTarget | null>(null);
+  const focusId = focusTarget?.id ?? null;
+  const setFocusId = useCallback((id: string | null) => {
+    setFocusTarget(id === null ? null : { id });
+  }, []);
+  const setQuietReading = useCallback((quietReading: boolean) => {
+    setFocusTarget((target) => target ? { ...target, quietReading } : null);
+  }, []);
   const [unfolded, setUnfolded] = useState(false);
   const [yearsOpen, setYearsOpen] = useState(false);
+  const openExisting = useCallback((moment: Material) => {
+    // A scheduled moment can be older than the normal Record window.
+    setMaterial((rows) => rows.some(({ id }) => id === moment.id)
+      ? rows.map((row) => row.id === moment.id ? moment : row)
+      : [...rows, moment].sort((a, b) => b.at - a.at));
+    setSelectedId(null);
+    setYearsOpen(false);
+    setFocusId(moment.id);
+  }, [setFocusId]);
+
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTextState, setEditTextState] = useState('');
@@ -139,15 +146,26 @@ export function useRecord(
 
   const now = nowFn();
 
+  const readNow = useRef(readEnabled);
+  readNow.current = readEnabled;
+  const readGeneration = useRef(0);
+  const previousRead = useRef(readEnabled);
+  if (previousRead.current !== readEnabled) { ++readGeneration.current; previousRead.current = readEnabled; }
+
   const reload = useCallback(async () => {
-    const [rows, held, judged] = await Promise.all([
-      store.loadRecord(),
-      store.heldIds(),
-      store.traceJudgements(),
-    ]);
-    setMaterial(rows);
-    setHeldIds(new Set(held));
-    setJudgements(judged);
+    if (!readNow.current) return;
+    const generation = readGeneration.current;
+    try {
+      const [rows, held, judged] = await Promise.all([
+        store.loadRecord(),
+        store.heldIds(),
+        store.traceJudgements(),
+      ]);
+      if (!readNow.current || generation !== readGeneration.current) return;
+      setMaterial(rows);
+      setHeldIds(new Set(held));
+      setJudgements(judged);
+    } catch (error) { if (!(error instanceof RecordLocked)) throw error; }
   }, [store]);
 
   /* ------------------------------------------------------------------- playback */
@@ -203,6 +221,10 @@ export function useRecord(
   );
 
   useEffect(() => {
+    if (!readEnabled) {
+      setReady(false);
+      return;
+    }
     let alive = true;
     void (async () => {
       await reload();
@@ -211,58 +233,88 @@ export function useRecord(
     return () => {
       alive = false;
     };
-  }, [reload]);
+  }, [reload, readEnabled]);
+
+  useEffect(() => {
+    if (!readEnabled) { audio.stop(); setPlayingId(null); }
+  }, [audio, readEnabled]);
 
   /* ------------------------------------------------------------------ the Return */
 
+  const returnVisible = !returnCovered && !input.length && !inputFocused && !anchor &&
+    !focusId && !yearsOpen && selectedId === null;
+
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || !readEnabled || retLeaving) return;
+    if (ret) {
+      const stillValid = !heldIds.has(ret.material.id) && resumeReturn({
+        fragmentId: ret.material.id, reason: ret.reason, evidence: ret.evidence,
+      }, material, nowFn());
+      if (!stillValid) {
+        if (retRowId !== null) void store.closeReturn(retRowId, 'expired').catch(() => {});
+        setRet(null); setRetRowId(null);
+      } else if (ret.material !== stillValid.material || ret.because !== stillValid.because) {
+        setRet(stillValid);
+      }
+      return;
+    }
+    if (!returnVisible) return;
     let alive = true;
-    const timer = setTimeout(async () => {
-      const recent = await store.recentlyReturned(RETURN_COOLDOWN_MS);
-      if (!alive) return;
-      const candidate = returnFor({
-        material,
-        now: nowFn(),
-        recentlyReturned: recent,
-        held: Object.fromEntries([...heldIds].map((id) => [id, true])),
-      });
-      if (!candidate || !alive) return;
-      // A Return is written down with its evidence the moment it is shown, so what came
-      // back and why is recoverable afterwards — including by the person, in focus.
-      const id = await store.recordReturn(candidate.material.id, candidate.reason, {
-        kind: candidate.evidence.kind,
-        detail: candidate.evidence.detail,
-        occurredAt: candidate.evidence.occurredAt,
-        relatedId: candidate.evidence.relatedId,
-      });
-      if (!alive) return;
-      setRet(candidate);
-      setRetRowId(id);
+    const timer = setTimeout(() => {
+      void (async () => {
+        const status = await store.returnStatus();
+        if (!alive) return;
+        if (status.open) {
+          const resumed = !heldIds.has(status.open.fragmentId)
+            ? resumeReturn(status.open, material, nowFn()) : null;
+          if (resumed) { setRet(resumed); setRetRowId(status.open.id); }
+          else await store.closeReturn(status.open.id, 'expired');
+          return;
+        }
+        if (status.lastAt !== null && nowFn() - status.lastAt < RETURN_COOLDOWN_MS) return;
+        const recent = await store.recentlyReturned(SAME_FRAGMENT_COOLDOWN_MS);
+        if (!alive) return;
+        const candidate = returnFor({
+          material, now: nowFn(), recentlyReturned: recent,
+          held: Object.fromEntries([...heldIds].map((id) => [id, true])),
+        });
+        if (!candidate || !alive) return;
+        const id = await store.recordReturn(candidate.material.id, candidate.reason, candidate.evidence);
+        if (!alive || id === 0) return;
+        setRet(candidate); setRetRowId(id);
+      })().catch(() => { /* Capture remains available; the next material change retries. */ });
     }, RETURN_DELAY_MS);
-    return () => {
-      alive = false;
-      clearTimeout(timer);
-    };
-    // Deliberately runs once the record is first loaded, not on every change: a Return that
-    // re-evaluated as you typed would flicker in and out while you were working.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready]);
+    return () => { alive = false; clearTimeout(timer); };
+  }, [ready, readEnabled, material, heldIds, ret, retLeaving, retRowId, store, nowFn, returnVisible]);
 
-  const closeReturn = useCallback(
-    (outcome: 'opened' | 'continued' | 'let_go') => {
-      if (retRowId !== null) void store.closeReturn(retRowId, outcome);
-      setRet(null);
-      setRetLeaving(false);
-      setRetRowId(null);
-    },
-    [retRowId, store]
-  );
+  const clearReturn = useCallback(() => {
+    setRet(null);
+    setRetLeaving(false);
+    setRetRowId(null);
+  }, []);
 
-  const letGo = useCallback(() => {
-    setRetLeaving(true);
-    setTimeout(() => closeReturn('let_go'), motion.letGo);
-  }, [closeReturn]);
+  const openReturn = useCallback(() => {
+    if (!ret || retLeaving || retRowId === null || !returnVisible || !readNow.current) return;
+    const { reason, evidence } = ret;
+    const fragmentId = ret.material.id;
+    if (!resumeReturn({ fragmentId, reason, evidence }, material, nowFn())) return;
+    setFocusTarget({ id: fragmentId, returned: { reason, evidence } });
+    void store.closeReturn(retRowId, 'opened').catch(() => {});
+    clearReturn();
+  }, [ret, retLeaving, retRowId, returnVisible, material, nowFn, store, clearReturn]);
+
+  const letGo = useCallback((animate: boolean) => {
+    if (retLeaving || retRowId === null || !readNow.current) return;
+    void store.closeReturn(retRowId, 'let_go').catch(() => {});
+    if (animate) setRetLeaving(true);
+    else clearReturn();
+  }, [retLeaving, retRowId, store, clearReturn]);
+
+  useEffect(() => {
+    if (!retLeaving) return;
+    const timer = setTimeout(clearReturn, motion.letGo);
+    return () => clearTimeout(timer);
+  }, [retLeaving, clearReturn]);
 
   /* ---------------------------------------------------------------------- Find */
 
@@ -327,7 +379,7 @@ export function useRecord(
       if (focusId === m.id) setFocusId(null);
       await reload();
     },
-    [store, reload, focusId, nowFn]
+    [store, reload, focusId, nowFn, setFocusId]
   );
 
   const bringBack = useCallback(async () => {
@@ -395,7 +447,7 @@ export function useRecord(
     setEditingId(m.id);
     setEditText(m.body);
     setSelectedId(null);
-    setFocusId((current) => current ?? m.id);
+    setFocusTarget((current) => current ?? { id: m.id });
   }, []);
 
   const saveCorrection = useCallback(async () => {
@@ -417,23 +469,18 @@ export function useRecord(
     await reload();
     if (created) {
       thoughtLanded();
-      setFocusId(created.id);
+      setFocusTarget((target) => target?.id === focusId
+        ? { id: created.id, quietReading: target.quietReading } : target);
       void bridge.mirrorFragment(created.id);
     }
   }, [continueText, focusId, store, bridge, reload]);
 
   /* --------------------------------------------------------------------- traces */
 
-  const judgeTrace = useCallback(
-    async (related: Material, verdict: 'confirmed' | 'rejected') => {
-      if (!focusId) return;
-      await store.judgeTrace(focusId, related.id, 'inferred', verdict);
-      // "yes" is not only a verdict — it says these belong to one line, so it links them.
-      if (verdict === 'confirmed') await store.linkContinuation(focusId, related.id);
-      await reload();
-    },
-    [focusId, store, reload]
-  );
+  const openConnection = useCallback((id: string) => {
+    setSelectedId(null);
+    setFocusTarget({ id, fromConnection: true });
+  }, []);
 
   /* ---------------------------------------------------------------- what to draw */
 
@@ -441,9 +488,13 @@ export function useRecord(
 
   const focus = focusId ? (live.find((m) => m.id === focusId) ?? null) : null;
   const line = useMemo(() => (focus ? lineOf(focus, live) : []), [focus, live]);
+  const returnContext = useMemo(() => {
+    if (!readEnabled || !ready || !focus || !focusTarget?.returned) return null;
+    return resumeReturn({ fragmentId: focus.id, ...focusTarget.returned }, live, nowFn());
+  }, [readEnabled, ready, focus, focusTarget, live, nowFn]);
 
   const focusTraces: Trace[] = useMemo(
-    () => (focus ? traces({ line, material: live, judgements }) : []),
+    () => (focus ? traces({ line, material: live, judgements, includeGuesses: false }) : []),
     [focus, line, live, judgements]
   );
 
@@ -506,7 +557,7 @@ export function useRecord(
     () =>
       flattenRecord({
         bands,
-        showReturn: Boolean(ret) && !anchor && !query,
+        showReturn: Boolean(ret) && returnVisible,
         held: anchor || query ? [] : held,
         isEmptyRecord: ready && live.length === 0 && !query,
         findFoundNothing: Boolean(query) && findCount === 0,
@@ -515,18 +566,10 @@ export function useRecord(
         anchor,
         now,
       }),
-    [bands, ret, anchor, query, held, ready, live.length, findCount, oldest, now]
+    [bands, ret, anchor, query, returnVisible, held, ready, live.length, findCount, oldest, now]
   );
 
-  const highlight = useMemo(() => {
-    const out: (string | null)[] = [];
-    if (query) out.push(query);
-    if (ret) {
-      out.push(ret.phraseOld);
-      out.push(ret.phraseNew);
-    }
-    return out.filter(Boolean);
-  }, [query, ret]);
+  const highlight = useMemo(() => query ? [query] : [], [query]);
 
   return {
     ready,
@@ -537,7 +580,11 @@ export function useRecord(
     heldIds,
 
     input,
+    captureInput, setCaptureInput,
     setInput,
+    startFind,
+    leaveFind,
+    finding,
     inputFocused,
     setInputFocused,
     submit,
@@ -557,9 +604,7 @@ export function useRecord(
 
     query,
     findCount,
-    findSummaryText: query ? findSummary(findCount, byMeaning) : null,
-    byMeaning,
-    toggleMeaning: () => setByMeaning((v) => !v),
+    findSummaryText: query ? findSummary(findCount) : null,
     guesses,
     rejectGuess: (m: Material) =>
       setRejectedGuesses((r) => ({ ...r, [m.id]: true })),
@@ -569,6 +614,9 @@ export function useRecord(
     focus,
     focusId,
     setFocusId,
+    quietReading: Boolean(focusTarget?.quietReading),
+    setQuietReading,
+    openExisting,
     line,
     focusTraces,
     unfolded,
@@ -611,12 +659,14 @@ export function useRecord(
     toggleHold,
     holdRefused,
     maxHeld: MAX_HELD,
-    judgeTrace,
+    openConnection,
 
     ret,
     retLeaving,
-    closeReturn,
+    openReturn,
     letGo,
+    returnContext,
+    positionAtMoment: Boolean(focusTarget?.returned || focusTarget?.fromConnection),
 
     playingId,
     setPlayingId,

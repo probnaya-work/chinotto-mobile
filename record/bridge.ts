@@ -22,20 +22,24 @@
  *     finds the fragment already there and does nothing;
  *   * an entry projected in keeps its id, so mirroring it back out writes the same row.
  *
- * ## What the wire cannot carry, and what happens to it
+ * Record metadata now travels separately through `syncStorage.ts` and `docs/record-sync.md`.
+ * This bridge still projects only the legacy shape.
  *
- * | Stays local | Because |
+ * ## What this legacy projection cannot carry
+ *
+ * | Omitted from this projection | Because |
  * |---|---|
  * | retained audio | the protocol has no blob path, and the audio is the canonical source |
  * | encounters, `url_key`, selected text | no columns; re-derived locally on each device |
- * | `continuations` | see `mirrorFragment` — a Continue is its own entry, never appended |
- * | `fragment_revisions` | no wording history on the wire (see 6.7 in unspecified-decisions) |
+ * | `continuations` | metadata carries the edge; the child remains a separate entry |
+ * | `fragment_revisions` | carried by the additive Record metadata channel |
  * | holds, traces, judgements, returns | decisions and caches, not material |
  */
 
 import { eraseRemovedContent, finishAudioErasure } from './erasure';
 import { NOT_BLANK } from './migrate';
-import type { RecordDb } from './db';
+import { serializeRecordWrite, type RecordDb } from './db';
+import { runSerializedDb } from '../storage/runSerializedDb';
 
 export type LegacyEntryRow = {
   id: string;
@@ -289,12 +293,10 @@ export function createBridge(db: RecordDb, options: BridgeOptions = {}) {
     );
     if (!row) return;
     if (keep === 'remote') await correct(fragmentId, row.remote_text);
-    await db.runAsync(
-      'UPDATE wording_conflicts SET shows = ?, resolved_at = ? WHERE fragment_id = ?',
-      keep,
-      iso(now()),
-      fragmentId
-    );
+    await runSerializedDb(() => db.runAsync(
+      'UPDATE wording_conflicts SET shows = ?, resolved_at = ? WHERE fragment_id = ? AND remote_text = ? AND resolved_at IS NULL',
+      keep, iso(now()), fragmentId, row.remote_text
+    ));
   }
 
   /**
@@ -345,14 +347,14 @@ export function createBridge(db: RecordDb, options: BridgeOptions = {}) {
   }
 
   return {
-    mirrorFragment,
-    mirrorCatchUp,
-    projectCatchUp,
-    projectEntry,
-    noticeRemoteWording,
+    mirrorFragment: serializeRecordWrite(mirrorFragment),
+    mirrorCatchUp: serializeRecordWrite(mirrorCatchUp),
+    projectCatchUp: serializeRecordWrite(projectCatchUp),
+    projectEntry: serializeRecordWrite(projectEntry),
+    noticeRemoteWording: serializeRecordWrite(noticeRemoteWording),
     openConflicts,
     resolveConflict,
-    publishDueRemovals,
+    publishDueRemovals: serializeRecordWrite(publishDueRemovals),
   };
 }
 
