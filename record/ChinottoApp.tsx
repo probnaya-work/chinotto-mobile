@@ -67,6 +67,7 @@ import { appBackStep } from './back';
 import { capabilitiesFor, type PlatformCapabilities } from './platform';
 import type { RecordDb } from './db';
 import { createReminders, type ReminderNotifications, type Reminders } from './reminders';
+import { createReturnAlerts, RETURN_ALERT_PREFIX, type ReturnAlerts } from './returnAlerts';
 
 export type Services = {
   db: RecordDb;
@@ -140,13 +141,17 @@ export function ChinottoApp({ services }: { services: Services }) {
   const reminders = useMemo(() => notifications
     ? createReminders(services.db, notifications, services.newId) : undefined,
     [notifications, services.db, services.newId]);
+  const returnAlerts = useMemo(() => notifications
+    ? createReturnAlerts(services.db, notifications, services.newId) : undefined,
+    [notifications, services.db, services.newId]);
+  const [returnAlertsChanged, setReturnAlertsChanged] = useState(0);
   const [reminderRequest, setReminderRequest] = useState<ReminderOpenRequest | null>(null);
   const [remindersChanged, setRemindersChanged] = useState(0);
   useEffect(() => {
     if (!notifications || !reminders) return;
     const refresh = () => { void reminders.reconcile().catch(() => {}); };
     const unsubscribe = notifications.subscribe((id) => {
-      setReminderRequest({ id, source: 'notification' });
+      setReminderRequest({ id, source: id.startsWith(RETURN_ALERT_PREFIX) ? 'return-alert' : 'notification' });
       setSurface({ kind: 'record' });
     });
     refresh();
@@ -155,7 +160,7 @@ export function ChinottoApp({ services }: { services: Services }) {
   }, [notifications, reminders]);
   const reminderHandled = useCallback((request: ReminderOpenRequest, consume: boolean) => {
     setReminderRequest((current) => current === request ? null : current);
-    if (request.source === 'notification') notifications?.acknowledge(request.id);
+    if (request.source === 'notification' || request.source === 'return-alert') notifications?.acknowledge(request.id);
     if (consume) void reminders?.consume(request.id).then(() => setRemindersChanged((n) => n + 1)).catch(() => {});
   }, [notifications, reminders]);
 
@@ -733,6 +738,8 @@ export function ChinottoApp({ services }: { services: Services }) {
           onUnlock: () => void services.privacy?.request('unlock') }}
         bridge={bridge}
         reminders={reminders}
+        returnAlerts={returnAlerts}
+        returnAlertsChanged={returnAlertsChanged}
         remindersChanged={remindersChanged}
         reminderRequest={surface.kind === 'record' && !share && !sync.open ? reminderRequest : null}
         onReminderHandled={reminderHandled}
@@ -785,6 +792,8 @@ export function ChinottoApp({ services }: { services: Services }) {
           sync={sync}
           services={services}
           reminders={reminders}
+          returnAlerts={returnAlerts}
+          onReturnAlertsChanged={() => setReturnAlertsChanged((n) => n + 1)}
           recordStore={surfaceStore}
           onManageReminder={(id) => {
             setReminderRequest({ id, source: 'scheduled' });
@@ -909,6 +918,8 @@ function SettingsSurface(props: {
   sync: ReturnType<typeof useSyncSurface>;
   services: Services;
   reminders?: Reminders;
+  returnAlerts?: ReturnAlerts;
+  onReturnAlertsChanged: () => void;
   recordStore: RecordStore;
   onManageReminder: (id: string) => void;
   capabilities: PlatformCapabilities;
@@ -993,6 +1004,8 @@ function SettingsSurface(props: {
       ) : props.page === 'notifications' ? (
         <NotificationSettings
           reminders={props.reminders}
+          returnAlerts={props.returnAlerts}
+          onReturnAlertsChanged={props.onReturnAlertsChanged}
           openSystemSettings={props.services.openSystemSettings}
           openScheduled={() => props.setPage('scheduled')}
         />
