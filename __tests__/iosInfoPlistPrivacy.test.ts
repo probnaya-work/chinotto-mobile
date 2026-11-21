@@ -70,5 +70,7 @@ it('commits the same single-window scene configuration used by Expo prebuild', (
   expect(plistString(xml, 'UISceneDelegateClassName')).toBe(scenes[0].UISceneDelegateClassName);
   expect(plistString(xml, 'UISceneConfigurationName')).toBe(scenes[0].UISceneConfigurationName);
   const delegate = fs.readFileSync(path.join(root, 'ios', 'Chinotto', 'AppDelegate.swift'), 'utf8');
-  expect(delegate).toContain('class ChinottoSceneDelegate: UIResponder, UIWindowSceneDelegate');
+  expect(delegate).toContain('class ChinottoSceneDelegate: ExpoAppSceneDelegate');
+  expect(delegate).toContain('RecordPrivacyGuard.shared.window = window');
+  expect(delegate).not.toContain('RCTLinkingManager.application');
 });

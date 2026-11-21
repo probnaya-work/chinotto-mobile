@@ -159,8 +159,9 @@ export async function exportLocalRecord(db: RecordDb, signal?: AbortSignal, snap
     keepExportFile(file);
   try {
     file.create();
-    handle = file.open();
-    const zip = new RecordZipWriter(handle);
+    const output = file.open();
+    handle = output;
+    const zip = new RecordZipWriter({ writeBytes: (bytes) => output.writeBytesSync(bytes) });
     zip.start('chinotto-record/README.txt');
     zip.write(encoder.encode(
       'Chinotto Record export\n\nrecord.txt is readable in date order. record.jsonl contains one JSON object per moment, including correction history, relationships, source metadata and audio filenames. audio/ contains original retained recordings. archived.jsonl contains older user-authored material preserved through migration. Restore this archive in a current Chinotto build to add its moments without replacing an existing Record. It contains private material; keep it somewhere you trust.\n'
@@ -275,7 +276,7 @@ export async function exportLocalRecord(db: RecordDb, signal?: AbortSignal, snap
           let copied = 0;
           while (copied < item.size) {
             check(signal);
-            const chunk = reader.readBytes(Math.min(AUDIO_CHUNK, item.size - copied));
+            const chunk = reader.readBytesSync(Math.min(AUDIO_CHUNK, item.size - copied));
             if (!chunk.length) throw new Error('A recording could not be read completely; export stopped.');
             zip.write(chunk);
             copied += chunk.length;

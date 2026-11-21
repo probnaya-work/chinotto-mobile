@@ -1,6 +1,6 @@
 import { useRecordTheme } from './appearance';
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { Animated, Pressable, Text, View, type TextInputInstance } from 'react-native';
 import { Edge, useReducedMotion, type EdgeProps } from './Edge';
 import { RecordOpening } from './record-opening';
 import { useKeyboardInset } from './useKeyboardInset';
@@ -22,7 +22,7 @@ export function LockedCapture({ capture, words, change, onUnlock, busy, error, o
   const wordsNow = useRef(words);
   wordsNow.current = words;
   const [message, setMessage] = useState('the record is locked. a new thought can still land.');
-  const input = useRef<TextInput>(null);
+  const input = useRef<TextInputInstance>(null);
   useEffect(() => { input.current?.focus(); }, []);
   const keyboardInset = useKeyboardInset();
   const reducedMotion = useReducedMotion();
@@ -43,10 +43,10 @@ export function LockedCapture({ capture, words, change, onUnlock, busy, error, o
         <Text style={type({ size: 13, width: 90, color: ink.meta })}>settings</Text>
       </Pressable>
     </View>
-    {busy ? <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0,
+    {busy ? <Animated.View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0,
       bottom: keyboardInset, justifyContent: 'center' }}>
       <RecordOpening reducedMotion={reducedMotion} />
-    </View> : null}
+    </Animated.View> : null}
     <Edge captureOnly input={words} onChangeInput={(text) => { wordsNow.current = text; change(text); }} onSubmit={() => void save()} inputRef={input}
       focused={true} onFocus={() => {}} onBlur={() => {}} onPressCaret={() => input.current?.focus()}
       anchored={false} onClearAnchor={() => {}} findSummary={null} notices={[]}

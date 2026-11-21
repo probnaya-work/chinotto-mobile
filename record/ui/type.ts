@@ -111,12 +111,11 @@ export function type(spec: {
   italic?: boolean;
   color?: string;
 }): TextStyle {
-  const style: TextStyle = {
+  return {
     fontFamily: face(spec.width, { weight: spec.weight, italic: spec.italic }),
     fontSize: spec.size,
+    lineHeight: spec.lineHeight === undefined ? undefined : spec.size * spec.lineHeight,
+    letterSpacing: spec.tracking === undefined ? undefined : spec.size * spec.tracking,
+    color: spec.color,
   };
-  if (spec.lineHeight !== undefined) style.lineHeight = spec.size * spec.lineHeight;
-  if (spec.tracking !== undefined) style.letterSpacing = spec.size * spec.tracking;
-  if (spec.color !== undefined) style.color = spec.color;
-  return style;
 }

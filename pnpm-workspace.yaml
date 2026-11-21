@@ -1,5 +1,5 @@
 patchedDependencies:
-  expo-widgets@57.0.28: patches/expo-widgets@57.0.28.patch
+  expo-widgets@58.0.29: patches/expo-widgets@58.0.29.patch
 
 # @react-native-firebase/remote-config peer-depends on @react-native-firebase/analytics (no
 # `optional: true` in its peerDependenciesMeta), but its podspec depends only on RNFBApp and

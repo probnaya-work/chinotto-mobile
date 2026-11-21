@@ -317,7 +317,7 @@ function RecordRootContent() {
   /** The widget and the scheme both mean one thing: put the caret in the field. */
   const [voiceOnOpen, setVoiceOnOpen] = useState(false);
   useEffect(() => {
-    const handle = (url: string | null) => {
+    const handle = (url: string | null | undefined) => {
       const action = parseWidgetDeepLink(url);
       if (action?.type === 'capture' && action.mode === 'voice') setVoiceOnOpen(true);
     };
