@@ -23,20 +23,16 @@ describe('capabilities', () => {
       privacyLine:
         'the words stay on this phone unless sync is on, and then only go to your own devices.',
       voicePrivacyLine: null,
-      manifesto: [
-        'Chinotto is for thoughts that stop mid-sentence — and for returning to them when more has gathered around them.',
-        'Most notes apps help you capture, organize, or find a note later.',
-        'Returning to an unfinished thought — with more around it — is rarer:',
-        'How do you pick up where you left off?',
-        'Most notes apps keep the file. Chinotto keeps the return — the same line, later, with more weight.',
-        'You capture without closing the thought. Structure can wait until you come back — scroll the stream, follow a trail, or jump a week on the strand.',
-        'On desktop, you continue threads — reopen unfinished entries, follow trails, and use the time strand to jump across months.',
-        'On mobile, Chinotto is the pocket — capture with widget, voice, or share-in; search or swipe into what came before when you have a minute.',
-        'Not another notes app. A place to pick up unfinished thoughts months later.',
-        'Your thoughts stay on your devices unless you choose sync. Capture needs no account. To keep the same record on your iPhone and Mac, turn on sync with Sign in with Apple.',
-        'A private record of thoughts, encounters, and what continues between them.',
-      ],
+      manifesto: expect.any(Array),
     });
+  });
+
+  it('describes the current iPhone Record without retired navigation', () => {
+    const copy = capabilitiesFor('ios').manifesto.join(' ');
+    expect(copy).not.toMatch(/time strand|spaces|follow trails|swipe into/i);
+    expect(copy).toMatch(/Continue adds a new moment, dated now/);
+    expect(copy).toMatch(/Original recordings stay on the device/);
+    expect(copy).toMatch(/Chinotto Pro enables iPhone sync/);
   });
 
   it('claims nothing on Android that has no Android implementation', () => {

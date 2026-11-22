@@ -26,11 +26,14 @@ import { fmtTime, monthLabel, MS_DAY } from './time';
 import { sharedRun, tokens } from './words';
 
 /** Nothing younger than this is brought back. A Return is a return, not a reminder. */
-export const MIN_AGE_MS = 180 * MS_DAY;
+export const MIN_AGE_MS = 7 * MS_DAY;
+export const RETURN_COOLDOWN_MS = 20 * 3600_000;
+export const SAME_FRAGMENT_COOLDOWN_MS = 30 * MS_DAY;
 /** What counts as "the thing you just did" that a Return can point at. */
 export const CAUSE_WINDOW_MS = 2 * MS_DAY;
 /** A shared run shorter than this is a coincidence, not repeated language. */
 export const MIN_RUN = 3;
+export const MAX_RECENT_CAUSES = 32;
 
 export type ReturnReason = 'repeated_language' | 'same_source' | 'line_continued';
 
@@ -83,7 +86,8 @@ export function returnFor({
       !recentlyReturned?.has(m.id) &&
       !held?.[m.id]
   );
-  const recent = live.filter((m) => now - m.at <= CAUSE_WINDOW_MS);
+  const recent = live.filter((m) => now >= m.at && now - m.at <= CAUSE_WINDOW_MS)
+    .sort((a, b) => b.at - a.at || a.id.localeCompare(b.id)).slice(0, MAX_RECENT_CAUSES);
   if (!old.length || !recent.length) return null;
 
   return (
@@ -92,25 +96,23 @@ export function returnFor({
 }
 
 function repeatedLanguage(old: Material[], recent: Material[]): RecordReturn | null {
+  const triples = (words: ReturnType<typeof tokens>) => words.slice(2).map((_, i) =>
+    JSON.stringify(words.slice(i, i + MIN_RUN).map((t) => t.s)));
+  const causes = recent.map((because) => {
+    const words = tokens(displayText(because));
+    return { because, words, runs: new Set(triples(words)) };
+  });
   for (const a of old) {
     const ta = tokens(displayText(a));
     if (ta.length < MIN_RUN) continue;
-    for (const b of recent) {
-      if (b.id === a.id) continue;
-      const run = sharedRun(ta, tokens(displayText(b)));
+    const runs = triples(ta);
+    for (const { because: b, words, runs: recentRuns } of causes) {
+      if (b.id === a.id || !runs.some((run) => recentRuns.has(run))) continue;
+      const run = sharedRun(ta, words);
       if (run && run.len >= MIN_RUN) {
         return {
-          material: a,
-          because: b,
-          reason: 'repeated_language',
-          phraseOld: run.a,
-          phraseNew: run.b,
-          evidence: {
-            kind: 'shared_phrase',
-            detail: run.b,
-            occurredAt: b.at,
-            relatedId: b.id,
-          },
+          material: a, because: b, reason: 'repeated_language', phraseOld: run.a, phraseNew: run.b,
+          evidence: { kind: 'shared_phrase', detail: run.b, occurredAt: b.at, relatedId: b.id },
         };
       }
     }
@@ -164,6 +166,29 @@ function lineContinued(old: Material[], recent: Material[], now: number): Record
   return null;
 }
 
+export type SavedReturn = {
+  id: number;
+  fragmentId: string;
+  reason: string;
+  evidence: ReturnEvidence;
+};
+
+/** Resume the same unanswered Return only while its quoted reason still exists. */
+export function resumeReturn(
+  saved: Pick<SavedReturn, 'fragmentId' | 'reason' | 'evidence'>, material: Material[], now: number
+): RecordReturn | null {
+  const old = material.find((m) => m.id === saved.fragmentId && m.removedAt === null);
+  const cause = material.find((m) => m.id === saved.evidence.relatedId && m.removedAt === null);
+  if (!old || !cause || hasNoWordsYet(old)) return null;
+  const candidate = saved.reason === 'repeated_language' ? repeatedLanguage([old], [cause])
+    : saved.reason === 'same_source' ? sameSource([old], [cause])
+      : saved.reason === 'line_continued' ? lineContinued([old], [cause], now) : null;
+  if (!candidate || candidate.evidence.kind !== saved.evidence.kind ||
+      candidate.evidence.occurredAt !== saved.evidence.occurredAt ||
+      (saved.reason === 'repeated_language' && candidate.evidence.detail !== saved.evidence.detail)) return null;
+  return candidate;
+}
+
 /**
  * The because-sentence, in the prototype's shape.
  *
@@ -176,7 +201,11 @@ export function becauseSentence(
 ): { lead: string; quote: string | null; tail: string } {
   switch (r.reason) {
     case 'repeated_language':
-      return { lead: 'you wrote “', quote: r.phraseNew, tail: `” at ${fmtTime(r.because.at)}` };
+      return {
+        lead: hasNoWordsYet(r.because) ? 'a source had the words “' : 'you wrote “',
+        quote: r.phraseNew,
+        tail: `” at ${fmtTime(r.because.at)}`,
+      };
     case 'same_source':
       return {
         lead: `you opened ${r.evidence.detail} again`,

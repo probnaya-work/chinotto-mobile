@@ -10,6 +10,7 @@
 import type { TextStyle, ViewStyle } from 'react-native';
 
 import { ink } from './tokens';
+import { paletteFor, type Palette } from './palette';
 import { type as typeStyle, type Width } from './type';
 import type { Tier } from '../model/bands';
 
@@ -54,20 +55,22 @@ export const FOCUSED_TIER_COLORS: Record<Tier, string> = {
  */
 export function tierTextStyle(
   tier: Tier,
-  options: { voice?: boolean; borrowedWords?: boolean; focused?: boolean } = {}
+  options: { voice?: boolean; borrowedWords?: boolean; focused?: boolean; palette?: Palette; fontScale?: number } = {}
 ): TextStyle {
   const spec = TIERS[tier];
+  const palette = options.palette ?? paletteFor('dark');
+  const tones = [palette.ink.ink, palette.ink.far, palette.ink.dim, palette.ink.meta, palette.ink.meta];
   const quieted = tier === 0 && (options.voice || options.borrowedWords);
   const color = options.focused
     ? quieted
-      ? FOCUSED_TIER_COLORS[1]
-      : FOCUSED_TIER_COLORS[tier]
+      ? palette.focused[1]
+      : palette.focused[tier]
     : quieted
-      ? ink.far
-      : spec.color;
+      ? palette.ink.far
+      : tones[tier];
   return typeStyle({
     size: spec.size,
-    width: spec.width,
+    width: (options.fontScale ?? 1) >= 1.3 && spec.width < 88 ? 88 : spec.width,
     lineHeight: spec.lineHeight,
     tracking: spec.tracking,
     italic: options.voice,
@@ -76,8 +79,9 @@ export function tierTextStyle(
 }
 
 /** `numberOfLines` for a tier. D0 opens up once selected. */
-export function tierClamp(tier: Tier, selected = false): number | undefined {
+export function tierClamp(tier: Tier, selected = false, fontScale = 1): number | undefined {
   if (tier === 0 && selected) return undefined;
+  if (fontScale >= 1.3) return undefined;
   return TIERS[tier].clamp ?? undefined;
 }
 

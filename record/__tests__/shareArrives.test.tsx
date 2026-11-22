@@ -14,68 +14,9 @@ import { act, render, screen, waitFor } from '@testing-library/react-native';
 
 import { openTestDb } from '../__testsupport__/nodeSqliteDb';
 import { migrate } from '../migrate';
-import { ChinottoApp, type Services } from '../ChinottoApp';
-import type { VoiceEngine } from '../voice';
-import type { RecordDb } from '../db';
+import { ChinottoApp } from '../ChinottoApp';
+import { testAppServices } from '../__testsupport__/appServices';
 import type { SharePayloadLike } from '../share';
-
-const engine: VoiceEngine = {
-  start: async () => {},
-  stop: () => {},
-  subscribe: () => () => {},
-};
-
-function services(
-  db: ReturnType<typeof openTestDb>,
-  incomingShare: SharePayloadLike[] | null,
-  onShareHandled: () => void
-): Services {
-  let seq = 0;
-  return {
-    db: db as unknown as RecordDb,
-    voiceEngine: engine,
-    newId: () => `f${++seq}`,
-    deviceName: () => 'this iphone',
-    update: { soft: false, forced: false, version: '2.0.0', availableVersion: null },
-    onDismissSoftUpdate: () => {},
-    openStore: () => {},
-    icon: 'dark',
-    onPickIcon: () => {},
-    voiceOnOpen: false,
-    onVoiceOnOpenHandled: () => {},
-    openSystemSettings: () => {},
-    microphonePermission: () => 'granted',
-    requestVoicePermission: async () => 'granted' as const,
-    subscriptionLoaded: true,
-    syncAccount: {
-      paywallEnabled: () => false,
-      hasSyncAccess: () => false,
-      loadPlans: async () => [],
-      purchase: async () => ({ kind: 'cancelled' }),
-      restore: async () => ({ hasAccess: false, reached: true }),
-      signInWithApple: async () => 'cancelled',
-      afterSignIn: async () => {},
-      mirrorAccess: async () => {},
-      signOut: async () => {},
-    },
-    deleteAccount: async () => 'cancelled' as const,
-    revokeDevice: async () => false,
-    incomingShare,
-    onShareHandled,
-    syncPorts: {
-      configured: () => false,
-      currentUserId: () => null,
-      blockedByPaywall: () => false,
-      online: () => null,
-      pendingCount: async () => 0,
-      devices: async () => null,
-      thisDeviceId: () => null,
-      signInExpired: () => false,
-      signInExpiredWhen: () => null,
-    },
-    legacy: { enqueue: async () => {}, dequeue: async () => {}, tombstone: async () => {} },
-  };
-}
 
 const A_LINK: SharePayloadLike[] = [
   { shareType: 'url', contentType: 'website', value: 'https://example.com/' },
@@ -88,7 +29,7 @@ describe('a share arriving at a running app', () => {
     const handled = jest.fn();
 
     // Launch: the hook has read the store and found nothing in it.
-    const view = render(<ChinottoApp services={services(db, [], handled)} />);
+    const view = render(<ChinottoApp services={testAppServices(db, [], handled)} />);
     await act(async () => {
       await Promise.resolve();
     });
@@ -99,7 +40,7 @@ describe('a share arriving at a running app', () => {
 
     // Then somebody shares a link into the running app.
     await act(async () => {
-      view.rerender(<ChinottoApp services={services(db, A_LINK, handled)} />);
+      view.rerender(<ChinottoApp services={testAppServices(db, A_LINK, handled)} />);
       await Promise.resolve();
     });
 
@@ -116,7 +57,7 @@ describe('a share arriving at a running app', () => {
     await migrate(db);
     const handled = jest.fn();
 
-    const view = render(<ChinottoApp services={services(db, A_LINK, handled)} />);
+    const view = render(<ChinottoApp services={testAppServices(db, A_LINK, handled)} />);
     await act(async () => {
       await Promise.resolve();
     });
@@ -125,7 +66,7 @@ describe('a share arriving at a running app', () => {
     // The real `services` is a new object on every render. The share must not be taken
     // again because of that — it is the payload that is new or not, never the wrapper.
     await act(async () => {
-      view.rerender(<ChinottoApp services={services(db, null, handled)} />);
+      view.rerender(<ChinottoApp services={testAppServices(db, null, handled)} />);
       await Promise.resolve();
     });
     expect(handled).toHaveBeenCalledTimes(1);

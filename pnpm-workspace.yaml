@@ -10,3 +10,9 @@ patchedDependencies:
 # links the peer into remote-config's own node_modules if it's resolvable, so it doesn't work
 # here. Disabling auto-install-peers repository-wide is what actually keeps it out.
 autoInstallPeers: false
+
+# Expo 55.0.8 already autolinks this native Constants version. Keep the notifications
+# package on that same module so Metro and CocoaPods cannot see different copies.
+overrides:
+  expo-notifications>expo-constants: 55.0.9
+  expo-notifications>expo-application: 55.0.10

@@ -26,9 +26,10 @@ import {
 } from './schema';
 import { setUserVersion, tableExists, userVersion, type RecordDb } from './db';
 import { relabelUnconfirmedTranscripts } from './transcripts';
+import { RECORD_SYNC_SCHEMA } from './syncSchema';
 
 /** Schema version this build expects. Bump when adding a step below. */
-export const TARGET_VERSION = 7;
+export const TARGET_VERSION = 11;
 
 /**
  * The v1 schema, byte-for-byte what shipped. Owned here so the boot path and the migration
@@ -184,6 +185,37 @@ export async function migrate(db: RecordDb): Promise<MigrationReport> {
         audio_path TEXT NOT NULL
       )`);
     });
+  }
+
+  if (from < 8) {
+    await step(db, 8, report, async () => db.execAsync(RECORD_SYNC_SCHEMA));
+  }
+
+  if (from < 9) {
+    await step(db, 9, report, async () => db.execAsync(`
+      ALTER TABLE fragments ADD COLUMN legacy_continuation_offset INTEGER;
+      ALTER TABLE fragments ADD COLUMN legacy_continuation_at TEXT;
+    `));
+  }
+
+  if (from < 10) {
+    await step(db, 10, report, async () => db.execAsync(`
+      CREATE TABLE thought_reminders (
+        fragment_id TEXT PRIMARY KEY NOT NULL REFERENCES fragments(id) ON DELETE CASCADE,
+        id          TEXT UNIQUE NOT NULL,
+        fire_at     INTEGER NOT NULL CHECK (fire_at > 0)
+      );
+      CREATE INDEX thought_reminders_time ON thought_reminders(fire_at);
+    `));
+  }
+
+  if (from < 11) {
+    await step(db, 11, report, async () => db.execAsync(`
+      ALTER TABLE thought_reminders ADD COLUMN delivery TEXT NOT NULL DEFAULT 'alert'
+        CHECK (delivery IN ('alert', 'in-app'));
+      ALTER TABLE thought_reminders ADD COLUMN discreet INTEGER NOT NULL DEFAULT 0
+        CHECK (discreet IN (0, 1));
+    `));
   }
 
   // Data, not schema, so it is not a step: a build that has run it must still be openable

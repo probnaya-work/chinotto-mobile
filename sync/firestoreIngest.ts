@@ -37,10 +37,24 @@ import {
 } from './firestoreThemeIngest';
 import { flushSyncTombstoneOutbox } from './tombstoneFlush';
 import { flushSyncUserThemeOutbox } from './userThemeFlush';
+import { ingestRecordMetadata } from './recordMetadataSync';
+
+async function ingestActiveRows(rows: FirestoreIngestRow[]): Promise<number> {
+  let changed = await ingestRemoteFirestoreRows(rows);
+  for (const row of rows) {
+    if (row.record === undefined) continue;
+    try {
+      if (await ingestRecordMetadata(row.id, row.text, row.createdAt, row.record)) changed += 1;
+    } catch (error) {
+      console.warn('[ChinottoSync] Record metadata not applied', row.id,
+        error instanceof Error ? error.message : 'invalid metadata');
+    }
+  }
+  return changed;
+}
 
 const INGEST_PAGE_SIZE = 500;
 /** One-shot backfill pages beyond the live snapshot window (desktop → mobile history). */
-const BACKFILL_MAX_PAGES = 40;
 /** Tombstones are queried separately so deletes on older entries (outside the recent ingest window) still apply locally. */
 const TOMBSTONE_QUERY_LIMIT = 1000;
 
@@ -84,7 +98,10 @@ function partitionFirestoreSnapshotDocs(
       continue;
     }
     const theme = parseEntryThemeField(data);
-    activeRows.push({ id: d.id, text, createdAt, ...(theme !== undefined ? { theme } : {}) });
+    activeRows.push({ id: d.id, text, createdAt,
+      ...(theme !== undefined ? { theme } : {}),
+      ...(data.record !== undefined ? { record: data.record } : {}),
+    });
   }
   return { tombstonedIds, activeRows };
 }
@@ -126,7 +143,7 @@ export async function runFirestoreTombstoneBackfill(
 }
 
 /**
- * Paginates older Firestore docs (same ordering as the live listener) so history beyond the snapshot
+ * Paginates older Firestore docs by capture date so history beyond the snapshot
  * `limit` still reaches SQLite. Inserts new ids; updates existing **`text`** (see `ingestRemoteFirestoreRows`); safe to overlap the first page.
  */
 export async function runFirestoreIngestBackfill(
@@ -136,11 +153,7 @@ export async function runFirestoreIngestBackfill(
 ): Promise<void> {
   let lastDoc: QueryDocumentSnapshot<DocumentData> | undefined;
 
-  for (let page = 0; page < BACKFILL_MAX_PAGES; page++) {
-    if (!shouldContinue()) {
-      return;
-    }
-
+  while (shouldContinue()) {
     const q = lastDoc
       ? query(coll, orderBy('createdAt', 'desc'), startAfter(lastDoc), limit(INGEST_PAGE_SIZE))
       : query(coll, orderBy('createdAt', 'desc'), limit(INGEST_PAGE_SIZE));
@@ -178,7 +191,7 @@ export async function runFirestoreIngestBackfill(
 
     if (activeRows.length > 0) {
       try {
-        const inserted = await ingestRemoteFirestoreRows(activeRows);
+        const inserted = await ingestActiveRows(activeRows);
         if (inserted > 0) {
           changed = true;
         }
@@ -252,7 +265,7 @@ export function startMobileFirestoreIngest(onIngested: () => void): () => void {
     void runFirestoreIngestBackfill(coll, onIngested, shouldContinueBackfill);
     void runFirestoreTombstoneBackfill(coll, onIngested, shouldContinueBackfill);
 
-    const qIngest = query(coll, orderBy('createdAt', 'desc'), limit(INGEST_PAGE_SIZE));
+    const qIngest = query(coll, orderBy('updatedAt', 'desc'), limit(INGEST_PAGE_SIZE));
     unsubIngest = onSnapshot(
       qIngest,
       async (snap) => {
@@ -273,7 +286,7 @@ export function startMobileFirestoreIngest(onIngested: () => void): () => void {
         }
         if (activeRows.length > 0) {
           try {
-            const inserted = await ingestRemoteFirestoreRows(activeRows);
+            const inserted = await ingestActiveRows(activeRows);
             if (inserted > 0) {
               changed = true;
             }

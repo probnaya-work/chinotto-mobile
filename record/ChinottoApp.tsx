@@ -18,23 +18,28 @@
  * Nothing in 3 or 4 is allowed to block 2. That is the golden rule, expressed as an ordering.
  */
 
+import { useRecordTheme } from './ui/appearance';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, BackHandler, Linking, Platform, View } from 'react-native';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 
-import { RecordApp } from './RecordApp';
+import { RecordApp, type ReminderOpenRequest } from './RecordApp';
+import { protectRecordStore, type RecordPrivacy } from './privacy';
+import { usePrivacy } from './usePrivacy';
 import type { VoiceCaptureDisplayState } from './ui/Edge';
 import { Settings, settingsCopy, type SettingsPage } from './ui/Settings';
+import { NotificationSettings, ScheduledReminders } from './ui/NotificationSettings';
 import { ShareSurface, metBeforeLabel } from './ui/ShareSurface';
 import { SyncSheet } from './ui/SyncSheet';
 import { ForcedUpdate, WidgetPreview } from './ui/WidgetPreview';
 import { FONT_ASSETS } from './ui/type';
-import { SURFACE } from './ui/tokens';
+
 import { createBridge, type RecordBridge } from './bridge';
 import { sweepRemovedVoice } from './erasure';
 import { deleteRecordFile, listRetainedAudio, recordFileExists } from './files';
 import { exportLocalRecord } from './export';
+import { RestoreArchive } from './ui/RestoreArchive';
 import { formatStorage, retainedAudioBytes } from './storage';
 import { createTranscriptRetry } from './transcripts';
 import type { AudioPlaybackPort } from './playback';
@@ -61,9 +66,12 @@ import { urlKey } from './urlKey';
 import { appBackStep } from './back';
 import { capabilitiesFor, type PlatformCapabilities } from './platform';
 import type { RecordDb } from './db';
+import { createReminders, type ReminderNotifications, type Reminders } from './reminders';
 
 export type Services = {
   db: RecordDb;
+  privacy?: RecordPrivacy;
+  reminderNotifications?: ReminderNotifications;
   voiceEngine: VoiceEngine;
   syncPorts: SyncPorts;
   newId: () => string;
@@ -119,11 +127,38 @@ type Surface =
   | { kind: 'widget' };
 
 export function ChinottoApp({ services }: { services: Services }) {
+  const { SURFACE } = useRecordTheme();
+
+  const protection = usePrivacy(services.privacy);
+  const readAllowed = protection.ready && !protection.locked;
   const capabilities = services.capabilities ?? capabilitiesFor(Platform.OS);
   const [fontsReady, setFontsReady] = useState(false);
   const [surface, setSurface] = useState<Surface>({ kind: 'record' });
   const [share, setShare] = useState<ShareIntake | null>(null);
   const [shareWords, setShareWords] = useState('');
+  const notifications = services.reminderNotifications;
+  const reminders = useMemo(() => notifications
+    ? createReminders(services.db, notifications, services.newId) : undefined,
+    [notifications, services.db, services.newId]);
+  const [reminderRequest, setReminderRequest] = useState<ReminderOpenRequest | null>(null);
+  const [remindersChanged, setRemindersChanged] = useState(0);
+  useEffect(() => {
+    if (!notifications || !reminders) return;
+    const refresh = () => { void reminders.reconcile().catch(() => {}); };
+    const unsubscribe = notifications.subscribe((id) => {
+      setReminderRequest({ id, source: 'notification' });
+      setSurface({ kind: 'record' });
+    });
+    refresh();
+    const activity = AppState.addEventListener('change', (state) => { if (state === 'active') refresh(); });
+    return () => { unsubscribe(); activity.remove(); };
+  }, [notifications, reminders]);
+  const reminderHandled = useCallback((request: ReminderOpenRequest, consume: boolean) => {
+    setReminderRequest((current) => current === request ? null : current);
+    if (request.source === 'notification') notifications?.acknowledge(request.id);
+    if (consume) void reminders?.consume(request.id).then(() => setRemindersChanged((n) => n + 1)).catch(() => {});
+  }, [notifications, reminders]);
+
   const [shareMetBefore, setShareMetBefore] = useState('first time here');
 
   /**
@@ -196,6 +231,17 @@ export function ChinottoApp({ services }: { services: Services }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [services.db, services.newId]
   );
+
+  const surfaceStore = useMemo(() => services.privacy
+    ? protectRecordStore(store, services.privacy.canRead, () => { const current = services.privacy!.snapshot(); return current.enabled ? current.epoch : 0; })
+    : store, [store, services.privacy]);
+
+  useEffect(() => {
+    if (readAllowed) return;
+    services.audio?.stop();
+    setSurface({ kind: 'record' });
+    setShareMetBefore('');
+  }, [readAllowed, services.audio]);
 
   const bridge: RecordBridge = useMemo(
     () =>
@@ -401,9 +447,10 @@ export function ChinottoApp({ services }: { services: Services }) {
     let stop: (() => void) | undefined;
     const notifier = createDebouncedRemoteIngestNotifier(() => {
       void (async () => {
-        const { created, conflicts } = await bridge.projectCatchUp();
-        // Only disturb the surface when something actually arrived.
-        if (created > 0 || conflicts > 0) setChangedAt((n) => n + 1);
+        await bridge.projectCatchUp();
+        void reminders?.reconcile().catch(() => {});
+        // The notifier also includes metadata changes already applied to the Record.
+        setChangedAt((n) => n + 1);
       })();
     });
 
@@ -419,7 +466,7 @@ export function ChinottoApp({ services }: { services: Services }) {
       stop?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [services.subscriptionLoaded, sync.open, bridge]);
+  }, [services.subscriptionLoaded, sync.open, bridge, reminders]);
 
   /**
    * The home widget shows the last few thoughts, and reads them from the legacy table the
@@ -563,17 +610,17 @@ export function ChinottoApp({ services }: { services: Services }) {
     setShareWords('');
 
     // "you met this site before" is read from the record, offline, before the surface draws.
-    if (intake.url) {
+    if (intake.url && (!services.privacy || services.privacy.canRead())) {
       void (async () => {
-        const met = await store.encountersOf(urlKey(intake.url!));
+        const met = await surfaceStore.encountersOf(urlKey(intake.url!));
         setShareMetBefore(
           metBeforeLabel(met.map((m) => monthLabel(m.at, Date.now(), true)))
         );
-      })();
+      })().catch(() => setShareMetBefore(''));
     } else {
-      setShareMetBefore('first time here');
+      setShareMetBefore(!services.privacy || services.privacy.canRead() ? 'first time here' : '');
     }
-  }, [services.incomingShare, services.onShareHandled, store]);
+  }, [services.incomingShare, services.onShareHandled, surfaceStore, services.privacy]);
 
   const leaveShare = useCallback(async () => {
     if (!share) return;
@@ -646,6 +693,9 @@ export function ChinottoApp({ services }: { services: Services }) {
       case 'close-widget':
         setSurface({ kind: 'settings', page: 'root' });
         return true;
+      case 'settings-notifications':
+        setSurface({ kind: 'settings', page: 'notifications' });
+        return true;
       case 'settings-root':
         setSurface({ kind: 'settings', page: 'root' });
         setDeleteArmed(false);
@@ -678,9 +728,17 @@ export function ChinottoApp({ services }: { services: Services }) {
   return (
     <View style={{ flex: 1, backgroundColor: SURFACE }}>
       <RecordApp
-        store={store}
+        store={surfaceStore}
+        privacy={{ locked: !readAllowed, busy: protection.busy, error: protection.error,
+          onUnlock: () => void services.privacy?.request('unlock') }}
         bridge={bridge}
+        reminders={reminders}
+        remindersChanged={remindersChanged}
+        reminderRequest={surface.kind === 'record' && !share && !sync.open ? reminderRequest : null}
+        onReminderHandled={reminderHandled}
+        onReturnToScheduled={() => setSurface({ kind: 'settings', page: 'scheduled' })}
         coldStart={coldStart && fontsReady}
+        returnCovered={surface.kind !== 'record' || Boolean(share) || sync.open}
         onOpenSettings={() => setSurface({ kind: 'settings', page: 'root' })}
         voice={{
           start: startVoice,
@@ -719,13 +777,22 @@ export function ChinottoApp({ services }: { services: Services }) {
       {surface.kind === 'settings' ? (
         <SettingsSurface
           page={surface.page}
+          onRestored={() => setChangedAt((n) => n + 1)}
           setPage={(page) => setSurface({ kind: 'settings', page })}
           onClose={() => setSurface({ kind: 'record' })}
           onSeeWidget={() => setSurface({ kind: 'widget' })}
           onOpenSync={openSync}
           sync={sync}
           services={services}
+          reminders={reminders}
+          recordStore={surfaceStore}
+          onManageReminder={(id) => {
+            setReminderRequest({ id, source: 'scheduled' });
+            setSurface({ kind: 'record' });
+          }}
           capabilities={capabilities}
+          protection={protection}
+          privacy={services.privacy}
           icon={services.icon}
           setIcon={services.onPickIcon}
           analyticsOn={analyticsOn}
@@ -759,15 +826,15 @@ export function ChinottoApp({ services }: { services: Services }) {
         />
       ) : null}
 
-      {surface.kind === 'widget' ? (
+      {surface.kind === 'widget' && readAllowed ? (
         <WidgetLive
-          store={store}
+          store={surfaceStore}
           onClose={() => setSurface({ kind: 'settings', page: 'root' })}
           onCapture={() => setSurface({ kind: 'record' })}
         />
       ) : null}
 
-      {sync.open ? (
+      {sync.open && readAllowed ? (
         <SyncSheet
           state={account.phase === 'idle' ? sync.state : account.phase}
           offline={sync.offline}
@@ -786,6 +853,7 @@ export function ChinottoApp({ services }: { services: Services }) {
           errorMessage={
             account.error ??
             sync.deviceError ??
+            sync.pendingError ??
             (account.plansUnavailable ? 'plans could not be read right now' : null)
           }
           onContinueWithApple={() => void account.continueWithApple()}
@@ -832,6 +900,7 @@ export function ChinottoApp({ services }: { services: Services }) {
 
 /** Settings, with everything it needs to say what is true read from the real state. */
 function SettingsSurface(props: {
+  onRestored: () => void;
   page: SettingsPage;
   setPage: (page: SettingsPage) => void;
   onClose: () => void;
@@ -839,7 +908,12 @@ function SettingsSurface(props: {
   onOpenSync: () => void;
   sync: ReturnType<typeof useSyncSurface>;
   services: Services;
+  reminders?: Reminders;
+  recordStore: RecordStore;
+  onManageReminder: (id: string) => void;
   capabilities: PlatformCapabilities;
+  protection: ReturnType<typeof usePrivacy>;
+  privacy?: RecordPrivacy;
   icon: 'dark' | 'light';
   setIcon: (v: 'dark' | 'light') => void;
   analyticsOn: boolean;
@@ -878,7 +952,16 @@ function SettingsSurface(props: {
     exportAbort.current = controller;
     setExportBusy(true);
     setExportError(null);
-    void exportLocalRecord(props.services.db, controller.signal)
+    void (async () => {
+      if (props.privacy?.snapshot().enabled && !await props.privacy.request('unlock')) return;
+      if (controller.signal.aborted) return;
+      const epoch = props.privacy?.snapshot().epoch;
+      const unsubscribe = props.privacy?.subscribe(() => {
+        if (!props.privacy!.canRead() || (props.privacy!.snapshot().enabled && props.privacy!.snapshot().epoch !== epoch)) controller.abort();
+      });
+      try { await exportLocalRecord(props.services.db, controller.signal); }
+      finally { unsubscribe?.(); }
+    })()
       .catch((error: unknown) => {
         if (!controller.signal.aborted) {
           setExportError(error instanceof Error ? error.message : 'The export could not be prepared.');
@@ -894,9 +977,26 @@ function SettingsSurface(props: {
       page={props.page}
       onClose={props.onClose}
       onBack={() => {
-        props.setPage('root');
+        props.setPage(props.page === 'scheduled' ? 'notifications' : 'root');
         props.setDeleteArmed(false);
       }}
+      onOpenNotifications={props.reminders ? () => props.setPage('notifications') : undefined}
+      notificationContent={props.reminders && (props.page === 'scheduled' ? (
+        <ScheduledReminders
+          reminders={props.reminders}
+          store={props.recordStore}
+          readAllowed={props.protection.ready && !props.protection.locked}
+          unlockBusy={props.protection.busy}
+          onUnlock={() => void props.privacy?.request('unlock')}
+          onOpen={props.onManageReminder}
+        />
+      ) : props.page === 'notifications' ? (
+        <NotificationSettings
+          reminders={props.reminders}
+          openSystemSettings={props.services.openSystemSettings}
+          openScheduled={() => props.setPage('scheduled')}
+        />
+      ) : null)}
       syncLine={settingsCopy.sync({
         on: props.sync.state === 'on',
         offline: props.sync.offline,
@@ -910,6 +1010,15 @@ function SettingsSurface(props: {
       })}
       onOpenSync={props.onOpenSync}
       audioUsage={audioUsage}
+      restoreContent={<RestoreArchive db={props.services.db} privacy={props.privacy} onRestored={() => {
+        props.onRestored();
+        const bytes = retainedAudioBytes();
+        setAudioUsage(bytes === null ? 'could not measure on this phone' : `${formatStorage(bytes)} on this phone · measured`);
+      }} />}
+      protection={props.privacy ? {
+        enabled: props.protection.enabled, busy: props.protection.busy, error: props.protection.error,
+        onToggle: () => void props.privacy!.request(props.protection.enabled ? 'disable' : 'enable'),
+      } : undefined}
       exportBusy={exportBusy}
       exportError={exportError}
       onExport={startExport}

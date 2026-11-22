@@ -7,8 +7,8 @@
  * thousand fragments.
  *
  * `continuations.fragment_id` is a primary key, so each fragment continues at most one
- * earlier fragment and the closure is always a chain. The walk below relies on that, and
- * guards against a cycle anyway: a corrupted edge set must not hang the app.
+ * earlier fragment. Multiple devices can continue the same parent; all branches belong
+ * to its Line. The walk guards against a cycle: a corrupted edge set must not hang the app.
  */
 
 import type { RecordDb } from './db';
@@ -28,10 +28,12 @@ export async function rebuildLineIndex(db: RecordDb): Promise<void> {
 
   // later -> earlier, and the reverse
   const continues = new Map<string, string>();
-  const continuedBy = new Map<string, string>();
+  const continuedBy = new Map<string, string[]>();
   for (const e of edges) {
     continues.set(e.fragment_id, e.continues_id);
-    continuedBy.set(e.continues_id, e.fragment_id);
+    const children = continuedBy.get(e.continues_id) ?? [];
+    children.push(e.fragment_id);
+    continuedBy.set(e.continues_id, children);
   }
 
   // A root is anything that continues nothing but is continued by something.
@@ -42,16 +44,19 @@ export async function rebuildLineIndex(db: RecordDb): Promise<void> {
 
   const rows: { id: string; root: string; position: number; length: number }[] = [];
   const placed = new Set<string>();
+  for (const children of continuedBy.values()) children.sort();
+  roots.sort();
 
   for (const root of roots) {
     const chain: string[] = [];
-    let cursor: string | undefined = root;
-    // The guard is the chain length, not a visited set, so a cycle terminates rather than
-    // spinning. A cycle cannot be produced by the product, only by corruption.
-    while (cursor && !placed.has(cursor) && chain.length <= edges.length + 1) {
+    const stack = [root];
+    // Two offline devices may both continue the same moment. Both belong to its Line.
+    while (stack.length) {
+      const cursor = stack.pop()!;
+      if (placed.has(cursor)) continue;
       chain.push(cursor);
       placed.add(cursor);
-      cursor = continuedBy.get(cursor);
+      stack.push(...[...(continuedBy.get(cursor) ?? [])].reverse());
     }
     chain.forEach((id, position) => {
       rows.push({ id, root, position, length: chain.length });

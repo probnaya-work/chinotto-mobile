@@ -53,3 +53,22 @@ it('shipped Info.plist mic/speech usage strings match app.json (the source of tr
     expected.NSSpeechRecognitionUsageDescription
   );
 });
+
+it('commits the same single-window scene configuration used by Expo prebuild', () => {
+  // SDK 27 requires scene adoption at launch. Both build paths must name the
+  // delegate compiled into AppDelegate.swift, without enabling multiple Records.
+  const root = path.join(__dirname, '..');
+  const xml = fs.readFileSync(path.join(root, 'ios', 'Chinotto', 'Info.plist'), 'utf8');
+  const appJson = JSON.parse(fs.readFileSync(path.join(root, 'app.json'), 'utf8'));
+  const manifest = appJson.expo.ios.infoPlist.UIApplicationSceneManifest;
+  expect(manifest.UIApplicationSupportsMultipleScenes).toBe(false);
+  const scenes = manifest.UISceneConfigurations.UIWindowSceneSessionRoleApplication;
+  expect(scenes).toHaveLength(1);
+  expect(scenes[0].UISceneDelegateClassName).toBe('$(PRODUCT_MODULE_NAME).ChinottoSceneDelegate');
+  expect(xml).toMatch(/<key>UIApplicationSceneManifest<\/key>\s*<dict>\s*<key>UIApplicationSupportsMultipleScenes<\/key>\s*<false\/>/);
+  expect(xml).toMatch(/<key>UIWindowSceneSessionRoleApplication<\/key>\s*<array>\s*<dict>[\s\S]*?<\/dict>\s*<\/array>/);
+  expect(plistString(xml, 'UISceneDelegateClassName')).toBe(scenes[0].UISceneDelegateClassName);
+  expect(plistString(xml, 'UISceneConfigurationName')).toBe(scenes[0].UISceneConfigurationName);
+  const delegate = fs.readFileSync(path.join(root, 'ios', 'Chinotto', 'AppDelegate.swift'), 'utf8');
+  expect(delegate).toContain('class ChinottoSceneDelegate: UIResponder, UIWindowSceneDelegate');
+});

@@ -1,0 +1,17 @@
+Chinotto 2.2.0 — iPhone App Review notes
+
+Chinotto is a private, local-first thinking tool. Text and voice capture, reading, Find, Lines, correction history, the Home Screen widget, local audio playback, archive export and restore work without an account or subscription. No demo account is required.
+
+Settings: pull down from the Chinotto mark below the status bar. The mark also exposes a Settings accessibility action. Return to the Record with the edge control.
+
+New in this version:
+- Settings → device protection → turn on enables optional system authentication for reading. Face ID, Touch ID or the device code uses the device's authentication system. Blank capture stays available while reading is locked. With protection enabled, widgets show capture only. This is an access lock; it does not add encryption to the database or exported archives.
+- Settings → appearance offers dark/light and lift contrast. Reading follows the iPhone's text size. The opening mark respects Reduce Motion.
+- Settings → record → export the record creates a portable ZIP. Under restore from archive, choose archive opens the iOS document picker. The app validates the ZIP and shows a preview before a separate restore action. It merges into the existing Record, skips existing moments and keeps a recovery copy. Use an archive exported by a current Chinotto iPhone or Mac client; older Mac text-only exports are unsupported.
+- Find is available from capture. Continue adds a moment dated now; Correct keeps the original date and earlier wording.
+
+Optional sync: Settings → record → sync → set up. Chinotto Pro unlocks sync on iPhone only; all local features above remain available without it. Choose a plan and complete a sandbox purchase, or use restore a purchase for an existing entitlement, then continue with apple. Sign in with Apple identifies the sync account. Sync is free on the companion Mac app. Current clients sync words, dates, continuation links and correction history; original audio remains on the device that recorded it.
+
+Account deletion: after enabling sync, Settings → privacy → delete cloud account → continue → delete the account → delete for good. The system asks for Apple authentication again. Deletion removes the cloud copy and disconnects devices; local Records remain. Subscription cancellation is managed separately through Apple.
+
+Voice requests microphone and speech permissions only when used and transcribes on device. Recordings remain local. An iOS share extension accepts a page or selected text from another app into the Record; this does not publish the Record or create public links.

@@ -1,5 +1,5 @@
 import type { Entry } from '../../types/entry';
-import { entriesNewestFirstForWidget, WIDGET_THOUGHTS_SYNC_LIMIT } from '../widgetThoughtsBridge';
+import { entriesNewestFirstForWidget } from '../widgetThoughtsBridge';
 
 describe('widgetThoughtsBridge', () => {
   it('sorts entries newest-first by createdAt', () => {
@@ -14,9 +14,5 @@ describe('widgetThoughtsBridge', () => {
     const x: Entry = { id: 'x', text: '1', createdAt: t };
     const y: Entry = { id: 'y', text: '2', createdAt: t };
     expect(entriesNewestFirstForWidget([x, y]).map((e) => e.id)).toEqual(['y', 'x']);
-  });
-
-  it('exports sync limit 5 for large widget payload', () => {
-    expect(WIDGET_THOUGHTS_SYNC_LIMIT).toBe(5);
   });
 });

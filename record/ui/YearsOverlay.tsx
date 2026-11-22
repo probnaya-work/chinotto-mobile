@@ -10,10 +10,10 @@
  * exactly like a busy one, which is the opposite of what a density strip is for.
  */
 
+import { useRecordTheme } from './appearance';
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { agency, ink, rule, SURFACE } from './tokens';
 import { type } from './type';
 import { yearBarHeight } from '../model/bands';
 
@@ -32,6 +32,8 @@ export function YearsOverlay({
   onStandInYear,
   onClose,
 }: YearsOverlayProps) {
+  const { ink, agency, rule, SURFACE } = useRecordTheme();
+
   return (
     <Pressable
       onPress={onClose}

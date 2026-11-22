@@ -1,3 +1,6 @@
+import { createHash } from 'node:crypto';
+import { prepareStoredRecord } from '../syncStorage';
+import { prepareRecordSync, type SyncSnapshot } from '../syncProtocol';
 import { openTestDb } from '../__testsupport__/nodeSqliteDb';
 import { migrate } from '../migrate';
 import { createRecordStore } from '../store';
@@ -20,7 +23,7 @@ async function exportLocalRecord(db: RecordDb, signal?: AbortSignal, afterSnapsh
   });
 }
 
-jest.mock('expo-crypto', () => ({ randomUUID: () => 'export-test' }));
+jest.mock('expo-crypto', () => ({ randomUUID: () => 'export-test', CryptoDigestAlgorithm: { SHA256: 'SHA256' }, digestStringAsync: async (_: string, text: string) => require('node:crypto').createHash('sha256').update(text).digest('hex') }));
 
 jest.mock('expo-file-system', () => {
   const files = new Map<string, Uint8Array>();
@@ -118,6 +121,7 @@ it('exports chronology, history, relationships and original audio with portable 
   await migrate(db);
   const store = createRecordStore(db, { newId: () => 'unused' });
   const first = await store.capture({ id: 'café space', body: 'first wording', at: 1000 });
+  await prepareStoredRecord(db, first.id, async (text) => createHash('sha256').update(text).digest('hex'));
   await store.correct(first.id, 'revised wording');
   await store.continueFrom(first.id, { id: 'later', body: 'next moment', at: 2000 });
   await store.capture({ id: 'voïce space', body: '', method: 'voice', at: 3000,
@@ -129,6 +133,18 @@ it('exports chronology, history, relationships and original audio with portable 
   await exportLocalRecord(db);
   expect(fsMock.__files.has('memory://cache/chinotto-exports/chinotto-record-export-test.zip')).toBe(false);
   expect(archive).toBeDefined();
+  if (process.env.CHINOTTO_ARCHIVE_FIXTURE_OUTPUT) require('node:fs').writeFileSync(process.env.CHINOTTO_ARCHIVE_FIXTURE_OUTPUT, archive!);
+  const { openArchiveZip } = require('../readArchiveZip') as typeof import('../readArchiveZip');
+  const { readRecordArchive } = require('../archiveFormat') as typeof import('../archiveFormat');
+  const { previewRecordRestore, restoreRecord } = require('../restoreRecord') as typeof import('../restoreRecord');
+  const digest = async (text: string) => createHash('sha256').update(text).digest('hex');
+  const zip = await openArchiveZip({ size: archive!.length, read: (offset, length) => archive!.slice(offset, offset + length) });
+  const restored = await readRecordArchive(await zip.jsonLines('chinotto-record/record.jsonl'), await zip.jsonLines('chinotto-record/archived.jsonl'), digest);
+  const destination = openTestDb(); await migrate(destination);
+  await restoreRecord(destination, restored, await previewRecordRestore(destination, restored, digest), digest,
+    { recovery: async () => {}, install: async () => 'chinotto/audio/restored.m4a', rollback: async () => {}, finish: async () => {} });
+  expect((await createRecordStore(destination).loadRecord()).map((m) => m.id).sort()).toEqual(['café space', 'later', 'voïce space']);
+  destination.close();
   const files = unzipStored(archive!);
   const lines = new TextDecoder().decode(files.get('chinotto-record/record.jsonl')).trim().split('\n').map((line) => JSON.parse(line));
   expect(lines.map((line) => line.id)).toEqual(['café space', 'later', 'voïce space']);
@@ -137,7 +153,7 @@ it('exports chronology, history, relationships and original audio with portable 
   expect(lines[2].audio.path).toBe('chinotto-record/audio/vo%C3%AFce%20space.m4a');
   expect(files.get('chinotto-record/audio/vo%C3%AFce%20space.m4a')).toEqual(new Uint8Array([0, 1, 2, 255]));
   expect(new TextDecoder().decode(files.get('chinotto-record/record.txt'))).toContain('revised wording');
-  expect(new TextDecoder().decode(files.get('chinotto-record/README.txt'))).toContain('not a restorable Chinotto backup');
+  expect(new TextDecoder().decode(files.get('chinotto-record/README.txt'))).toContain('Restore this archive');
   db.close();
 });
 
@@ -279,4 +295,31 @@ it('retries an abandoned export when an earlier cleanup could not remove it', ()
   fsMock.__failDelete.delete(stale);
   cleanupAbandonedExports();
   expect(fsMock.__files.has(stale)).toBe(false);
+});
+
+it('exports all concurrent wording versions without sync account or queue state', async () => {
+  const db = openTestDb(); await migrate(db);
+  const store = createRecordStore(db);
+  const at = '2026-11-01T10:00:00.000Z';
+  const digest = async (s: string) => createHash('sha256').update(s).digest('hex');
+  await store.capture({ id: 'one', body: 'original', at: Date.parse(at) });
+  const root = await prepareStoredRecord(db, 'one', digest);
+  const remote: SyncSnapshot = {
+    id: 'one', body: 'remote', capturedAt: at, history: [{ body: 'original', supersededAt: at }],
+    continuation: null, state: root!.state, generation: 1, dirty: true, resolvedAt: null,
+  };
+  const packet = await prepareRecordSync(remote, digest);
+  await store.correct('one', 'local');
+  await prepareStoredRecord(db, 'one', digest, { wire: packet.wire, text: packet.body });
+  let archive: Uint8Array | undefined;
+  share.shareAsync.mockImplementation(async (uri: string) => { archive = fsMock.__files.get(uri)?.slice(); });
+  try {
+    await exportLocalRecord(db);
+    const text = new TextDecoder().decode(unzipStored(archive!).get('chinotto-record/record.jsonl'));
+    const row = JSON.parse(text.trim());
+    expect(Object.values(row.wording_versions.versions).map((w: any) => w.body))
+      .toEqual(expect.arrayContaining(['original', 'local', 'remote']));
+    expect(Object.keys(row.wording_versions).sort()).toEqual(['selected', 'versions']);
+    expect(row.sync_state).toBeUndefined();
+  } finally { db.close(); }
 });

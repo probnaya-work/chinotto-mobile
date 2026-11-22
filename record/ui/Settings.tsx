@@ -5,38 +5,41 @@
  * quiet index rather than a system settings list: full-width actions make it usable, while
  * the privacy and Chinotto sections keep the record's more editorial rhythm.
  *
- * Two sub-pages push in over it and come back with `‹ edge`: the manifesto, and deleting
- * the cloud account.
+ * Sub-pages keep the same field and return to their containing settings surface.
  *
  * Export is deliberately user-initiated and sits with the Record, not routine capture.
  */
 
+import { useRecordTheme, useRecordAppearance } from './appearance';
 import React from 'react';
 import { Platform, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 
 import { Mark } from './Mark';
 import { capabilitiesFor, type PlatformCapabilities } from '../platform';
-import { agency, ink, rule, SURFACE } from './tokens';
+
 import { face, type } from './type';
 
 export type IconChoice = 'dark' | 'light';
-export type SettingsPage = 'root' | 'manifesto' | 'delete';
+export type SettingsPage = 'root' | 'manifesto' | 'delete' | 'notifications' | 'scheduled';
 
 export type SettingsProps = {
   page: SettingsPage;
   onClose: () => void;
   onBack: () => void;
+  onOpenNotifications?: () => void;
+  notificationContent?: React.ReactNode;
 
   /** `on · this iphone and aleks's macbook.` — what is true, in a sentence. */
   syncLine: string;
   syncVerb: string;
   onOpenSync: () => void;
   audioUsage?: string;
+  restoreContent?: React.ReactNode;
+  protection?: { enabled: boolean; busy: boolean; error: string | null; onToggle: () => void };
   exportBusy?: boolean;
   exportError?: string | null;
   onExport?: () => void;
   onCancelExport?: () => void;
-
 
   icon: IconChoice;
   onPickIcon: (choice: IconChoice) => void;
@@ -70,23 +73,18 @@ export type SettingsProps = {
   capabilities?: PlatformCapabilities;
 };
 
-const body = type({ size: 16, width: 94, lineHeight: 1.4, color: ink.near });
-const sectionLabel = {
-  fontFamily: face(90),
-  fontSize: 10,
-  letterSpacing: 0.6,
-  textTransform: 'uppercase' as const,
-  color: ink.far,
-};
+
 
 export function Settings(props: SettingsProps) {
+  const { ink, agency, SURFACE } = useRecordTheme();
+
   const can = props.capabilities ?? capabilitiesFor(Platform.OS);
-  const head =
-    props.page === 'manifesto'
-      ? 'why chinotto'
-      : props.page === 'delete'
-        ? 'account'
-        : `this ${can.deviceNoun}`;
+  const isNotifications = props.page === 'notifications' || props.page === 'scheduled';
+  const headings: Partial<Record<SettingsPage, string>> = {
+    manifesto: 'why chinotto', delete: 'account', notifications: 'this iphone', scheduled: 'notifications',
+  };
+  const head = headings[props.page] ?? `this ${can.deviceNoun}`;
+  const backLabel = props.page === 'scheduled' ? '‹ notifications' : isNotifications ? '‹ settings' : '‹ edge';
 
   return (
     <View
@@ -115,7 +113,7 @@ export function Settings(props: SettingsProps) {
           accessibilityRole="button"
           hitSlop={12}
         >
-          <Text style={type({ size: 14, width: 90, color: ink.far })}>‹ edge</Text>
+          <Text style={type({ size: 14, width: 90, color: ink.far })}>{backLabel}</Text>
         </Pressable>
         <View
           style={{
@@ -135,11 +133,15 @@ export function Settings(props: SettingsProps) {
       {props.page === 'root' ? <Root {...props} capabilities={can} /> : null}
       {props.page === 'manifesto' ? <Manifesto paragraphs={can.manifesto} /> : null}
       {props.page === 'delete' ? <DeleteAccount {...props} /> : null}
+      {isNotifications ? props.notificationContent : null}
     </View>
   );
 }
 
 function Root(props: SettingsProps & { capabilities: PlatformCapabilities }) {
+  const { ink, agency, rule } = useRecordTheme();
+
+  const appearance = useRecordAppearance();
   const can = props.capabilities;
   return (
     <ScrollView
@@ -176,6 +178,14 @@ function Root(props: SettingsProps & { capabilities: PlatformCapabilities }) {
             onPress={props.micDenied ? props.onOpenSystemSettings : undefined}
           />
         ) : null}
+        {props.onOpenNotifications ? (
+          <SettingRow
+            title="notifications"
+            detail="alerts and scheduled reminders on this iphone"
+            action="open ›"
+            onPress={props.onOpenNotifications}
+          />
+        ) : null}
         {can.voice ? (
           <SettingRow title="original audio" detail={props.audioUsage ?? 'measuring on this phone…'} />
         ) : null}
@@ -189,19 +199,40 @@ function Root(props: SettingsProps & { capabilities: PlatformCapabilities }) {
         {props.onExport ? (
           <SettingRow
             title="export the record"
-            detail={props.exportError ?? 'text, history and original audio · a portable copy, not a backup'}
+            detail={props.exportError ?? 'text, history and original audio · a portable, restorable copy'}
             action={props.exportBusy ? 'cancel ›' : 'export ›'}
             onPress={props.exportBusy ? props.onCancelExport : props.onExport}
             divider={false}
           />
         ) : null}
+        {props.restoreContent}
       </Section>
+
+      {props.protection ? <Section label="device protection" gap={7}>
+        <SettingRow title="Face ID / Touch ID"
+          detail={props.protection.error ?? 'protect reading with your device code or biometrics. capture stays open. widgets show capture only. this does not encrypt the database or exported copies.'}
+          action={props.protection.busy ? 'authenticating…' : props.protection.enabled ? 'turn off ›' : 'turn on ›'}
+          status={props.protection.enabled ? 'on' : 'off'}
+          onPress={props.protection.busy ? undefined : props.protection.onToggle} divider={false} />
+      </Section> : null}
 
       <Reference voice={can.voice} />
 
-      {/* One appearance, because there is one. The absence of a light-mode switch is honest. */}
       <Section label="appearance" gap={7}>
-        <SettingRow title="app" status="dark" divider={false} />
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 18 }}>
+          <Text style={type({ size: 15, width: 94, color: ink.near })}>app</Text>
+          {(['dark', 'light'] as const).map((choice) => (
+            <Pressable key={choice} accessibilityRole="button" accessibilityLabel={`${choice} appearance`}
+              accessibilityState={{ selected: appearance.choice === choice }} onPress={() => appearance.choose(choice)}
+              style={{ minHeight: 44, justifyContent: 'center', borderBottomWidth: appearance.choice === choice ? 1 : 0, borderBottomColor: agency.quiet }}>
+              <Text style={type({ size: 15, width: 92, weight: agency.weight, color: appearance.choice === choice ? agency.ink : ink.meta })}>{choice}</Text>
+            </Pressable>
+          ))}
+        </View>
+        <SettingRow title="lift contrast" detail="stronger quiet text in bright light"
+          status={appearance.contrast ? 'on' : 'off'} action={appearance.contrast ? 'turn off' : 'turn on'}
+          onPress={() => appearance.setContrast(!appearance.contrast)} divider={false} />
+        {appearance.error ? <Text accessibilityRole="alert" style={type({ size: 14, width: 90, color: ink.meta })}>{appearance.error}</Text> : null}
         {can.iconChoice ? (
           <View style={{ gap: 7, paddingTop: 1 }}>
             <Text style={type({ size: 12, width: 90, color: ink.meta })}>
@@ -399,6 +430,8 @@ const referenceLines = [
 ] as const;
 
 function Reference({ voice }: { voice: boolean }) {
+  const { ink, agency, rule } = useRecordTheme();
+
   const [open, setOpen] = React.useState(false);
   const { width, fontScale } = useWindowDimensions();
   const stacked = width <= 350 || fontScale >= 1.3;
@@ -472,7 +505,7 @@ function microphoneStatus(line: string): string | undefined {
   return undefined;
 }
 
-function SettingRow({
+export function SettingRow({
   title,
   detail,
   action,
@@ -482,6 +515,8 @@ function SettingRow({
   quietAction = false,
   accessibilityRole = 'button',
   checked,
+  disabled = false,
+  accessibilityHint,
 }: {
   title: string;
   detail?: string;
@@ -492,7 +527,11 @@ function SettingRow({
   quietAction?: boolean;
   accessibilityRole?: 'button' | 'switch';
   checked?: boolean;
+  disabled?: boolean;
+  accessibilityHint?: string;
 }) {
+  const { ink, agency, rule } = useRecordTheme();
+
   const content = (
     <>
       <View style={{ flex: 1, gap: 3 }}>
@@ -535,17 +574,19 @@ function SettingRow({
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled}
       accessibilityRole={accessibilityRole}
       accessibilityLabel={`${title}${action ? `, ${action}` : ''}`}
-      accessibilityState={checked === undefined ? undefined : { checked }}
-      style={({ pressed }) => [style, { opacity: pressed ? 0.62 : 1 }]}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={checked !== undefined || disabled ? { checked, disabled } : undefined}
+      style={({ pressed }) => [style, { opacity: pressed || disabled ? 0.62 : 1 }]}
     >
       {content}
     </Pressable>
   );
 }
 
-function Section({
+export function Section({
   label,
   gap = 8,
   children,
@@ -554,6 +595,15 @@ function Section({
   gap?: number;
   children: React.ReactNode;
 }) {
+  const { ink } = useRecordTheme();
+  const sectionLabel = {
+  fontFamily: face(90),
+  fontSize: 10,
+  letterSpacing: 0.6,
+  textTransform: 'uppercase' as const,
+  color: ink.far,
+};
+
   return (
     <View style={{ gap }}>
       <Text style={sectionLabel}>{label}</Text>
@@ -564,6 +614,9 @@ function Section({
 
 /** The argument, in the product's own words. Not marketing, and not a tour. */
 function Manifesto({ paragraphs }: { paragraphs: readonly string[] }) {
+  const { ink } = useRecordTheme();
+  const body = type({ size: 16, width: 94, lineHeight: 1.4, color: ink.near });
+
   return (
     <ScrollView
       style={{ flex: 1 }}
@@ -592,6 +645,9 @@ function Manifesto({ paragraphs }: { paragraphs: readonly string[] }) {
  * risk. It is not: only the copy in the cloud goes.
  */
 function DeleteAccount(props: SettingsProps) {
+  const { ink, agency, rule, SURFACE } = useRecordTheme();
+  const body = type({ size: 16, width: 94, lineHeight: 1.4, color: ink.near });
+
   return (
     <ScrollView
       style={{ flex: 1 }}
@@ -629,7 +685,8 @@ function DeleteAccount(props: SettingsProps) {
           style={{
             flex: 1,
             opacity: props.deleteBusy ? 0.5 : 1,
-            height: 56,
+            minHeight: 56,
+            paddingVertical: 10,
             alignItems: 'center',
             justifyContent: 'center',
             backgroundColor: 'transparent',
@@ -655,7 +712,8 @@ function DeleteAccount(props: SettingsProps) {
           onPress={props.onBack}
           accessibilityRole="button"
           style={{
-            height: 56,
+            minHeight: 56,
+            paddingVertical: 10,
             paddingHorizontal: 22,
             borderWidth: 1,
             borderColor: rule.line,

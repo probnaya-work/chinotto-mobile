@@ -1,7 +1,7 @@
 import { prototypeCorpus, PROTOTYPE_NOW } from '../__testsupport__/prototypeCorpus';
 import type { Material } from '../model/material';
 import { MS_DAY } from '../model/time';
-import { becauseSentence, returnFor } from '../model/returns';
+import { becauseSentence, returnFor, resumeReturn, MIN_AGE_MS, CAUSE_WINDOW_MS } from '../model/returns';
 
 const NOW = PROTOTYPE_NOW;
 
@@ -110,6 +110,19 @@ describe('the Return', () => {
       expect(s.tail).toMatch(/^” at \d\d:\d\d$/);
     });
 
+    it('attributes a matched page title to its source', () => {
+      const earlier = material({ id: 'earlier', at: OLD, body: 'leave the window open' });
+      const page = material({
+        id: 'page', at: JUST_NOW, body: '', method: 'shared',
+        url: 'https://example.com/window', title: 'Leave the Window Open',
+      });
+      const result = returnFor({ material: [earlier, page], now: NOW })!;
+      expect(becauseSentence(result, NOW)).toMatchObject({
+        lead: 'a source had the words “',
+        quote: 'leave the window open',
+      });
+    });
+
     it('ignores a coincidental two-word overlap', () => {
       const a = material({ id: 'a', at: OLD, body: 'the meeting could have been a sentence' });
       const b = material({ id: 'b', at: JUST_NOW, body: 'the meeting ran late' });
@@ -194,7 +207,7 @@ describe('the Return', () => {
     });
 
     it('something too young to be a return at all', () => {
-      const young = { ...old, at: NOW - 30 * MS_DAY };
+      const young = { ...old, at: NOW - 6 * MS_DAY };
       expect(returnFor({ material: [young, recent], now: NOW })).toBeNull();
     });
 
@@ -234,4 +247,45 @@ describe('the Return', () => {
     expect(Array.isArray(r)).toBe(false);
     expect(r).toHaveProperty('material');
   });
+});
+
+describe('first-week Return policy', () => {
+  const old = material({ id: 'old', at: NOW - MIN_AGE_MS, body: 'a quiet place for thinking' });
+  const cause = material({ id: 'cause', at: NOW, body: 'a quiet place for thinking again' });
+  it('starts at seven full days, with real repeated-language evidence', () => {
+    expect(returnFor({ material: [{ ...old, at: old.at + 1 }, cause], now: NOW })).toBeNull();
+    const result = returnFor({ material: [old, cause], now: NOW })!;
+    expect(result.reason).toBe('repeated_language');
+    expect(result.evidence.relatedId).toBe('cause');
+  });
+  it('requires a cause in the previous 48 hours, never a future capture', () => {
+    expect(returnFor({ material: [old, { ...cause, at: NOW - CAUSE_WINDOW_MS }], now: NOW })).not.toBeNull();
+    expect(returnFor({ material: [old, { ...cause, at: NOW - CAUSE_WINDOW_MS - 1 }], now: NOW })).toBeNull();
+    expect(returnFor({ material: [old, { ...cause, at: NOW + 1 }], now: NOW })).toBeNull();
+  });
+  it('returns a seven-day line because a new moment was added', () => {
+    const a = { ...old, body: 'an earlier thought', lineId: 'line' };
+    const b = { ...cause, body: 'a fresh addition', lineId: 'line' };
+    expect(returnFor({ material: [a, b], now: NOW })!.reason).toBe('line_continued');
+    expect(returnFor({ material: [a], now: NOW + 400 * MS_DAY })).toBeNull();
+  });
+  it('resumes the same open Return, then withdraws it if its quote is corrected away', () => {
+    const result = returnFor({ material: [old, cause], now: NOW })!;
+    const saved = { id: 1, fragmentId: old.id, reason: result.reason, evidence: result.evidence };
+    expect(resumeReturn(saved, [old, cause], NOW + 4 * MS_DAY)).not.toBeNull();
+    expect(resumeReturn(saved, [old, { ...cause, body: 'something unrelated' }], NOW)).toBeNull();
+    expect(resumeReturn(saved, [{ ...old, removedAt: NOW }, cause], NOW)).toBeNull();
+  });
+});
+
+it('agrees with the native client on the shared Return policy cases', () => {
+  const cases = require('../__testsupport__/returnPolicyCases.json') as {
+    name: string; oldAgeMs: number; causeAgeMs: number; held?: boolean; body?: string; expected: boolean;
+  }[];
+  for (const test of cases) {
+    const a = material({ id: 'old', at: NOW - test.oldAgeMs, body: 'quiet premature judgment' });
+    const b = material({ id: 'cause', at: NOW - test.causeAgeMs, body: test.body ?? 'quiet premature judgment again' });
+    expect({ name: test.name, returned: returnFor({ material: [a, b], now: NOW, held: test.held ? { old: true } : null }) !== null })
+      .toEqual({ name: test.name, returned: test.expected });
+  }
 });

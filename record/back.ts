@@ -25,13 +25,14 @@ export type AppBackState = {
   settingsPage: SettingsPage | null;
 };
 
-export type AppBackStep = 'close-sync' | 'close-share' | 'close-widget' | 'settings-root' | 'close-settings';
+export type AppBackStep = 'close-sync' | 'close-share' | 'close-widget' | 'settings-root' | 'settings-notifications' | 'close-settings';
 
 export function appBackStep(s: AppBackState): AppBackStep | null {
   if (s.syncOpen) return 'close-sync';
   if (s.share) return 'close-share';
   if (s.surface === 'widget') return 'close-widget';
   if (s.surface === 'settings') {
+    if (s.settingsPage === 'scheduled') return 'settings-notifications';
     return s.settingsPage && s.settingsPage !== 'root' ? 'settings-root' : 'close-settings';
   }
   return null;
@@ -45,27 +46,33 @@ export type RecordBackState = {
   correcting: boolean;
   /** A continuation being written, inside focus. */
   continuing: boolean;
+  quietReading?: boolean;
   /** Standing somewhere back in time, rather than at the edge. */
   anchored: boolean;
   /** A D0 moment selected, with its verbs open. */
   selected: boolean;
+  finding?: boolean;
 };
 
 export type RecordBackStep =
   | 'close-years'
   | 'cancel-correction'
+  | 'exit-quiet-reading'
   | 'stop-continue'
   | 'close-focus'
   | 'clear-anchor'
-  | 'clear-selection';
+  | 'clear-selection'
+  | 'leave-find';
 
 export function recordBackStep(s: RecordBackState): RecordBackStep | null {
   if (s.yearsOpen) return 'close-years';
   if (s.focusOpen) {
     if (s.correcting) return 'cancel-correction';
+    if (s.quietReading) return 'exit-quiet-reading';
     if (s.continuing) return 'stop-continue';
     return 'close-focus';
   }
+  if (s.finding) return 'leave-find';
   if (s.anchored) return 'clear-anchor';
   if (s.selected) return 'clear-selection';
   return null;

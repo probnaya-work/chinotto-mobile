@@ -5,10 +5,8 @@
  * is no Find surface and no results page: the record is the results, arranged by distance as
  * it always is.
  *
- * Two readings, and the interface names which one it is doing:
- *   * **in words** — the literal substring, over everything retrievable.
- *   * **by meaning** — shared vocabulary, ranked. Offered when the words find nothing, and
- *     always labelled as a guess.
+ * Literal search filters the record. When it finds nothing, related-word suggestions may
+ * offer material sharing vocabulary with the query. These are not semantic matches.
  */
 
 import { displayText, hay, type Material } from './material';
@@ -50,11 +48,8 @@ export type Guess = {
 export const MAX_GUESSES = 3;
 
 /**
- * `nothing with those words. close in meaning, maybe:`
- *
- * Ranked by shared vocabulary, then by recency. When nothing shares anything at all the
- * prototype falls back to showing something rather than an empty surface — a deliberate
- * choice that the interface covers by setting every guess in italic and offering `not this`.
+ * Ranked by shared vocabulary, then by recency. A suggestion must have word evidence;
+ * an unrelated record is never substituted when there is nothing to offer.
  */
 export function guessFor(
   query: string,
@@ -71,21 +66,14 @@ export function guessFor(
     .filter((x) => x.overlap > 0)
     .sort((a, b) => b.overlap - a.overlap || b.material.at - a.material.at);
 
-  const chosen = scored.length
-    ? scored.slice(0, MAX_GUESSES)
-    : live
-        .filter((m) => m.method === 'typed' && m.body.length > 20)
-        .slice(0, MAX_GUESSES)
-        .map((m) => ({ material: m, overlap: 0 }));
-
-  return chosen.map(({ material: m, overlap }) => ({
+  return scored.slice(0, MAX_GUESSES).map(({ material: m, overlap }) => ({
     material: m,
     overlap,
     when: now - m.at < 7 * MS_DAY ? dayLabel(m.at, now) : monthLabel(m.at, now),
   }));
 }
 
-/** `12 · in words` / `12 · by meaning` — the count beside the field. */
-export function findSummary(count: number, byMeaning: boolean): string {
-  return `${count} · ${byMeaning ? 'by meaning' : 'in words'}`;
+/** The count always describes the literal matches actually shown in the record. */
+export function findSummary(count: number): string {
+  return `${count} · in words`;
 }

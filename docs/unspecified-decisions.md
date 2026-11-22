@@ -365,3 +365,232 @@ there it records and never transcribes; recognition itself needs a physical phon
 
 The two iOS facts recorded here were since fixed on `main` (on-device only; erasure at the
 permanent boundary) and merged into this branch.
+
+## 11. Product review follow-up — 15 November 2026
+
+The owner requested phased product improvements and optional Face ID / Touch ID protection.
+The sequence and acceptance criteria are recorded in [Product improvement phases](product-improvements.md).
+
+Word matching deliberately extends the original prototype to Unicode letters and combining
+marks. English suffix heuristics do not run over non-ASCII words; common Russian and
+Portuguese function words are excluded from evidence. Phrase highlighting must not consume
+intervening letters as punctuation. The original English corpus parity remains checked.
+
+Mobile Find remains literal search. Its supplementary suggestions require shared-word
+evidence and are named as such. The prototype's unrelated fallback and cosmetic meaning
+toggle are removed; no candidate is a valid result. These are implementation choices under
+the approved search-quality phase, not a claim of multilingual semantic search.
+
+
+### Record continuity — phase 2
+
+Under the approved second phase, authored history and continuation edges travel in an additive
+`record` field beside the existing text contract. Content-addressed immutable wordings preserve
+causal ancestry and concurrent alternatives without trusting device clocks. A durable generation
+protects an edit made during upload. Existing account IDs, entitlement and revocation checks stay
+in place. Old-client edits with unknown history remain independent wordings; no revision is invented.
+
+Audio and derived/personal state are not included. Oversized metadata stays pending locally rather
+than losing history. Live updates use `updatedAt` so edits to old moments remain visible. Multiple
+children of one parent belong to the same Line. The wire format, bounds, compatibility and required
+cloud release checks are recorded in [Record continuity sync](record-sync.md).
+
+
+### Find and first-week Returns — phase 3, 15 November 2026
+
+Visible Find borrows the existing capture field and preserves an unfinished capture verbatim.
+Leaving search restores that capture; no new navigation screen, onboarding gate or stored query
+is added. Continue and Correct keep distinct promises at their actions.
+
+The approved first-week phase replaces the former 180-day mobile / 30-day desktop Return age
+with seven full days on both. A cause must be in the previous 48 hours, with at least three
+shared words, an exact source key or a recent Line addition. An old quiet Line alone is not a
+cause. Timing is shared: 20 hours globally, 30 days for the same moment, at most one open Return.
+Held and removed moments are excluded; an open Return is withdrawn if its evidence disappears.
+Selection waits for an idle visible edge and does not run behind Find or an unfinished capture.
+The limits, retrieval differences and validation are recorded in `docs/product-improvements.md`.
+
+
+### Device protection — phase 4, 15 November 2026
+
+The owner's explicit request adds optional system authentication. The preference belongs to a
+device, stays off by default and is not synced. Authentication is required to change it in either
+direction. There is no Chinotto PIN. Protected history is withheld while new capture remains
+available; date phrases and slash-prefixed wording in locked capture are saved as new wording.
+Find's borrowed capture draft and unfinished correction/continuation fields survive the lock.
+
+Native lifecycle code covers snapshots and invalidates read sessions. iPhone uses SDK 55's
+Expo LocalAuthentication; Mac adds the matching objc2 LocalAuthentication bindings because
+Sign in with Apple is a separate capability. Mac's native command allowlist denies private reads
+from every window, including the legacy API. Incoming write-only sync maintenance remains
+available; outgoing reads retry after unlock. Widgets are capture-only for as long as iPhone
+protection is enabled, including while the app's own Record is open. Exports are plain copies
+and require an active read session. This does not add encryption to storage or sync.
+
+
+### Restore from archive — phase 5, 15 November 2026
+
+The approved phase starts with Chinotto's own archive. Merge-only restore is the chosen first
+version: existing IDs/wordings win and removed IDs are not revived. Original dates are kept;
+source paths and child row numbers are not identities. Missing predecessors wait without
+placeholder moments. More than five active holds blocks the import rather than silently
+releasing something. A preview must be reviewed again after relevant local changes.
+
+The SQLite recovery copy and journal protect the existing Record and interrupted audio
+installation. Recovery copies remain on-device for manual recovery and have no automatic
+retention/deletion policy in this phase. System file picking uses ExpoDocumentPicker on mobile
+and the existing Tauri dialog plugin on Mac. Mobile adds fflate for streaming DEFLATE/CRC;
+Expo's filesystem provides byte streams but no ZIP decoder. Native uses the existing zip crate.
+These concrete missing capabilities justify the two mobile dependencies. Broader text imports,
+complete app-state restoration and completed-import undo remain follow-ups. The full contract,
+resource bounds and release acceptance are in [portable archives](record-archive.md).
+
+
+### Phase 6 — appearance and enlarged reading
+
+The owner requested a deliberate light appearance rather than a default white desktop. Use
+`#eeeae1` mineral with graphite ink, warm neutral evidence/rules and sage only for live state.
+Keep the ordinary dark palette and geometry. Desktop CSS and iPhone's palette share the values
+in `lightPalette.json`; normal functional light text has a 4.5:1 contrast floor. Decorative
+faint ink is not a status, hint or history action. A light Return uses a quiet stone rail.
+
+Mobile starts dark, persists dark/light plus lifted contrast on this device, and applies the
+choice without waiting before capture. Native keyboard/status appearance follows. At font
+scale >=1.3, old text loses its clamp and uses a minimum width axis of 88; button targets grow
+and wrap. macOS relaxes old-text compression at 130–140%. Nothing caps system text scaling.
+Native theme changes are serialized; only the main Mac window owns app-wide appearance, so
+transparent capture does not acquire an opaque host. These are local changes pending real
+phone daylight/large-text and signed Mac main-window/capture acceptance.
+
+
+### iOS scene lifecycle — physical-device check, 15 November 2026
+
+A signed Release built with SDK 27 stopped in UIKit's
+`UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption` on the attached iPhone,
+before JavaScript or database migration. Adopt one programmatic UIWindowScene, without
+adding navigation or multiple Records. Keep the scene manifest aligned in app.json and the
+committed Info.plist. Scene callbacks forward to the existing Expo app delegate so Record
+privacy and subscriber lifecycles keep their existing paths. Cold links become React Native
+launch options; warm URL/universal links use the existing linking handlers.
+
+This follows [Apple's scene migration guidance](https://developer.apple.com/documentation/technotes/tn3187-migrating-to-the-uikit-scene-based-life-cycle).
+It changes native launch compatibility, not product scope or the release version.
+
+
+### Opening a protected Record — 15 November 2026
+
+The owner requested a Chinotto animation instead of the blank frame around Face ID. The
+native privacy cover now shows the existing full mark at 72pt, with a slow opacity breath on
+the current window's dark or warm-light field. Reduce Motion keeps it still. The matching
+React indicator spans authentication and the first authenticated Record read; capture stays
+available while that read settles. Locking resets read readiness so a reopened Record does
+not report an empty history before loading it.
+
+There is no minimum display time, repeated launch lockup or added authentication step. The
+native cover still conceals the entire Record synchronously and leaves only after the
+existing foreground/epoch render acknowledgement. No private preview or text is drawn into
+it. Cancellation ends the indicator immediately and preserves the capture draft for retry.
+
+## One-shot thought reminders
+
+Phase 1 adds a local reminder to an open thought on iPhone. The reader shows
+`remind me` or the stored time. The existing bottom-sheet geometry puts the
+selected time first, with the date and device scope beside it. Presets are one
+hour from opening, 09:00 tomorrow, and 09:00 in seven calendar days. Custom time
+uses the native date and time picker. Postpone moves the selected time by one
+local calendar day. Once scheduled, the intent stores the chosen instant.
+Travel displays that instant in the current device time zone.
+
+The first request follows the chosen date. Denial offers iPhone Settings and
+preserves the choice through that visit in the current app session. The first
+phase keeps permission and management contextual. An in-app fallback and the
+global notification preferences remain a separate phase. The app makes no
+promises about delivery while system alerts are off, in Focus or in a scheduled
+summary. Foreground delivery leaves the active Record alone.
+
+Schema v10 adds device-local scheduling metadata only. Notification identifiers
+are opaque and revision-specific. The OS sees the app name, generic body and
+trigger, with no thought text. The existing device protection gates following a
+tap. Cold and warm entry preserve capture text. A tap during a correction,
+continuation, share, or sync sheet waits for that overlay to close.
+
+One future intent per thought is reconciled against pending OS requests. Replacing
+an intent retires its old identifier; a failed cancellation prevents arming a
+second alert. Failed scheduling retains the time with an unavailable status and
+can be retried before it passes. Past times are never rescheduled. Removing a thought
+retires its alert and its intent; bringing back the thought requires deliberately
+setting another reminder. Reminders are excluded from sync and Record archives.
+
+The iOS port uses Expo Notifications 55.0.13, the version paired with this Expo
+55.0.8 checkout, solely for local alert
+permission, scheduling, cancellation and response handling. Android excludes
+the notifications module and its application helper from native autolinking. The SwiftUI date editor uses the already linked
+Expo UI module. On Mac, run `pod install` from `ios/` with the workspace's
+existing CocoaPods toolchain to regenerate `Podfile.lock` for ExpoNotifications and ExpoApplication,
+then build a development binary. Verify actual foreground/background delivery,
+tap from cold and warm starts, permissions disabled in Settings, Face ID
+cancellation and retry, VoiceOver, and the compact date picker in both appearances.
+
+### Notification preferences
+
+Phase 2 adds one Notifications row to the existing iPhone settings. The status
+read from iOS and Chinotto’s reminder-alert pause are separate. A pause removes
+pending delivery and retains the selected times. Existing future times can be
+edited while paused. Resuming arms only future alerts. A failed native update
+retains the preference and offers a retry.
+
+Discreet previews default to “Open Chinotto”. Turning them off permits a generic
+reminder sentence. A thought-level override can always be stricter than the
+device default. Future pending requests are reconciled after a preview edit.
+Neither choice places a date, title or excerpt from the Record in the alert.
+
+When iOS permission or Chinotto alerts are off, a new time can deliberately be
+saved in Chinotto without any OS request. Such an intent becomes ready in the
+Scheduled reminders list at its chosen time. It never converts itself into an
+alert. Opening a ready thought marks that return used. Upcoming times can be
+edited and canceled through the same thought sheet and return to the list.
+
+Scheduled reminders are inside Notifications. Existing device protection
+gates the list and its first-line excerpts. Schema v11 adds an in-app delivery
+choice and a per-thought preview override. Both the choices and the global
+notification preference remain on the device. Quiet hours follow the device’s
+Focus settings. Automatic Return alerts are outside this phase.
+
+### Compact Return on the Record
+
+The in-app Return shows the old thought’s month and elapsed time, with one line
+of wording and two targets to open or let go. The existing capture field has
+priority. The Return waits when the keyboard is active, a moment is selected,
+recording is in progress, the app is in the background, or an overlay covers
+the edge. The existing evidence and cooldown rules still apply.
+
+Opening shows the date, original wording and grounded cause in the existing
+reader. The focus target stays visible when it falls inside a folded span.
+The reader recomputes the cause from current material and withdraws it if the
+evidence disappears. Continue and Hold are available in the reader. Dismissal
+is stored on tap, and Reduce Motion skips the invitation’s transition. This
+uses the existing Return tables, protection boundary and Continuation model.
+
+### Possible connections in the mobile reader
+
+Observed Traces stay in the reader. Vocabulary-based suggestions appear only
+on request. The reader shows one candidate with two dated excerpts and marks
+shared words within each excerpt. Both excerpts lead back to their sources.
+Dismissing a pair uses the existing local judgement table and applies in either
+direction. The same pair stays dismissed after a restart. Existing Lines are
+kept. This interaction reads the Record on-device and uses lexical overlap.
+The ranking considers word overlap first and elapsed time to break ties.
+
+### Quiet reading
+
+A contextual quiet reading action changes the presentation of the current
+reader for this visit. The same dated Line remains readable, with more space
+between rows. Traces, reminders, editing verbs and Hold are put away. The
+existing Continue field remains available. An open ring uses the current
+recording accent only during this mode.
+
+Exit quiet reading and platform Back restore the ordinary reader and its
+previous scroll position. Both keep any unfinished continuation. Device
+protection conceals the reader during relock and restores the authorized
+quiet session and draft after unlock. The mode state lives in memory and
+does not change notification or operating-system Focus settings.

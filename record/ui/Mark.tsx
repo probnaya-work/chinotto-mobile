@@ -11,6 +11,7 @@
  */
 
 import React from 'react';
+import { useRecordTheme } from './appearance';
 import Svg, { Circle } from 'react-native-svg';
 
 /** Which rung to draw. The prototype picks by size, not by taste. */
@@ -61,7 +62,9 @@ export type MarkProps = {
   strokeWidth?: number;
 };
 
-export function Mark({ size, color = '#d4d3ce', rung, strokeWidth }: MarkProps) {
+export function Mark({ size, color: suppliedColor, rung, strokeWidth }: MarkProps) {
+  const { ink } = useRecordTheme();
+  const color = suppliedColor ?? ink.ink;
   const which = rung ?? rungFor(size);
   const spec = RUNGS[which];
   return (

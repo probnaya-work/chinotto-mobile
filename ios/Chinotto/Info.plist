@@ -49,7 +49,7 @@
     <key>CFBundlePackageType</key>
     <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
     <key>CFBundleShortVersionString</key>
-    <string>2.1.0</string>
+    <string>3.0.0</string>
     <key>CFBundleSignature</key>
     <string>????</string>
     <key>CFBundleURLTypes</key>
@@ -69,7 +69,7 @@
       </dict>
     </array>
     <key>CFBundleVersion</key>
-    <string>43</string>
+    <string>46</string>
     <key>ExpoShareIntoAppGroupId</key>
     <string>group.com.chinotto.mobile</string>
     <key>ExpoWidgetsAppGroupIdentifier</key>
@@ -95,6 +95,8 @@
     </array>
     <key>NSLocalNetworkUsageDescription</key>
     <string>Expo Dev Launcher uses the local network to discover and connect to development servers running on your computer.</string>
+    <key>NSFaceIDUsageDescription</key>
+    <string>Chinotto uses Face ID to open your protected Record. You can always capture a new thought without unlocking.</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>Chinotto uses the microphone so you can tap the circle and speak instead of typing. The recording itself is kept on this iPhone as part of your record, so you can hear a moment back later — not only read what was heard.</string>
     <key>NSPhotoLibraryUsageDescription</key>
@@ -109,6 +111,23 @@
     <true/>
     <key>UIApplicationSupportsAlternateIcons</key>
     <true/>
+    <key>UIApplicationSceneManifest</key>
+    <dict>
+      <key>UIApplicationSupportsMultipleScenes</key>
+      <false/>
+      <key>UISceneConfigurations</key>
+      <dict>
+        <key>UIWindowSceneSessionRoleApplication</key>
+        <array>
+          <dict>
+            <key>UISceneConfigurationName</key>
+            <string>Chinotto Record</string>
+            <key>UISceneDelegateClassName</key>
+            <string>$(PRODUCT_MODULE_NAME).ChinottoSceneDelegate</string>
+          </dict>
+        </array>
+      </dict>
+    </dict>
     <key>UILaunchStoryboardName</key>
     <string>SplashScreen</string>
     <key>UIRequiredDeviceCapabilities</key>

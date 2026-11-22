@@ -2,6 +2,7 @@ import { buildLegacyFixture } from '../__testsupport__/legacyFixture';
 import { openTestDb } from '../__testsupport__/nodeSqliteDb';
 import { tableExists, userVersion } from '../db';
 import { getMeta, migrate, TARGET_VERSION } from '../migrate';
+import { createRecordStore } from '../store';
 
 describe('the migration ladder', () => {
   it('takes a fresh install straight to the target version', async () => {
@@ -10,7 +11,7 @@ describe('the migration ladder', () => {
 
     expect(report.from).toBe(0);
     expect(report.to).toBe(TARGET_VERSION);
-    expect(report.ran).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(report.ran).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
     expect(report.fragmentsImported).toBe(0);
     expect(await userVersion(db)).toBe(TARGET_VERSION);
     db.close();
@@ -24,6 +25,28 @@ describe('the migration ladder', () => {
     expect(second.from).toBe(TARGET_VERSION);
     expect(second.ran).toEqual([]);
     db.close();
+  });
+
+  it('retains a v10 reminder and upgrades it to an ordinary alert intent', async () => {
+    const db = openTestDb();
+    try {
+      await migrate(db);
+      const thought = await createRecordStore(db, { newId: () => 'v10-thought' }).capture({ body: 'a v10 thought' });
+      await db.execAsync(`
+        DROP TABLE thought_reminders;
+        CREATE TABLE thought_reminders (
+          fragment_id TEXT PRIMARY KEY NOT NULL REFERENCES fragments(id) ON DELETE CASCADE,
+          id TEXT UNIQUE NOT NULL,
+          fire_at INTEGER NOT NULL CHECK (fire_at > 0)
+        );
+        PRAGMA user_version = 10;
+      `);
+      await db.runAsync('INSERT INTO thought_reminders VALUES (?, ?, ?)', thought.id, 'opaque-v10', 12345);
+      expect((await migrate(db)).ran).toEqual([11]);
+      expect(await db.getFirstAsync('SELECT * FROM thought_reminders')).toEqual({
+        fragment_id: thought.id, id: 'opaque-v10', fire_at: 12345, delivery: 'alert', discreet: 0,
+      });
+    } finally { db.close(); }
   });
 
   it('refuses to touch a database written by a newer build', async () => {
@@ -207,7 +230,7 @@ describe('the migration ladder', () => {
 
       const report = await migrate(fx.db);
       expect(report.from).toBe(1);
-      expect(report.ran).toEqual([2, 3, 4, 5, 6, 7]);
+      expect(report.ran).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
       expect(report.fragmentsImported).toBe(fx.materialEntries);
       fx.db.close();
     });

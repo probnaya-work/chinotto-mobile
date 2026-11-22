@@ -1,0 +1,464 @@
+# Chinotto product improvement phases
+
+Started 15 November 2026 following the product review and the owner's request to proceed in priority order. Scope: strengthen the current Record and add optional Face ID / Touch ID protection. Capture remains local, immediate and free of mandatory organisation.
+
+Both repositories use `feat/product-phases-20261115`. Each phase produces its own implementation, regression coverage and verification evidence before the next is implemented. Shipping remains a separate release step. This document tracks work; it does not schedule a background worker.
+
+| Order | Phase | Current state | Completion criterion |
+|---|---|---|---|
+| 1 | Trustworthy search and word evidence | Implemented and checked locally | No unrelated fallback suggestions; Unicode word evidence; accurate labels and highlights; existing tests pass |
+| 2 | Record continuity between iPhone and Mac | Implemented and checked locally; cloud release checks pending | Continuation edges and wording history survive a two-device round trip, reconnect and concurrent edits; older clients remain compatible |
+| 3 | First-week value and discoverable Find | Implemented and checked locally | One visible entrance to existing Find; evidence-backed Returns can be experienced during the first week; consistent policy on both platforms |
+| 4 | Optional Face ID / Touch ID protection | Implemented and checked locally; hardware acceptance pending | Private history, widgets and app-switcher previews remain hidden until successful system authentication; new capture remains available |
+| 5 | Restore and import | Own-archive restore implemented locally; device acceptance pending | A portable Record archive restores dates, stable IDs, histories, links and audio with a preview, validation and duplicate handling |
+| 6 | Readability and public product explanation | Implemented locally; device visual acceptance pending | Phone reading works in daylight and enlarged text; website, manifesto and store describe the current Record |
+
+## Phase 1
+
+Implemented:
+- Preserve Unicode letters and combining marks, including Cyrillic and accented Portuguese.
+- Keep English suffix rules from corrupting non-ASCII words; exclude common Russian and Portuguese function words from evidence.
+- Never substitute arbitrary local entries for a search with no supporting words.
+- Name mobile suggestions as shared-word suggestions; remove the cosmetic meaning switch.
+- Show a real empty state after no candidates remain, including after rejection.
+- Highlight phrases across punctuation without treating intervening Cyrillic words as separators.
+
+Verification:
+- Mobile: 114 Jest suites, 749 tests passed; TypeScript passed.
+- Desktop: 19 Vitest files, 162 tests passed; 14 Node tests passed; TypeScript and frontend production build passed.
+- On Node 24, run desktop tests as `NODE_OPTIONS=--no-experimental-webstorage npm run test:ts`, so jsdom supplies browser storage. The unmodified environment otherwise exposes Node's unavailable native localStorage to older Vitest.
+- Original English prototype parity still passes.
+- Native packages and device visual checks are not part of this verification. No app-store or production deployment has been made.
+
+## Phase 2
+
+Implemented: additive Record metadata, durable SQLite generations, Firestore transaction merging, continuation links and full authored wording ancestry. Legacy `{id, text, created_at}` readers and existing account identities remain. Concurrent offline corrections retain both wordings; equivalent early legacy projections do not create later false conflicts. Pending work survives restart, account changes and edits during a send. Permanent local removal scrubs metadata and blocks delayed resurrection.
+
+Verification:
+- Mobile: 119 Jest suites, 781 tests passed, including the real Rust → mobile SQLite round trip; TypeScript passed.
+- Desktop: 22 Vitest files, 181 tests passed; 14 Node tests passed; TypeScript and production frontend build passed.
+- Native desktop: 209 tests passed in both default and `--no-default-features --features mas` configurations. The installed app's local model was supplied through `MAS_MODEL_CACHE`; no model network download was required.
+- Cross-runtime checks cover capture dates, correction history, child-before-parent delivery and complete Lines. Additional cases cover restart, concurrent branches, early legacy projection, CAS/acknowledgement races, queue fairness, account changes and deletion suppression.
+- No signed app package or cloud deployment was made. Deployed security rules, the metadata indexing exemption and a signed iPhone ↔ Mac cloud round trip remain release checks in [Record continuity sync](record-sync.md).
+
+The mobile export now retains every known concurrent wording in `wording_versions`. Original audio remains local. No restore/import feature is claimed in this phase.
+
+Acceptance scenarios:
+1. Capture on iPhone, continue on Mac, reopen on iPhone: both moments retain their own dates and one line.
+2. Correct on either device: earlier wording remains available on the other device.
+3. Concurrent offline correction: both authored wordings survive; no automatic discard.
+4. A delayed metadata event cannot resurrect removed material.
+5. Replayed and out-of-order events are idempotent; disconnect and restart keep pending changes.
+6. Local capture and search work throughout migration and when sync is off.
+
+Move authored structure first. Audio transfer needs separate retention, storage and bandwidth rules and must not be implicitly enabled by a metadata migration.
+
+## Phase 3
+
+Implemented:
+- A visible `find /` action uses the existing capture field on iPhone and Mac. It preserves the exact unfinished draft, focuses the field and restores the draft with `‹ capture`, desktop Escape or Android Back. Clearing/removing a borrowed slash also restores the draft. Search queries never become saved moments.
+- Returns can begin at seven full days. A real cause must be within the previous 48 hours; future captures, an anniversary or a quiet old Line alone never qualify. Triggers remain repeated language, the same source and a recent addition to an older Line.
+- Shared timing: at most one open Return, at least 20 hours between new Returns, and 30 days before the same moment can return. Held/removed moments are excluded. Dismissal and open state survive remount/restart in SQLite.
+- New Returns wait for a visible idle edge, after a 1.6-second settling period, and do not spend their cooldown behind Find, a draft or focus. Mobile re-evaluates after material changes. Existing open Returns are resumed and are withdrawn when the quoted evidence disappears.
+- Both clients require a shared run of at least three words for repeated language. Candidate retrieval is bounded to the newest 32 acts within the cause window; desktop FTS probes at most 12 distinctive terms and retains its rare-word filter. Mobile prefilters shared triples before comparing full phrases. Retrieval ranking and source rendering still follow each platform's existing model.
+- Mobile Continue now states `a new moment, dated now` before entry. Both platforms retain their correction explanation: wording changes, while the original date and earlier wording stay.
+
+Verification:
+- Mobile: 120 Jest suites, 793 tests passed; TypeScript passed. The real SQLite screen test covers a first-week Return after capture, remount, dismissal and deferral while searching/drafting.
+- Desktop: 23 Vitest files, 185 tests passed; 14 Node tests passed; TypeScript and production frontend build passed.
+- Native desktop: 215 tests passed. Shared JSON cases run through both the mobile model and Rust SQLite: seven-day and 48-hour boundaries, future dates, held material, insufficient overlap and absence of evidence.
+- Browser story passed: multiline Cyrillic draft → visible Find → literal results → Escape → identical focused draft. Browser uses development fixture data; production selection/storage are covered by SQLite tests. No packaged app or device visual pass was run.
+
+These thresholds are product choices under the approved phase, not evidence that every new record will have a useful Return on day seven. Silence remains valid. Face ID / Touch ID is next; no release has been deployed by this phase.
+
+## Phase 4 Face ID and Touch ID
+
+This phase is explicitly included following the owner's request. Build iPhone first, then Mac. It is optional and off by default.
+
+### Access policy
+
+- Protect reading the Record, Find results, continuations, held material, audio playback and export.
+- Keep a blank capture field available while history is locked. Saving confirms success without exposing previous material. Authentication starts when the person asks to open the Record.
+- Use the operating system's authentication prompt with its device-passcode/password fallback. No Chinotto PIN, biometric collection or cloud identity change.
+- Authenticate before enabling or disabling protection. Failure or cancellation leaves the previous setting intact.
+- Show one authentication request at a time. Cancellation, failure, unavailable hardware and lockout keep protected content hidden and offer an explicit retry.
+- Relock after backgrounding and on cold launch. Authentication-prompt lifecycle transitions must not create a prompt loop.
+- Preserve unsaved wording across authentication, cancellation and background transitions.
+
+### Other surfaces
+
+- Cover content before app-switcher snapshots; use native lifecycle handling where JavaScript cannot guarantee timing.
+- Stop private audio playback on lock. A running voice capture must be safely completed or deliberately discarded, never silently lost.
+- Home widgets become capture-only while protection is enabled. Clear existing preview data, reload timelines, and prevent background refresh from republishing thought text.
+- Widget/deep-link routes, share-in, menu-bar capture and secondary windows must respect the same read boundary.
+- Plain exports remain user-controlled copies. UI authentication is separate from database or cloud encryption, and product copy must describe it accurately.
+
+### Implementation and verification
+
+iOS integration: Expo SDK 55-compatible `expo-local-authentication`, with `NSFaceIDUsageDescription` in both app configuration and the committed native Info.plist. Its dependency is justified by OS-managed authentication and fallback; the existing stack has no authentication bridge for this purpose.
+
+Mac integration: Apple LocalAuthentication through a native command; verify both the main window and tray capture. Gate private reads rather than merely drawing an overlay over readable content.
+
+Required cases: enrollment absent, success, repeated failure, user cancel, system cancel, lockout, device fallback, concurrent requests, stale successful responses after relock, cold start, background/foreground, widget cache and export/deep-link bypass attempts. Face ID needs a signed development/device build; unit mocks cannot verify hardware authentication.
+
+References: [Expo SDK 55 LocalAuthentication](https://docs.expo.dev/versions/v55.0.0/sdk/local-authentication/), [Apple LocalAuthentication](https://developer.apple.com/documentation/localauthentication).
+
+### Phase 4 local result — 15 November 2026
+
+Implemented on iPhone and Mac, off by default. OS authentication is explicit, uses the device-code/password fallback, and is required to change the setting. Backgrounding or closing the Mac window relocks the Record. Native session generations reject late authentication and private read results. Capture stays available and confirms saving without showing history; suspended Find, Correct and Continue wording is retained.
+
+On iPhone, the surface receives a guarded Record store. UIKit covers the window before snapshots and hides its private accessibility tree; native audio stops on background while the existing recorder safely finalizes. The app-group preference clears widget preview data, reloads timelines and rejects queued preview writes. The widget itself also checks the flag. Share-in does not look up earlier encounters while locked. Export authenticates before preparation and is cancelled on relock.
+
+On Mac, a default-deny native invoke boundary covers current and legacy commands in every window. New capture and write-only sync maintenance remain available. Commands returning existing Record text, including outgoing sync snapshots, wait until unlock; sync listeners restart on the access transition. AppKit covers windows before deactivation/minimization and hides the underlying accessibility tree until a matching safe render. The tray clears Return/count signals and keeps capture available. Exports remain temporary until their read session is rechecked, preserving any earlier export on cancellation.
+
+Verification:
+- iPhone: 121 Jest suites / 809 tests; TypeScript; unsigned Debug iOS Simulator build passed. The real Rust → mobile SQLite fixture is included. Targeted open-handle diagnostics also passed.
+- Mac frontend: 25 Vitest files / 192 tests plus 14 Node tests; TypeScript and production frontend build passed. Browser fixture checked saving while locked and truthful protection copy.
+- Mac native: 221 Rust tests in both direct and Mac App Store configurations passed. No packaged Mac app or release was produced.
+- Physical-device acceptance remains required: Face ID / Touch ID, device-code/password fallback, no enrollment and lockout, cancelling a system prompt, leaving the app during a prompt, actual app-switcher snapshots, WidgetKit refresh, and main-window/tray behavior. Simulator builds and mocks do not establish those results.
+
+Protection controls access through Chinotto. It does not encrypt SQLite, existing backups, exported copies or the cloud, and does not add or change a sync identity. The setting is local to each device.
+
+## Phase 5
+
+Start with restoring Chinotto's own export. Validate and preview before modifying the live Record; restore in a transaction and keep the existing Record recoverable. Preserve original dates and stable IDs. Import the same archive twice without duplicating moments or audio. Broader text imports follow after this round trip is reliable.
+
+### Phase 5 local result — 15 November 2026
+
+Settings on iPhone and Mac now offers a system file picker, validated preview and explicit
+restore. New Mac exports include the full Record envelope alongside readable text. Imports
+merge absent IDs, preserve capture dates/history/links/original M4A and CAF audio, skip current
+or removed IDs, and retain a pre-import SQLite copy. A transaction and audio journal protect
+against partial writes. Reimporting the same archive adds nothing. Outgoing sync generations
+remain durable; accounts, device protection and app preferences are not imported.
+
+The [archive contract and acceptance checklist](record-archive.md) documents compatibility,
+resource limits, recovery locations and remaining device checks. Earlier iPhone version-1
+archives are supported; older Mac text-only exports require a future plain-text import flow.
+
+Local verification: 836 Jest tests; 195 Vitest and 14 Node tests; 229 Rust tests for direct and
+Mac App Store configurations; both TypeScript checks; desktop frontend build; SDK 55 iOS
+unsigned simulator build with ExpoDocumentPicker. Fresh iPhone → native Mac → iPhone archives
+were parsed/restored in real SQLite, including wording hashes, chronology, history, links,
+M4A and CAF metadata. Browser inspection confirmed the Settings entrance. Native picker and
+physical playback/device authentication acceptance remain pending. No packaged Mac app or
+release was produced.
+
+## Phase 6
+
+Review older-text compression, functional contrast, large text and a real phone light appearance. Retain the existing visual hierarchy.
+
+Replace the landing example with a thought that develops across time. Remove descriptions of retired Spaces and time-strand surfaces. Explain what sync carries, what remains local, and what Pro unlocks.
+
+### Phase 6 local result — 15 November 2026
+
+The light appearance now has a warm mineral field, graphite material, stone rules and subdued
+word evidence. The same palette is recorded in both repositories. Functional text uses at least
+4.5:1 against the light field; low-contrast faint ink remains decorative. The ordinary dark
+palette and baseline geometry are retained, with readable status and correction-history labels.
+
+On iPhone, Settings offers dark/light and lifted contrast. The choice is local and persistent;
+loading it never gates capture. Keyboard, status bar, Find, focus, history, sync, restore and
+other overlays follow it without remounting the capture input or discarding a draft. At system
+font scales of 1.3 and above, old moments use a wider face and no line clamp. Action targets can
+grow and wrap. Text scaling remains enabled without a maximum multiplier.
+
+On Mac, system/light/dark remain available. At 130–140% text size, older rows expand instead of
+being squeezed back into a single line. Native window appearance/background follows the main
+Record; the transparent capture panel stays transparent and refreshes its palette on opening.
+The system-light contrast override no longer darkens a system-dark window. Native window APIs
+are documented by [Tauri](https://v2.tauri.app/reference/javascript/api/namespacewindow/).
+
+The website draft is in the separate `product-web-20261115` worktree. The maintained landing
+specimen already develops a thought across two original dates, so its wording, dates and live
+elapsed intervals are preserved. Current Record copy replaces retired strand/Spaces/shared-link
+claims and explains continuity, cloud storage of words and their structure, device-local original audio and Pro for iPhone
+sync (Mac sync remains free). The in-app iPhone manifesto matches. Each app has a release-ready
+[store description draft](store-description.txt); none has been submitted or published.
+
+Verification:
+- iPhone: 127 Jest suites, 840 passed / 1 existing skipped; TypeScript; unsigned iOS Simulator
+  Debug build passed. Theme tests retain the same capture instance and multiline draft across
+  a switch, restore the choice after remount, reject late preference hydration, and cover old-text
+  colour/large-text behaviour. Physical iPhone daylight, keyboard and largest accessibility-size
+  visual acceptance remain pending.
+- Mac: 28 Vitest files / 214 tests plus 14 Node tests; TypeScript and production frontend build
+  passed. Native theme sequencing and transparent-host boundaries are mocked, not a signed app
+  acceptance result. Browser inspection checked light settings/Record, dark baseline, long links
+  and old text at 130%, with screenshots in the sibling `product-phase6-artifacts` directory.
+- Website: production build, site/API TypeScript and four share API tests passed. Browser
+  checks at 375px and 1440px found no horizontal overflow; the Cyrillic specimen and original
+  dates remain intact. The source website's existing uncommitted changes were left untouched.
+
+Screenshot impact: retain current screenshots wherever they still represent the app accurately.
+Replace only shots with retired feature claims or materially outdated UI. Showing the new light
+palette, appearance controls or Face ID is optional; a full reshoot is not a release requirement.
+This is local implementation, not a release, store submission or website deployment.
+
+### Physical iPhone check — 15 November 2026
+
+Installed a locally signed Release on the attached iPhone 15 (iOS 27.0.1), with embedded
+JavaScript and no Metro dependency. The first launch exposed UIKit's SDK 27 assertion for an
+app without scene adoption. A single-window scene delegate now creates the Record window,
+forwards lifecycle events to Expo/privacy handling, and preserves cold/warm linking paths.
+The corrected Release launches into the existing Record. No version/build bump or store
+submission was made.
+
+Before installation, the app container and app group were backed up in the owner's private
+Application Support directory. On-device schema migration 7 → 9 completed: SQLite quick_check
+passed, there were no foreign-key violations, and every original column of all 197 legacy
+entries and 198 fragments matched the pre-install backup exactly.
+
+The owner switched to light in Settings while QuickTime displayed the actual phone. Warm
+surfaces, graphite labels, separators, selected appearance and the dark status-bar content
+render correctly at the current text size. Two owner-entered test moments and their Line also
+rendered correctly. The Russian system keyboard follows light appearance; the capture field,
+caret and save action remain above it without overlap. The owner then changed dark → light,
+force-quit by swiping away the app card, and reopened: light appearance persisted. The unsaved
+capture did not survive that process restart; it currently lives only in React state. This
+does not establish draft retention across ordinary backgrounding or isolate the theme-switch
+step; those remain covered by the existing mocked tests, not this device sequence.
+
+The owner separately confirmed that Face ID works on this iPhone. This records the reported
+basic authentication path; cancellation, device-code fallback, lockout and app-switcher
+privacy have not yet been individually verified on the device.
+
+Screenshots are saved in the sibling `product-phase6-artifacts`: `iphone-light-settings.png`,
+`iphone-light-line.png` (only the two test phrases) and `iphone-light-capture-keyboard.png`
+(cropped to exclude private Record contents). Enlarged-text/daylight, ordinary backgrounding,
+widget/share deep links and the remaining authentication cases above remain pending.
+Regression verification: 127 Jest suites, 841 passed / one existing skipped;
+TypeScript and signed Release device build passed. Scene configuration is checked for drift
+between committed native and Expo configuration.
+
+### Protected Record opening feedback — 15 November 2026
+
+Following the owner's Face ID check, replace the blank native privacy cover with Chinotto's
+72pt ring and three dots. It breathes gently in opacity on the selected dark or warm-light
+surface; Reduce Motion leaves the mark still. The same mark also covers authentication and
+the first authenticated Record load in React. The loading state ends with the actual read,
+without a minimum display time or replaying the launch sequence. Capture remains available;
+cancellation returns the retry action with the unfinished wording intact.
+
+Verification: 127 Jest suites, 843 passed / one existing skipped; TypeScript and a signed
+Release device build passed. New surface tests defer the authenticated database read and
+check feedback until completion, capture while loading, no private history before completion,
+and immediate cancellation recovery. Installed on the attached iPhone; the post-install
+SQLite check passed and all 199 legacy entries / 200 fragments were unchanged from the new
+pre-install backup (including the owner's two test moments). After being asked to repeat
+Face ID and reopen the app, the owner confirmed that the transition looks good on the
+physical iPhone. Reduced-motion acceptance remains pending.
+
+## Release candidates — 15 November 2026
+
+Prepared locally: iPhone **2.2.0 (44)** and Mac **3.1.0 (build 3.1.0)**. The iPhone package,
+Expo configuration, committed native plist and all Xcode target versions agree. EAS's remote
+build counter was initially read as 43; EAS later allocated 44 for the submitted build. Mac npm/lockfile, Tauri,
+Cargo/lockfile and native plist agree. The authenticated App Store Connect check below
+confirmed the candidate numbers are unused; re-read them before uploading a binary.
+
+Current release notes and store-description drafts describe the Record. README feature lists,
+privacy/account wording and archive guidance were updated. The website labels earlier hosted
+snapshots as compatibility, rather than a current product feature. Historical release notes
+remain under their original version headings. No new public-link feature is included.
+
+A store-specific preflight caught three missing Tauri grants: archive open panel, native theme
+and native background colour. They are now present in the Mac App Store capability set, with
+regression coverage against both distribution variants.
+
+Verification at this candidate:
+- iPhone: 127 Jest suites, 843 passed / one existing skipped; TypeScript; signed Release
+  device build passed. Earlier physical iPhone checks confirmed migration, warm-light reading,
+  keyboard, basic Face ID and the updated opening transition on the same feature code.
+- Mac: 29 Vitest files / 216 tests plus the Node test suite; frontend build/TypeScript;
+  229 Rust tests in each of direct and Mac App Store configurations passed offline. The signed
+  3.1.0 App Store package later passed the bundle audit and Apple's archive validation.
+- Website: build, site/API TypeScript and four legacy-route API tests passed. Original
+  worktrees and the website owner's pre-existing edits were left untouched.
+
+Before manual public release:
+1. The `entries.record` indexing exemption and owner-only device/legacy-theme rules were
+   deployed and re-read on 15 November, with 105 rules checks passing. Exercise signed
+   iPhone ↔ Mac sync: Continue, Correct, parallel offline edits, reconnect/restart and delayed
+   removal. Local fixtures and rules evaluation do not establish two-device acceptance.
+2. Run the native Mac main-window/menu-bar and Touch ID/password smoke test. Check the store
+   archive picker, native light appearance, close/reopen and capture while reading is locked.
+3. Exercise the native archive picker and an iPhone → Mac → iPhone export/restore with audio;
+   verify duplicate handling, cancellation and recovery. SQLite round trips already pass.
+4. Finish iPhone enlarged text / Reduce Motion and protection cancellation/fallback/background
+   cases; inspect widget privacy and incoming capture/deep links after scene migration.
+5. Store copy and existing screenshots were reviewed and saved to the new Connect drafts on
+   15 November (details below). Recheck them against the final accepted binaries; refreshing
+   screenshots to showcase new appearance or features remains optional.
+6. Both signed builds remain uploaded, but the review submissions were withdrawn. Complete
+   native acceptance and resolve the verification blocker below before a new release decision.
+
+Unsaved capture after force-quit remains a documented limitation, unchanged by this candidate.
+Firestore rules and the index exemption are deployed. App Store metadata and binaries remain
+in Connect; their review submissions were withdrawn. The matching website copy remains local.
+No direct-download release tag, website deployment or public app release has been made.
+
+### App Store Connect preparation — 15 November 2026
+
+Checked both app records through the authenticated Apple API. The published versions are
+iPhone 2.1.0 (43) and Mac 3.0.3 (3.0.9); all earlier review submissions were complete. At this
+initial metadata-preparation step, no candidate binary had been uploaded or selected.
+
+- Created [iPhone 2.2.0](https://appstoreconnect.apple.com/apps/6761345307/distribution/ios/version/inflight)
+  and [Mac 3.1.0](https://appstoreconnect.apple.com/apps/6763830030/distribution/macos/version/inflight)
+  as `PREPARE_FOR_SUBMISSION`, both with `MANUAL` release. Re-read each saved draft to verify
+  its version, status and release setting.
+- Saved current en-US descriptions, What's New and App Review notes. The iPhone subtitle is
+  now “A private record of thoughts”. Existing review contacts, keywords, support/marketing URLs
+  and the iPhone standard-EULA link were retained. Review notes explain protection, archive
+  preview/restore, free local use, optional sync and account deletion.
+- Visually reviewed all six iPhone and five Mac screenshots. They show current Record capture,
+  voice, Returns, Lines, history, sync and menu-bar behavior; no retired-feature claim was found.
+  The new drafts inherited all eleven assets, with checksums matching the previous versions.
+  No screenshots were uploaded or replaced.
+- The website, support and privacy URLs returned HTTP 200. Apple Distribution and Mac Installer
+  identities are available locally. The existing Mac App Store profile matches `app.chinotto`,
+  permits Sign in with Apple and expires on 24 March 2027; no credentials were changed.
+
+Both existing TestFlight groups are internal and have access to all builds; no testers or group
+settings were changed. App privacy answers were not audited through this API pass. Existing age
+ratings were retained: iPhone 4+, Mac 17+ (the Mac declaration has `unrestrictedWebAccess=true`).
+These inherited declarations are separate from the new description and screenshot review.
+
+### App Review submission — 15 November 2026
+
+The owner explicitly requested restoring Promotional Text from earlier versions and submitting
+both apps. Copied the last non-empty text verbatim from iPhone 2.0.2 (132 characters) and Mac
+3.0.2 (155 characters); the immediately preceding releases had empty Promotional Text.
+
+- iPhone: EAS build `ce17ad73-071e-4bd4-b993-7d405b7f953a`, 2.2.0 (44), finished with store
+  signing and was uploaded through EAS Submit. Apple processed build
+  `4cc1a4c0-7c73-4faf-937e-1e4a4764d307` as valid; it is selected for version 2.2.0.
+- Mac: 3.1.0 (build 3.1.0) was packaged with the existing distribution identities and profile.
+  The bundle/installer audits and Apple archive validation passed. Apple processed delivery
+  `4dadfc33-b68d-404f-be4b-136a6dfe9587` as a valid, App Store eligible build; it is selected
+  for version 3.1.0. No direct-download DMG release was created.
+- Apple's submission validation required the previously empty iPhone `socialMedia` answer.
+  Set `socialMedia=false` and `socialMediaAgeRestricted=false`: Chinotto has no social network
+  or public posting. The other age-rating answers were retained.
+- iPhone submission `d2d3d541-a24c-44c2-957f-03adb6625d3d` entered `WAITING_FOR_REVIEW`
+  at 18:21:28 Lisbon time; Mac submission `29e0cf2f-3e3d-4b3d-ab0d-ceb0035f04e8` entered
+  `WAITING_FOR_REVIEW` at 18:21:40. Re-read both submissions and version resources to confirm
+  the queue states and `MANUAL` release. Existing screenshots were retained.
+
+Submission did not mark the remaining native acceptance cases above as tested. Both submissions
+were subsequently withdrawn; see the verification hold below.
+
+### Verification hold — 15 November 2026
+
+Both review submissions were cancelled after the owner questioned submission before complete
+native acceptance. The cancellation request had completed before the subsequent instruction
+to wait. A read-only Connect check confirmed both versions as `DEVELOPER_REJECTED`, with
+manual release retained. The owner's current instruction is verification first, then a release
+decision. Do not resubmit, publish, push, tag or deploy under this verification task.
+
+Native verification results:
+
+- Mac TestFlight 3.1.0 (build 3.1.0), installed through TestFlight with a receipt: migration
+  from installed 3.0.3 / database schema 6 to schema 8 preserved all original columns of all
+  193 entries and 225 fragments exactly; SQLite integrity is OK. A consistent database and
+  original audio backup was made before launching the new build.
+- **Release blocker: sandboxed Mac export fails for user-selected external destinations.**
+  Saving through the native panel to Downloads and a separate local QA folder both produced
+  `the export could not be written`, with no output file. Export to the app's own container
+  succeeded. The ZIP validates and contains 192 active moments and two original CAF recordings
+  (6,987,776 audio bytes). `ProtectedExport::new` stages a UUID-named sibling of the selected
+  destination; a Save panel grant for the selected file does not permit that sibling write.
+  The kernel sandbox log confirms `deny(1) file-write-create` for both UUID-named `.tmp`
+  siblings at 19:00:56 and 19:02:50 Lisbon time. No application fix or replacement binary
+  has been made.
+- Mac native archive selection, preview, picker cancellation and leaving Settings with an
+  unconfirmed preview worked. Restoring its own archive reported zero additions; all 193
+  entries, 225 fragments and five local audio files remained exactly unchanged. This tests
+  duplicate handling, not a restore with new material or cross-device audio playback.
+- Warm-light Mac Settings, including the native window appearance, were inspected at baseline
+  and 120% text with lifted contrast; no clipping or unreadable controls were observed there.
+  Text size and contrast were returned to baseline; light appearance remains selected.
+- iPhone local development-signed Release 2.2.0 (44), installed after a complete app/app-group
+  backup: SQLite integrity is OK and all original columns of all 199 entries and 200 fragments
+  remain exactly unchanged. This is not an installed TestFlight iPhone binary.
+- Owner-confirmed Mac Touch ID successfully enabled protection. Closing the main window
+  relocked it; the accessibility tree contained only locked/capture controls. Cancelling the
+  next system prompt kept the Record hidden and retained the exact synthetic unsaved draft.
+  The explicit password fallback opens the native password dialog. The owner reported that
+  macOS rejected the attempted password or Touch ID; Chinotto stayed locked with the draft
+  intact. This verifies handling of a system rejection, not successful password fallback.
+  Device protection remains enabled; it has not been silently disabled after QA.
+- USB screen viewing now works in QuickTime after the owner reconnected the phone. No screen
+  recording was started and no physical camera source was selected.
+- iPhone light Settings shows protection on. An ordinary Home-screen background/return
+  retained the exact unsaved `Проверка возврата` draft, light appearance and light keyboard,
+  while keeping history locked. Cancelling Face ID likewise retained the draft and read lock.
+  The native app-switcher snapshot showed only the warm branded cover, with no Record text.
+- **iPhone appearance defect:** after cancelling Face ID in light appearance, the status-bar
+  clock and icons became white against the warm field. This persisted across two captured
+  frames. The correct pre-authentication state has dark status-bar content. Evidence is in
+  the local sibling artifacts: `iphone-220-light-locked-draft.png` and
+  `iphone-220-faceid-cancel-light-statusbar.png`. After the owner completed Face ID again and
+  opened Settings, dark clock/icons returned. No fix has been made.
+- **Mac instruction mismatch:** Settings says `⌘⇧K` opens a small menu-bar field, but the
+  shortcut opens/focuses the main capture window. The physical key sequence produced the
+  main locked capture surface, and the native handler explicitly calls
+  `ensure_main_window_focus`. The owner separately confirmed that clicking the system
+  menu-bar icon opens the small panel. The automation surface remained bound to the main
+  window, so no visual acceptance of the panel itself is claimed.
+- A fresh physical-iPhone app-group copy has `chinotto_record_protection_v1=true` and no
+  `chinotto_widget_recent_thoughts_v1` key. This confirms cache clearing on the device;
+  an actual installed widget timeline has not been visually checked.
+- Synthetic Mac drafts were cleared without saving. The owner cleared the iPhone QA draft;
+  no Record moments were created or deleted by this verification sequence.
+
+Mac password success, complete native menu-bar panel acceptance, iPhone largest text/Reduce
+Motion/widget-timeline and incoming-route cases, cross-device archive/audio and real cloud
+round trips remain open.
+Mac sync is off, so no signed two-device cloud acceptance is claimed. Public store versions
+and the website remain unchanged.
+
+### Fixes after native verification — 15 November 2026
+
+The owner authorised fixing the three findings. Implementation commits remain local; no
+replacement store binary, review submission, release tag, push or deployment has been made.
+
+- Mac export now stages through Foundation's `NSItemReplacementDirectory`, selected for the
+  destination volume, then atomically renames the completed file while the original read
+  session is still valid. Cancellation cleans up its staging directory without touching an
+  earlier export. No broader filesystem entitlement or parent-folder grant was added.
+  [Apple's replacement-directory API](https://developer.apple.com/documentation/foundation/filemanager/url(for:in:appropriatefor:create:))
+  supplies the temporary location; the archive format and restore path are unchanged.
+- iPhone keeps the shared appearance provider as the single declarative status-bar owner.
+  The Record reapplies the chosen native style after authentication finishes, including
+  cancellation while still locked, and on ordinary foreground return. It does not remount
+  capture, unlock history or add a timed loading gate.
+- Mac Settings now distinguishes clicking the menu-bar mark for the small panel from
+  `⌘⇧K`, which opens the main capture window.
+
+Verification:
+- Mac: 232 Rust tests passed for each of direct and Mac App Store configurations, using
+  existing bundled model weights offline. The new real-OS sandbox subprocess denies writes
+  to every sibling of the selected destination, proves the old temp-file write is denied,
+  and verifies first save, replacement, cancellation and staging cleanup. A separate session
+  test rejects a stale commit while preserving the earlier file. This is native filesystem
+  verification, not acceptance of a newly installed store package or an external disk.
+- Mac frontend: 29 Vitest files / 216 tests and 14 Node tests passed; TypeScript and production
+  frontend build passed. The copy-only correction does not have a mirrored string test.
+- iPhone: 127 Jest suites / 846 passed and one existing skipped; TypeScript and the signed
+  Release device build passed. New tests cover native style reapplication after cancellation
+  in light/dark, foreground return, unchanged draft/input identity, no private reads and
+  subscription cleanup. React hooks/dependencies and cleanup were reviewed.
+- Physical iPhone recheck of the corrected build is pending device unlock and installation.
+  Existing App Store Connect binaries contain the pre-fix code and must be replaced before
+  any future resubmission. The earlier untested release gates remain open.
+
+## Later candidates
+
+Recover an unfinished capture locally after process death or force-quit. Device testing exposed
+that unsaved text currently lives only in memory; a future draft must remain distinct from a
+saved moment, stay off sync, restore without gating capture and never overwrite fresh typing.
+
+Manual joining of existing moments, recent-line re-entry, Shortcuts/Action Button capture and local OCR stay candidates after these phases. They are not prerequisites for the current improvement cycle.
+

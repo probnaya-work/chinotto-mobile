@@ -11,12 +11,12 @@
  *     focus / settings (z 4) · years (z 5) · share (z 6) · launch (z 20)
  */
 
+import { useRecordStatusBar, useRecordTheme } from './ui/appearance';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AppState,
   Platform,
   Pressable,
-  StatusBar,
   Text,
   TextInput,
   View,
@@ -30,16 +30,18 @@ import {
   type VoiceCaptureDisplayState,
 } from './ui/Edge';
 import { dismissKeyboard, useKeyboardInset } from './ui/useKeyboardInset';
-import { Focus } from './ui/Focus';
+import { Focus, type QuietScrollPosition } from './ui/Focus';
 import { Launch, launchHoldFor } from './ui/Launch';
 import { Mark } from './ui/Mark';
 import { RecordList } from './ui/RecordList';
 import { ReturnBlock } from './ui/ReturnBlock';
 import { YearsOverlay } from './ui/YearsOverlay';
-import { agency, frame, ink, LIVE, SURFACE } from './ui/tokens';
+import { frame } from './ui/tokens';
 import { hasFoundSettings, rememberFoundSettings } from './pullHint';
 import { type } from './ui/type';
 import { useRecord } from './useRecord';
+import { LockedCapture } from './ui/LockedCapture';
+import { RecordOpening } from './ui/record-opening';
 import { recordBackStep } from './back';
 import { capabilitiesFor, type PlatformCapabilities } from './platform';
 import { displayText, firstLine, type Material } from './model/material';
@@ -47,12 +49,25 @@ import { dayLabel, fmtTime, monthLabel } from './model/time';
 import type { RecordBridge } from './bridge';
 import type { AudioPlaybackPort } from './playback';
 import type { RecordStore } from './store';
+import { RecordLocked } from './privacy';
+import type { Reminders, ThoughtReminder } from './reminders';
+import { reminderDate, reminderTime } from './reminderTime';
+import { ReminderSheet, reminderDraft, type ReminderDraft } from './ui/ReminderSheet';
+
+export type ReminderOpenRequest = { id: string; source: 'notification' | 'scheduled' };
 
 export type RecordAppProps = {
   store: RecordStore;
+  privacy?: { locked: boolean; busy: boolean; error: string | null; onUnlock: () => void };
   bridge: RecordBridge;
+  reminders?: Reminders;
+  remindersChanged?: number;
+  reminderRequest?: ReminderOpenRequest | null;
+  onReminderHandled?: (request: ReminderOpenRequest, consume: boolean) => void;
+  onReturnToScheduled?: () => void;
   /** False on a warm resume, so the lockup plays once per cold start and no more. */
   coldStart: boolean;
+  returnCovered?: boolean;
   onOpenSettings: () => void;
   /** Press-to-record. Release keeps it; slide up locks it; discard leaves no moment behind. */
   voice: {
@@ -101,18 +116,107 @@ export type RecordAppProps = {
 };
 
 export function RecordApp(props: RecordAppProps) {
-  const record = useRecord(props.store, props.bridge, undefined, props.audio);
+  const { ink, SURFACE } = useRecordTheme();
+  useRecordStatusBar(props.privacy?.busy ?? false);
+
+  const [active, setActive] = useState(() => !AppState.currentState || AppState.currentState === 'active');
+  const [launchVisible, setLaunchVisible] = useState(props.coldStart);
+  const returnCovered = Boolean(props.returnCovered || !active || launchVisible || props.voice.state || props.reminderRequest);
+  const record = useRecord(props.store, props.bridge, undefined, props.audio, !props.privacy?.locked, returnCovered);
   const capabilities = props.capabilities ?? capabilitiesFor(Platform.OS);
+
+  const { reminders, reminderRequest, onReminderHandled } = props;
+  const [editor, setEditor] = useState<ReminderDraft | null>(null);
+  const [editingFromScheduled, setEditingFromScheduled] = useState(false);
+  const [scheduledReminder, setScheduledReminder] = useState<ThoughtReminder | null>(null);
+  const [reminderNotice, setReminderNotice] = useState<{ text: string; fragmentId: string | null } | null>(null);
+  const [reminderArrival, setReminderArrival] = useState<string | null>(null);
+  const focusedId = record.focus?.id;
+  const locked = props.privacy?.locked ?? false;
+  const openExisting = record.openExisting;
+  const isAuthoring = Boolean(record.editingId || record.continuing || props.voice.state);
+  const editorOpen = Boolean(editor && editor.fragmentId === focusedId);
+  const quietPosition = useRef<QuietScrollPosition>({ normal: 0, quiet: 0, restore: null });
+
+  const enterQuietReading = (offset: number) => {
+    quietPosition.current = { normal: offset, quiet: offset, restore: null };
+    if (record.playingId !== null) {
+      props.audio?.stop();
+      record.setPlayingId(null);
+    }
+    record.setQuietReading(true);
+  };
+
+  const exitQuietReading = () => {
+    quietPosition.current.restore = quietPosition.current.normal;
+    record.setQuietReading(false);
+  };
+
+  useEffect(() => {
+    if (!reminders || !focusedId || locked) return;
+    let current = true;
+    void reminders.get(focusedId).then(
+      (reminder) => { if (current) setScheduledReminder(reminder); },
+      () => { if (current) setScheduledReminder(null); },
+    );
+    return () => { current = false; };
+  }, [focusedId, locked, reminders, props.remindersChanged]);
+
+  useEffect(() => {
+    if (!reminders || !reminderRequest || !record.ready || locked || isAuthoring || editorOpen) return;
+    let current = true;
+    void (async () => {
+      try {
+        const reminder = await reminders.resolve(reminderRequest.id);
+        const thought = reminder ? await props.store.getFragment(reminder.fragmentId) : null;
+        if (!current) return;
+        const fromNotification = reminderRequest.source === 'notification';
+        const dueInApp = reminder?.delivery === 'in-app' && reminder.at <= Date.now();
+        if (thought && thought.removedAt == null && reminder) {
+          openExisting(thought);
+          setReminderNotice(null);
+          const manage = !fromNotification && !dueInApp;
+          setReminderArrival(manage ? null : thought.id);
+          if (manage) {
+            setScheduledReminder(reminder);
+            setEditingFromScheduled(true);
+            setEditor(reminderDraft(thought.id, reminder));
+          }
+        } else {
+          setReminderNotice({ text: 'this reminder is no longer available', fragmentId: null });
+        }
+        onReminderHandled?.(reminderRequest, fromNotification || dueInApp);
+      } catch (error) {
+        if (current && !(error instanceof RecordLocked)) {
+          setReminderNotice({ text: 'could not open this reminder', fragmentId: null });
+        }
+      }
+    })();
+    return () => { current = false; };
+  }, [editorOpen, isAuthoring, locked, onReminderHandled, openExisting, props.store, record.ready, reminderRequest, reminders]);
+
+
+  const closeReminder = () => {
+    setEditor(null);
+    if (!editingFromScheduled) return;
+    setEditingFromScheduled(false);
+    record.setFocusId(null);
+    props.onReturnToScheduled?.();
+  };
 
   if (props.backRef) {
     props.backRef.current = () => {
+      if (locked) return false;
+      if (editorOpen) { closeReminder(); return true; }
       const step = recordBackStep({
         yearsOpen: record.yearsOpen,
         focusOpen: Boolean(record.focus),
         correcting: record.editingId !== null,
         continuing: record.continuing,
+        quietReading: record.quietReading,
         anchored: Boolean(record.anchor),
         selected: record.selectedId !== null,
+        finding: record.finding,
       });
       switch (step) {
         case 'close-years':
@@ -121,11 +225,18 @@ export function RecordApp(props: RecordAppProps) {
         case 'cancel-correction':
           record.cancelCorrection();
           return true;
+        case 'exit-quiet-reading':
+          exitQuietReading();
+          return true;
         case 'stop-continue':
           record.stopContinue();
           return true;
         case 'close-focus':
+          setReminderArrival(null);
           record.setFocusId(null);
+          return true;
+        case 'leave-find':
+          record.leaveFind();
           return true;
         case 'clear-anchor':
           record.clearAnchor();
@@ -172,7 +283,6 @@ export function RecordApp(props: RecordAppProps) {
 
   const inputRef = useRef<TextInputType>(null);
 
-  const [launchVisible, setLaunchVisible] = useState(props.coldStart);
   const [launchLeaving, setLaunchLeaving] = useState(false);
   /** Once per mount, whatever the prop does afterwards. */
   const launchPlayed = useRef(props.coldStart);
@@ -221,6 +331,7 @@ export function RecordApp(props: RecordAppProps) {
     };
     void flush();
     const sub = AppState.addEventListener('change', (state) => {
+      setActive(state === 'active');
       if (state === 'active') void flush();
     });
     return () => {
@@ -332,6 +443,9 @@ export function RecordApp(props: RecordAppProps) {
           : undefined,
     });
   }
+  if (reminderNotice && reminderNotice.fragmentId === null) {
+    notices.push({ kind: 'reminder', text: reminderNotice.text });
+  }
   if (props.voiceIssue) {
     notices.push({ kind: 'mic', text: props.voiceIssue });
   }
@@ -377,6 +491,17 @@ export function RecordApp(props: RecordAppProps) {
     if (record.focusId) dismissKeyboard();
   }, [record.focusId]);
 
+  const removeMoment = async (moment: Material) => {
+    await record.remove(moment);
+    void reminders?.reconcile().catch(() => {});
+  };
+
+  useEffect(() => {
+    if (reminderNotice?.fragmentId !== null) return;
+    const timer = setTimeout(() => setReminderNotice(null), 8000);
+    return () => clearTimeout(timer);
+  }, [reminderNotice]);
+
   const tapMoment = useCallback(
     (m: Material, tier: number) => {
       // D0 asks once before it acts: the first tap selects and opens the verbs, the second
@@ -392,6 +517,15 @@ export function RecordApp(props: RecordAppProps) {
     [record]
   );
 
+  if (props.privacy?.locked) return <LockedCapture
+    words={record.captureInput} change={record.setCaptureInput}
+    capture={(body) => props.store.capture({ body, origin: 'mobile' })}
+    onUnlock={props.privacy.onUnlock} busy={props.privacy.busy} error={props.privacy.error}
+    onSettings={props.onOpenSettings}
+    voice={{ recording: props.voice.state, voice: capabilities.voice,
+      onStartRecording: () => void startRecording(), onStopRecording: stopRecording,
+      onCancelRecording: cancelRecording }} />;
+
   return (
     <View
       style={{ flex: 1, backgroundColor: SURFACE }}
@@ -401,8 +535,6 @@ export function RecordApp(props: RecordAppProps) {
         return false;
       }}
     >
-      <StatusBar barStyle="light-content" backgroundColor={SURFACE} />
-
       {/*
         Chinotto's own temporal orientation, and nothing else.
 
@@ -411,7 +543,7 @@ export function RecordApp(props: RecordAppProps) {
         them on screen at once. So this says only the thing iOS cannot: where in the record
         you are standing, and how to come back.
       */}
-      {record.anchor ? (
+      {record.anchor && !record.quietReading ? (
         <View
           style={{
             position: 'absolute',
@@ -444,7 +576,12 @@ export function RecordApp(props: RecordAppProps) {
         disabled={Boolean(record.focus)}
       />
 
-      <RecordList
+      {props.privacy && !record.ready ? (
+        <View style={{ flex: 1, justifyContent: 'center', paddingBottom: keyboardInset }}>
+          <RecordOpening reducedMotion={reducedMotion} />
+        </View>
+      ) : <RecordList
+        accessibilityHidden={record.quietReading}
         keyboardInset={keyboardInset}
         voice={capabilities.voice}
         edgeHeight={edgeHeight}
@@ -467,7 +604,7 @@ export function RecordApp(props: RecordAppProps) {
         }}
         onHold={record.toggleHold}
         onCorrect={record.startCorrect}
-        onRemove={record.remove}
+        onRemove={removeMoment}
         onAcceptContinuation={record.acceptOffer}
         onRejectContinuation={record.rejectOffer}
         onOpenYears={() => record.setYearsOpen(true)}
@@ -478,32 +615,18 @@ export function RecordApp(props: RecordAppProps) {
               value={record.ret}
               now={record.now}
               leaving={record.retLeaving}
-              onOpen={() => {
-                record.setFocusId(record.ret!.material.id);
-                record.closeReturn('opened');
-              }}
-              onContinue={() => {
-                record.setFocusId(record.ret!.material.id);
-                record.startContinue();
-                record.closeReturn('continued');
-              }}
-              onHold={() => {
-                // `let_go` is about the Return, not about the material: the Return has
-                // been dismissed, and the holding of what it brought back is recorded in
-                // `holds`, which is where holding lives. The outcome column has no `held`
-                // and should not grow one — both facts are already written down, in the
-                // two places that mean them.
-                void record.toggleHold(record.ret!.material);
-                record.closeReturn('let_go');
-              }}
-              onLetGo={record.letGo}
+              reducedMotion={reducedMotion}
+              onOpen={record.openReturn}
+              onLetGo={() => record.letGo(!reducedMotion)}
             />
           ) : null
         }
         renderFindEmpty={() => (
           <View style={{ gap: 16, marginBottom: 22 }}>
             <Text style={type({ size: 16, width: 90, lineHeight: 1.4, color: ink.far })}>
-              nothing with those words. close in meaning, maybe:
+              {record.guesses.length
+                ? 'nothing with those words. shared words, maybe:'
+                : 'nothing with those words.'}
             </Text>
             {record.guesses.map((g) => (
               <View key={g.material.id} style={{ flexDirection: 'row', gap: 12 }}>
@@ -522,7 +645,7 @@ export function RecordApp(props: RecordAppProps) {
                   <Text
                     style={[type({ size: 12, width: 90, color: ink.meta }), { marginTop: 2 }]}
                   >
-                    {g.when}
+                    {g.when} · {g.overlap} shared {g.overlap === 1 ? 'word' : 'words'}
                   </Text>
                 </Pressable>
                 <Text
@@ -535,9 +658,10 @@ export function RecordApp(props: RecordAppProps) {
             ))}
           </View>
         )}
-      />
+      />}
 
       <Edge
+        accessibilityHidden={record.quietReading}
         input={record.input}
         onChangeInput={record.setInput}
         onSubmit={record.submit}
@@ -549,7 +673,8 @@ export function RecordApp(props: RecordAppProps) {
         anchored={Boolean(record.anchor)}
         onClearAnchor={record.clearAnchor}
         findSummary={record.findSummaryText}
-        onToggleMeaning={record.toggleMeaning}
+        onFind={() => { record.startFind(); inputRef.current?.focus(); }}
+        onLeaveFind={() => { record.leaveFind(); inputRef.current?.focus(); }}
         recording={props.voice.state}
         voice={capabilities.voice}
         onStartRecording={() => void startRecording()}
@@ -560,7 +685,7 @@ export function RecordApp(props: RecordAppProps) {
         onHeightChange={setEdgeHeight}
       />
 
-      {record.focus ? (
+      {record.focus && (!props.privacy || record.ready) ? (
         <Focus
           focus={record.focus}
           line={record.line}
@@ -579,13 +704,38 @@ export function RecordApp(props: RecordAppProps) {
           onTogglePrevious={record.togglePrevious}
           heldIds={record.heldIds}
           onHold={record.toggleHold}
-          onRemove={record.remove}
+          onRemove={removeMoment}
+          fromReminder={record.focus.id === reminderArrival}
+          positionAtMoment={record.positionAtMoment}
+          returnContext={record.returnContext}
+          reducedMotion={reducedMotion}
+          quietReading={record.quietReading}
+          quietPosition={quietPosition}
+          onEnterQuietReading={enterQuietReading}
+          onExitQuietReading={exitQuietReading}
+          reminder={reminders ? {
+            label: scheduledReminder?.fragmentId === record.focus.id
+              ? `reminder · ${reminderDate(scheduledReminder.at)} · ${reminderTime(scheduledReminder.at)}` : 'remind me',
+            notice: reminderNotice?.fragmentId === record.focus.id ? reminderNotice.text : null,
+            onOpen: () => {
+              if (!focusedId) return;
+              const id = focusedId;
+              setReminderNotice(null);
+              void reminders.get(id).then((saved) => setEditor(reminderDraft(id, saved)), () => {
+                setReminderNotice({ text: 'could not read this reminder', fragmentId: id });
+              });
+            },
+          } : undefined}
           playingId={record.playingId}
           onPlay={(m) => void record.togglePlay(m)}
           traces={record.focusTraces}
           onOpenTrace={(m) => record.setFocusId(m.id)}
-          onConfirmTrace={(m) => void record.judgeTrace(m, 'confirmed')}
-          onRejectTrace={(m) => void record.judgeTrace(m, 'rejected')}
+          connections={record.ready && !editorOpen ? {
+            material: record.material,
+            rejections: props.store.connectionRejections,
+            dismiss: (source, related) => props.store.judgeTrace(source, related, 'connection', 'rejected'),
+            onReadRelated: record.openConnection,
+          } : undefined}
           continuing={record.continuing}
           continueText={record.continueText}
           onChangeContinueText={record.setContinueText}
@@ -593,9 +743,25 @@ export function RecordApp(props: RecordAppProps) {
           onSubmitContinue={record.submitContinue}
           onClose={() => {
             record.setFocusId(null);
+            setReminderArrival(null);
             record.stopContinue();
             record.cancelCorrection();
           }}
+        />
+      ) : null}
+
+      {editor && editorOpen && reminders ? (
+        <ReminderSheet
+          draft={editor}
+          change={setEditor}
+          reminders={reminders}
+          close={closeReminder}
+          done={(saved, notice) => {
+            setScheduledReminder(saved);
+            setReminderNotice(notice ? { text: notice, fragmentId: editor.fragmentId } : null);
+            closeReminder();
+          }}
+          openSettings={props.voice.openSystemSettings}
         />
       ) : null}
 
@@ -643,6 +809,8 @@ function PullStrip({
   /** Whether this person has yet to find settings. */
   hint: boolean;
 }) {
+  const { ink, agency, LIVE } = useRecordTheme();
+
   const [pull, setPull] = useState(0);
   const start = useRef(0);
 
@@ -705,7 +873,7 @@ function PullStrip({
         <Mark size={pulling ? 24 : 20} color={pulling ? agency.ink : LIVE} />
         {pulling || hint ? (
           <Text
-            style={type({ size: 14, width: 90, color: pulling ? ink.meta : ink.faint })}
+            style={type({ size: 14, width: 90, color: ink.meta })}
           >
             {pull > frame.pullThreshold ? 'settings' : 'pull for settings'}
           </Text>

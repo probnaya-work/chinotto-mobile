@@ -16,6 +16,7 @@
  * wait for anything.
  */
 
+import { useRecordTheme } from './appearance';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
@@ -24,10 +25,11 @@ import {
   TextInput,
   View,
   type GestureResponderEvent,
+  useWindowDimensions,
   type TextInputProps,
 } from 'react-native';
 
-import { agency, edge, ink, motion, LIVE, RECORDING_BAR_SECONDS, SURFACE } from './tokens';
+import { edge, motion, RECORDING_BAR_SECONDS } from './tokens';
 import { face, type } from './type';
 import { fmtDur } from '../model/time';
 
@@ -45,7 +47,7 @@ type MicGesture = {
 
 export type EdgeNotice =
   | { kind: 'mic'; text: string; action?: string; onAction?: () => void }
-  | { kind: 'held'; text: string }
+  | { kind: 'held' | 'reminder'; text: string }
   | { kind: 'undo'; text: string; secondsLeft: number; onUndo: () => void }
   | { kind: 'sync'; text: string; urgent: boolean; onOpen: () => void }
   | { kind: 'update'; version: string; onUpdate: () => void; onLater: () => void };
@@ -60,6 +62,8 @@ export type VoiceCaptureDisplayState = {
 
 export type EdgeProps = {
   input: string;
+  accessibilityHidden?: boolean;
+  captureOnly?: boolean;
   onChangeInput: (text: string) => void;
   onSubmit: () => void;
   inputRef?: React.RefObject<TextInput | null>;
@@ -74,9 +78,10 @@ export type EdgeProps = {
   anchored: boolean;
   onClearAnchor: () => void;
 
-  /** Find: `12 · in words`, with the reading it is doing. */
+  /** Find: the count of literal matches actually shown in the record. */
   findSummary: string | null;
-  onToggleMeaning: () => void;
+  onFind?: () => void;
+  onLeaveFind?: () => void;
 
   recording: VoiceCaptureDisplayState | null;
   /**
@@ -110,7 +115,11 @@ export type EdgeProps = {
   onHeightChange?: (height: number) => void;
 };
 
+
+
 export function Edge(props: EdgeProps) {
+  const { ink, agency, SURFACE, LIVE } = useRecordTheme();
+
   const reportedHeight = useRef(0);
   const micGesture = useRef<MicGesture | null>(null);
   const [micHeld, setMicHeld] = useState(false);
@@ -119,7 +128,7 @@ export function Edge(props: EdgeProps) {
   const micDisabled =
     props.recording?.phase === 'saving' || props.recording?.phase === 'discarding';
   const showCaret = !props.input && !props.focused && !props.anchored && !recording;
-  const showSend = Boolean(props.input) && !props.input.startsWith('/') && !props.anchored;
+  const showSend = Boolean(props.input) && (props.captureOnly || !props.input.startsWith('/')) && !props.anchored;
   const showMic = props.voice !== false && !props.input && !props.anchored;
 
   useEffect(() => {
@@ -212,6 +221,8 @@ export function Edge(props: EdgeProps) {
 
       <Animated.View
         testID="edge"
+        accessibilityElementsHidden={props.accessibilityHidden}
+        importantForAccessibility={props.accessibilityHidden ? 'no-hide-descendants' : 'auto'}
         onLayout={(e) => {
           const height = e.nativeEvent.layout.height;
           // Sub-pixel churn is not a change anybody can see, and passing it on would
@@ -243,6 +254,21 @@ export function Edge(props: EdgeProps) {
             {props.notices.map((n) => (
               <Notice key={n.kind} notice={n} />
             ))}
+          </View>
+        ) : null}
+
+        {!recording && !props.anchored && props.onFind ? (
+          <View style={{ alignItems: 'flex-end' }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={props.input.startsWith('/') ? 'back to capture' : 'Find in the Record'}
+              onPress={props.input.startsWith('/') ? props.onLeaveFind : props.onFind}
+              style={{ minHeight: 44, minWidth: 88, alignItems: 'flex-end', justifyContent: 'center' }}
+            >
+              <Text style={type({ size: 13, width: 90, color: agency.quiet })}>
+                {props.input.startsWith('/') ? '‹ capture' : 'find /'}
+              </Text>
+            </Pressable>
           </View>
         ) : null}
 
@@ -309,23 +335,11 @@ export function Edge(props: EdgeProps) {
               />
 
               {props.findSummary ? (
-                // The reading is a verb, not a label — pressing it changes what Find does —
-                // so the whole summary is the target rather than two words of 12pt type.
-                <Pressable
-                  onPress={props.onToggleMeaning}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${props.findSummary} · change the reading`}
-                  hitSlop={{ top: 14, bottom: 14, left: 10, right: 10 }}
-                  style={{ paddingBottom: 22 }}
-                >
+                <View style={{ paddingBottom: 22 }}>
                   <Text style={type({ size: 12, width: 90, color: ink.meta })} numberOfLines={1}>
-                    {props.findSummary.split(' · ')[0]}
-                    {' · '}
-                    <Text style={{ color: agency.ink, fontFamily: face(90, { weight: agency.weight }) }}>
-                      {props.findSummary.split(' · ')[1]}
-                    </Text>
+                    {props.findSummary}
                   </Text>
-                </Pressable>
+                </View>
               ) : null}
 
               {showSend ? (
@@ -446,9 +460,12 @@ const CaptureField = React.forwardRef<TextInput, TextInputProps>(function Captur
   { value, style, ...rest },
   ref
 ) {
+  const { ink, mode } = useRecordTheme();
+  const { fontScale } = useWindowDimensions();
   return (
     <TextInput
       ref={ref}
+      keyboardAppearance={mode}
       accessibilityLabel="capture"
       multiline
       // `blurOnSubmit` with `multiline` is what turns Return into submit rather than a
@@ -472,13 +489,14 @@ const CaptureField = React.forwardRef<TextInput, TextInputProps>(function Captur
           paddingVertical: FIELD_PADDING_Y,
           maxHeight: edge.fieldMaxHeight,
         },
-        value ? null : { height: FIELD_ONE_LINE },
+        value ? null : { height: Math.ceil(FIELD_ONE_LINE * fontScale) },
         style,
       ]}
       {...rest}
     />
   );
 });
+
 
 /** What is being said, over a veil so the record behind it never collides with the words. */
 function SpeakingVeil({
@@ -490,6 +508,8 @@ function SpeakingVeil({
   micHeld: boolean;
   micLocked: boolean;
 }) {
+  const { ink, SURFACE } = useRecordTheme();
+
   const status =
     recording.phase === 'starting'
       ? 'opening microphone…'
@@ -565,6 +585,8 @@ function SpeakingVeil({
  * looping bars can look healthy while the microphone is actually silent.
  */
 function SpeakingBars({ level }: { level: number }) {
+  const { LIVE } = useRecordTheme();
+
   const value = useRef(new Animated.Value(level)).current;
   const reduced = useReducedMotion();
 
@@ -612,6 +634,8 @@ function SpeakingBars({ level }: { level: number }) {
 }
 
 function Notice({ notice }: { notice: EdgeNotice }) {
+  const { ink, agency } = useRecordTheme();
+
   const base = type({ size: 13, width: 90, lineHeight: 1.4, color: ink.far });
   switch (notice.kind) {
     case 'mic':
@@ -641,6 +665,8 @@ function Notice({ notice }: { notice: EdgeNotice }) {
           {` · ${notice.secondsLeft}s`}
         </Text>
       );
+    case 'reminder':
+      return <Text accessibilityRole="alert" style={base}>{notice.text}</Text>;
     case 'held':
       // Nothing to press. The shelf is full and letting something go is the answer, which
       // is done where the held things are, not here.

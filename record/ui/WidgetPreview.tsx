@@ -9,11 +9,12 @@
  * demonstrate it: it closes settings and puts the caret in the field.
  */
 
+import { useRecordTheme } from './appearance';
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { Mark } from './Mark';
-import { agency, ink, rule, SURFACE } from './tokens';
+
 import { face, type } from './type';
 
 export type WidgetPreviewProps = {
@@ -27,6 +28,8 @@ export type WidgetPreviewProps = {
 };
 
 export function WidgetPreview(props: WidgetPreviewProps) {
+  const { ink, rule, SURFACE, veil } = useRecordTheme();
+
   return (
     <Pressable
       onPress={props.onClose}
@@ -37,7 +40,7 @@ export function WidgetPreview(props: WidgetPreviewProps) {
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: 'rgba(14,14,16,0.86)',
+        backgroundColor: veil,
         zIndex: 8,
         alignItems: 'center',
         justifyContent: 'center',
@@ -137,6 +140,8 @@ export function ForcedUpdate({
   version: string;
   onUpdate: () => void;
 }) {
+  const { ink, agency, SURFACE } = useRecordTheme();
+
   return (
     <View
       style={{
@@ -174,7 +179,8 @@ export function ForcedUpdate({
         onPress={onUpdate}
         accessibilityRole="button"
         style={{
-          height: 56,
+          minHeight: 56,
+          paddingVertical: 10,
           paddingHorizontal: 36,
           backgroundColor: agency.ink,
           alignItems: 'center',
