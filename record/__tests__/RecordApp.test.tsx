@@ -1067,7 +1067,7 @@ describe('the record surface', () => {
     // A production cold start can spend longer than the entire animation loading fonts.
     // That time must not consume the lockup's own hold once it finally becomes visible.
     await act(async () => {
-      jest.advanceTimersByTime(LAUNCH_HOLD + 1_000);
+      await jest.advanceTimersByTimeAsync(LAUNCH_HOLD + 1_000);
     });
 
     await act(async () => {
@@ -1079,20 +1079,29 @@ describe('the record surface', () => {
     expect(screen.getByLabelText('capture')).toBeTruthy();
 
     await act(async () => {
-      jest.advanceTimersByTime(LAUNCH_HOLD - 1);
+      await jest.advanceTimersByTimeAsync(LAUNCH_HOLD - 1);
     });
     expect(screen.getByLabelText('by PROBNAYA')).toBeTruthy();
 
+    // Expiring the hold updates React state; the exit effect starts after that commit.
+    // Flush it before advancing the animation's clock instead of relying on waitFor
+    // to drive another round of fake timers after a combined hold/exit jump.
     await act(async () => {
-      jest.advanceTimersByTime(1 + 520 + 50);
+      await jest.advanceTimersByTimeAsync(1);
     });
-    await waitFor(() => expect(screen.queryByText('chinotto')).toBeNull());
+    expect(screen.getByLabelText('capture')).toBeTruthy();
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(motion.launchOut + 50);
+    });
+    expect(screen.queryByText('chinotto')).toBeNull();
 
     // And it is once per launch: a later flip of the prop does not replay it.
     await act(async () => {
       view.rerender(
         <RecordApp store={h.store} bridge={h.bridge} {...defaults} coldStart={false} />
       );
+    });
+    await act(async () => {
       view.rerender(<RecordApp store={h.store} bridge={h.bridge} {...defaults} coldStart />);
       await Promise.resolve();
     });
