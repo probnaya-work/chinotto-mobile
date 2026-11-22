@@ -4,7 +4,7 @@ High-level overview of the Chinotto mobile app.
 
 ## Stack
 
-- **Expo (React Native)** — iOS and Android app shells
+- **Expo SDK 58 / React Native 0.88 / React 19.3** — iOS and Android app shells
 - **TypeScript** — UI and business logic
 - **SQLite (`expo-sqlite`)** — local storage and search
 
@@ -24,6 +24,8 @@ SQLite on your device is the source of truth for capture and search. Entry text 
 record/       Record model, storage, voice and one-surface UI
 storage/      Legacy entry repository and database boot
 sync/         Background Firestore push/pull
+widgets/      iPhone widget content and capture/thought deep links
+ios/          Committed native app, extensions and ThoughtMeaning bridge
 docs/         Public documentation
 ```
 
@@ -34,6 +36,14 @@ Maintainer-only specs and release checklists stay local (not in the public tree)
 The UI saves fragments locally first. The bridge mirrors text into legacy entries for optional sync. The durable metadata channel carries authored history and links beside that legacy text. Sync runs in the background and never blocks typing.
 
 The reader's optional connection lookup prefers visible word evidence. On iOS 17 and later it can also compare short passages through the device's Natural Language framework. The native module returns similarity scores and the reader displays the corresponding current originals. There is no model index to update during capture.
+
+## Reader actions and local notifications
+
+On iOS 26 and later, the native SwiftUI thought actions menu opens reminders, quiet reading, and connection lookup. Earlier iOS versions and Android retain the available inline actions. Both entry points use the same reader and connection model.
+
+One-shot reminders store device-local intents and reconcile them with pending iOS notifications through `record/reminders.ts`. Notification preferences can pause those reminders or retain a time for in-app use. The independent opt-in Return-alert policy in `record/returnAlerts.ts` schedules a discreet alert four hours after a newly surfaced, evidenced Return, with at least seven days between scheduled alert times. Opening, dismissing, holding, or invalidating the Return retires its alert on reconciliation.
+
+Notification responses and widget thought links use the existing reader entry path. They wait for authorized reading and for active editing or overlays to close, while preserving unfinished capture. Reminder intents and notification preferences stay out of sync and portable archives. See [privacy](privacy.md) for alert contents.
 
 ## Updates
 

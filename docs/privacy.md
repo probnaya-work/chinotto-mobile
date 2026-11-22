@@ -30,6 +30,14 @@ When you enable sync and sign in with Apple, Record text, earlier wordings and c
 
 Removing a moment erases its wording, history, relationships and derived material on this device after the eight-second undo window. If sync is on, the removal reaches your other signed-in devices; original audio stays local to the device that recorded it and is erased there. The cloud copy is marked removed, but its text and Record metadata remain in cloud storage until you delete the cloud account.
 
+## Local reminders and Return alerts
+
+iPhone reminders use local iOS notifications. The system receives an opaque identifier, a delivery time, the app name, and generic alert wording. Thought text, excerpts, and original capture dates are kept out of the alert. Discreet previews show only “Open Chinotto”; turning them off permits a generic reminder sentence.
+
+Reminder times and notification preferences belong to this device and are excluded from sync and Record archives. A chosen time can also be kept for use inside Chinotto when system alerts are unavailable or unwanted.
+
+Return alerts have a separate device-local switch, off by default. When enabled, an evidenced Return can receive a discreet local alert, with alerts spaced at least seven days apart. Opening an alert checks that the Return is still valid. Following a reminder or widget thought link waits for authentication when device protection is enabled.
+
 ## Analytics (opt-in)
 
 Analytics are **off by default**. You can turn them on or off in Settings → Privacy.
