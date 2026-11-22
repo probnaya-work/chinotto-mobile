@@ -6,7 +6,7 @@
 - pnpm 10.30.3, as declared in `package.json`
 - Xcode and CocoaPods for native iOS work on macOS, or the Android SDK for Android work
 
-The 3.0.0 source uses Expo SDK 58, React Native 0.88.1, React 19.3, TypeScript 6, and Jest 30. Exact dependencies and patches are pinned in `package.json`, `pnpm-lock.yaml`, and `pnpm-workspace.yaml`.
+The shared mobile source uses Expo SDK 58, React Native 0.88.1, React 19.3, TypeScript 6, and Jest 30. Exact dependencies and patches are pinned in `package.json`, `pnpm-lock.yaml`, and `pnpm-workspace.yaml`.
 
 ## Run
 
@@ -47,9 +47,11 @@ iOS releases ship via App Store / TestFlight (EAS or native `ios/` project in th
 
 When bumping marketing version or build number for store submission, update `app.json` and `ios/Chinotto/Info.plist` together (`CFBundleShortVersionString` and `CFBundleVersion`).
 
-The current source version is 3.0.0 with local native build 46. Production EAS builds use the remote build counter and auto-increment it (`eas.json`); read the resulting build number from EAS when recording a distribution build.
+The iOS release target is 3.0.0 with local build 46. Android is still in preparation and unpublished. The shared `package.json` and `expo.version` currently read 3.0.0; Android `versionCode` is 3. These are the current source configuration, not a declaration of an Android 3.0.0 release. Production EAS builds use remote version management and auto-increment (`eas.json`); read the resulting platform build number from EAS when recording a distribution build.
 
-Before distribution, verify notification permission and delivery, cold/warm notification and widget entry, protection cancellation/retry, meaning-model availability and quality, the native thought actions menu, large text, VoiceOver, and Reduce Motion. A merge or passing JavaScript CI does not complete native acceptance. Keep build/upload/release evidence with the [release notes](release-notes.md).
+Before Android distribution, build the native app and verify local capture, voice permission and off-network recognition, audio playback, incoming text sharing, Back navigation, and the shared reader at large text sizes.
+
+Before iOS distribution, verify notification permission and delivery, cold/warm notification and widget entry, protection cancellation/retry, meaning-model availability and quality, the native thought actions menu, large text, VoiceOver, and Reduce Motion. A merge or passing JavaScript CI does not complete native acceptance. Keep build/upload/release evidence with the [release notes](release-notes.md).
 
 ## Contributing
 

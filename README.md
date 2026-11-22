@@ -15,7 +15,7 @@ Structure can come later — when you revisit on desktop.
 Local-first. Capture and local reading work offline.
 Optional sync with Chinotto desktop on iOS (Chinotto Pro).
 
-The 3.0.0 source is integrated into `main`. See [release notes](docs/release-notes.md) for its scope and verification status.
+The iOS 3.0.0 source is integrated into `main`. Android is in preparation and has not been published. See [release notes](docs/release-notes.md) for its scope and verification status.
 
 ## Download (iOS)
 
@@ -37,6 +37,8 @@ The 3.0.0 source is integrated into `main`. See [release notes](docs/release-not
 - Optional Face ID or device-code protection for reading, with capture still available
 - Dark or warm light appearance, system text size and lifted contrast
 - Optional sync of words, dates, Lines and wording history with Chinotto on Mac (iOS)
+
+The upcoming Android app receives the shared Record and runtime improvements alongside its existing local capture and on-device voice. Its preparation is tracked separately from the iOS release in the [release notes](docs/release-notes.md#android--in-preparation-unpublished).
 
 ## Data ownership
 
