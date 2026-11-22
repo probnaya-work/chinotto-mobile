@@ -17,11 +17,17 @@ describe('parseWidgetDeepLink', () => {
       type: 'thought',
       thoughtId: 'abc-123',
     });
+    expect(parseWidgetDeepLink('chinotto://thought/fragment%2Fid')).toEqual({
+      type: 'thought',
+      thoughtId: 'fragment/id',
+    });
   });
 
   it('returns null for invalid urls', () => {
     expect(parseWidgetDeepLink('https://example.com')).toBeNull();
     expect(parseWidgetDeepLink('chinotto://thought/')).toBeNull();
+    expect(parseWidgetDeepLink('chinotto://thought/one/two')).toBeNull();
+    expect(parseWidgetDeepLink('chinotto://thought/%C0')).toBeNull();
     expect(parseWidgetDeepLink(null)).toBeNull();
   });
 });
