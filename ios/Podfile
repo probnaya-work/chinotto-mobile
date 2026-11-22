@@ -13,10 +13,13 @@ def ccache_enabled?(podfile_properties)
 end
 
 ENV['EX_DEV_CLIENT_NETWORK_INSPECTOR'] ||= podfile_properties['EX_DEV_CLIENT_NETWORK_INSPECTOR']
-ENV['RCT_USE_RN_DEP'] ||= '1' if podfile_properties['ios.buildReactNativeFromSource'] != 'true'
-ENV['RCT_USE_PREBUILT_RNCORE'] ||= '1' if podfile_properties['ios.buildReactNativeFromSource'] != 'true'
-ENV['RCT_HERMES_V1_ENABLED'] ||= '1' if podfile_properties['expo.useHermesV1'] == 'true'
-platform :ios, podfile_properties['ios.deploymentTarget'] || '15.1'
+ENV['RCT_USE_RN_DEP'] ||= podfile_properties['ios.buildReactNativeFromSource'] == 'true' ? '0' : '1'
+ENV['RCT_USE_PREBUILT_RNCORE'] ||= podfile_properties['ios.buildReactNativeFromSource'] == 'true' ? '0' : '1'
+ENV['RCT_HERMES_V1_ENABLED'] ||= '0' if podfile_properties['expo.useHermesV1'] == 'false'
+ENV['EXPO_USE_PRECOMPILED_MODULES'] = '0' if podfile_properties['EXPO_USE_PRECOMPILED_MODULES'] == 'false'
+ENV['EXPO_USE_PRECOMPILED_MODULES'] ||= '1'
+minimum_ios = podfile_properties['ios.deploymentTarget'] || '16.4'
+platform :ios, minimum_ios
 
 prepare_react_native_project!
 
@@ -89,11 +92,8 @@ target 'Chinotto' do
       end
     end
 
-    # Xcode 27 refuses to build a target whose deployment target is below iOS 15.0, and
-    # several pods still declare 9.0-13.4 — usually on their generated resource-bundle
-    # targets rather than on the pod itself. Raise anything below the project's own floor;
-    # never lower anything that is already above it.
-    minimum = Gem::Version.new(podfile_properties['ios.deploymentTarget'] || '15.1')
+    # Raise older generated pod targets to the app's deployment floor.
+    minimum = Gem::Version.new(minimum_ios)
     installer.pods_project.targets.each do |target|
       target.build_configurations.each do |config|
         current = config.build_settings['IPHONEOS_DEPLOYMENT_TARGET']

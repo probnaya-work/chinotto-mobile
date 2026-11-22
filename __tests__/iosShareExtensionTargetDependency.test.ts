@@ -18,4 +18,17 @@ describe('iOS share extension and EAS target graph', () => {
       /\/\* Chinotto \*\/ = \{[\s\S]*?dependencies = \(\s*8DB5384FEA3B4F88B968BFC5 \/\* PBXTargetDependency \*\/,\s*2B3C4D5E6F70819293A4B5C6 \/\* PBXTargetDependency \*\/,\s*\);[\s\S]*?productType = "com\.apple\.product-type\.application";/
     );
   });
+
+  it('resolves shared Swift sources through the installed expo-sharing package', () => {
+    const iosPath = path.join(__dirname, '..', 'ios');
+    const pbx = fs.readFileSync(path.join(iosPath, 'Chinotto.xcodeproj', 'project.pbxproj'), 'utf8');
+    const sharedGroup = path.join(iosPath, 'expo-sharing-extension', 'shared');
+
+    for (const filename of ['Constants.swift', 'ShareProtocol.swift', 'ShareIntoFileStore.swift']) {
+      const relativePath = `../../../node_modules/expo-sharing/ios/shared/${filename}`;
+      expect(pbx).toContain(`path = "${relativePath}"`);
+      expect(pbx).toContain(`/* ${filename} in Sources */`);
+      expect(fs.existsSync(path.resolve(sharedGroup, relativePath))).toBe(true);
+    }
+  });
 });

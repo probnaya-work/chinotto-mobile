@@ -29,7 +29,7 @@ function loadConfig(googleServicesPresent: boolean): ExpoConfig {
     let config: ExpoConfig | undefined;
     jest.isolateModules(() => {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
-      config = require('../app.config.js')().expo;
+      config = require('../app.config.js')({ config: require('../app.json').expo });
     });
     return config!;
   } finally {

@@ -317,7 +317,7 @@ function RecordRootContent() {
   /** Voice capture can arrive before the Record mounts. */
   const [voiceOnOpen, setVoiceOnOpen] = useState(false);
   useEffect(() => {
-    const handle = (url: string | null) => {
+    const handle = (url: string | null | undefined) => {
       const action = parseWidgetDeepLink(url);
       if (action?.type === 'capture' && action.mode === 'voice') setVoiceOnOpen(true);
     };

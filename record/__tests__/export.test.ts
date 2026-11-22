@@ -50,7 +50,7 @@ jest.mock('expo-file-system', () => {
       const uri = this.uri;
       let offset = 0;
       return {
-        writeBytes(chunk: Uint8Array) {
+        writeBytesSync(chunk: Uint8Array) {
           const old = files.get(uri) ?? new Uint8Array();
           const next = new Uint8Array(old.length + chunk.length);
           next.set(old);
@@ -58,7 +58,7 @@ jest.mock('expo-file-system', () => {
           files.set(uri, next);
           offset += chunk.length;
         },
-        readBytes(length: number) {
+        readBytesSync(length: number) {
           onRead?.();
           const result = (files.get(uri) ?? new Uint8Array()).slice(offset, offset + length);
           offset += result.length;

@@ -27,12 +27,12 @@ jest.mock('expo-file-system', () => {
     create() { fs.writeFileSync(this.uri, ''); }
     write(text: string) { fs.writeFileSync(this.uri, text); }
     text() { return Promise.resolve(fs.readFileSync(this.uri, 'utf8')); }
-    move(target: File) { fs.renameSync(this.uri, target.uri); this.uri = target.uri; }
+    moveSync(target: File) { fs.renameSync(this.uri, target.uri); this.uri = target.uri; }
     copy(target: File) { fs.copyFileSync(this.uri, target.uri, fs.constants.COPYFILE_EXCL); }
     delete() { fs.unlinkSync(this.uri); }
     open() {
       const fd = fs.openSync(this.uri, 'r+');
-      return { offset: 0, readBytes(length: number) { const bytes = Buffer.alloc(length); const n = fs.readSync(fd, bytes, 0, length, this.offset); this.offset += n; return new Uint8Array(bytes.subarray(0, n)); }, writeBytes(bytes: Uint8Array) { fs.writeSync(fd, bytes, 0, bytes.length, this.offset); this.offset += bytes.length; }, close() { fs.closeSync(fd); } };
+      return { offset: 0, readBytesSync(length: number) { const bytes = Buffer.alloc(length); const n = fs.readSync(fd, bytes, 0, length, this.offset); this.offset += n; return new Uint8Array(bytes.subarray(0, n)); }, writeBytesSync(bytes: Uint8Array) { fs.writeSync(fd, bytes, 0, bytes.length, this.offset); this.offset += bytes.length; }, close() { fs.closeSync(fd); } };
     }
   }
   class Directory {
@@ -56,7 +56,7 @@ const moment = { version: 1, id: 'voice', body: 'original voice', captured_at: '
 function archive() {
   const file = new File(Paths.cache, 'selected.zip'); file.create();
   const zip = zipSync({ 'chinotto-record/record.jsonl': strToU8(JSON.stringify(moment)), 'chinotto-record/audio/voice.caf': strToU8('audio') });
-  const h = file.open(); h.writeBytes(zip); h.close(); return file.uri;
+  const h = file.open(); h.writeBytesSync(zip); h.close(); return file.uri;
 }
 it('stages without live writes, makes a recoverable SQLite copy and installs CAF once', async () => {
   const db = openTestDb(); await migrate(db);

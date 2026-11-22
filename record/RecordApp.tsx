@@ -14,13 +14,14 @@
 import { useRecordStatusBar, useRecordTheme } from './ui/appearance';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Animated,
   AppState,
   Platform,
   Pressable,
   Text,
   TextInput,
   View,
-  type TextInput as TextInputType,
+  type TextInputInstance,
 } from 'react-native';
 
 import {
@@ -315,7 +316,7 @@ export function RecordApp(props: RecordAppProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [changedAt]);
 
-  const inputRef = useRef<TextInputType>(null);
+  const inputRef = useRef<TextInputInstance>(null);
 
   const [launchLeaving, setLaunchLeaving] = useState(false);
   /** Once per mount, whatever the prop does afterwards. */
@@ -611,9 +612,9 @@ export function RecordApp(props: RecordAppProps) {
       />
 
       {props.privacy && !record.ready ? (
-        <View style={{ flex: 1, justifyContent: 'center', paddingBottom: keyboardInset }}>
+        <Animated.View style={{ flex: 1, justifyContent: 'center', paddingBottom: keyboardInset }}>
           <RecordOpening reducedMotion={reducedMotion} />
-        </View>
+        </Animated.View>
       ) : <RecordList
         accessibilityHidden={record.quietReading}
         keyboardInset={keyboardInset}

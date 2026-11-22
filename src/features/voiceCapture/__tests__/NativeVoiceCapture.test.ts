@@ -1,7 +1,8 @@
 describe('NativeVoiceCapture', () => {
   afterEach(() => {
-    jest.resetModules();
     jest.dontMock('../voiceNative');
+    jest.dontMock('react-native');
+    jest.resetModules();
   });
 
   it('reports unsupported off iOS or without native module', () => {
