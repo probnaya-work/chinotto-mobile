@@ -118,3 +118,7 @@ const ANDROID: PlatformCapabilities = {
 export function capabilitiesFor(os: string): PlatformCapabilities {
   return os === 'android' ? ANDROID : IOS;
 }
+
+export function supportsLiquidGlassMenu(os: string, version: string | number) {
+  return os === 'ios' && Number.parseInt(String(version), 10) >= 26;
+}

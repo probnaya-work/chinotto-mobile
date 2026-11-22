@@ -8,7 +8,7 @@
  */
 
 import React from 'react';
-import { AppState, Appearance, Dimensions, ScrollView, StatusBar, StyleSheet } from 'react-native';
+import { AppState, Appearance, Dimensions, Platform, ScrollView, StatusBar, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
@@ -672,7 +672,7 @@ describe('the record surface', () => {
     h.db.close();
   });
 
-  it('shows exact dated originals when the local meaning model suggests a pair', async () => {
+  it.each([18, 26])('shows exact dated originals from meaning search on iOS %s', async (iosVersion) => {
     const h = harness();
     await migrate(h.db);
     const earlier = await h.store.capture({
@@ -680,18 +680,22 @@ describe('the record surface', () => {
     });
     const recent = await h.store.capture({ body: 'I keep filling every pause with a screen.' });
     jest.mocked(scoreMeaning).mockClear().mockResolvedValueOnce({ scores: [0.94] });
+    const platformVersion = jest.spyOn(Platform, 'Version', 'get').mockReturnValue(`${iosVersion}.0`);
     const view = await mount(h);
     try {
       await act(async () => { fireEvent.press(screen.getByText(recent.body)); });
       await act(async () => { fireEvent.press(screen.getByText(recent.body)); });
       expect(scoreMeaning).not.toHaveBeenCalled();
+      if (iosVersion >= 26) {
+        fireEvent.press(screen.getByRole('button', { name: 'thought actions' }));
+      }
       await act(async () => { fireEvent.press(screen.getByRole('button', { name: 'look for a connection' })); });
       expect(screen.getByText('a possible similarity in meaning · compared on this device')).toBeTruthy();
       const passage = screen.getByRole('button', { name: /another thought .*Silence feels harder/ });
       expect(passage.props.accessibilityLabel).toContain(fullDate(earlier.at));
       await act(async () => { fireEvent.press(passage); });
       expect(screen.getByText(`a fragment · ${fullDate(earlier.at)}`)).toBeTruthy();
-    } finally { view.unmount(); h.db.close(); }
+    } finally { view.unmount(); platformVersion.mockRestore(); h.db.close(); }
   });
 
   it('waits for device unlock before opening a thought from its widget link', async () => {
@@ -1405,6 +1409,93 @@ describe('protected Record', () => {
   });
 });
 
+
+describe('thought actions menu', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(T0);
+    jest.spyOn(Platform, 'Version', 'get').mockReturnValue('26.0');
+  });
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.useRealTimers();
+  });
+
+  it('uses one menu to schedule and edit a reminder, enter quiet reading, and look for a connection', async () => {
+    const h = harness();
+    await migrate(h.db);
+    await h.store.capture({ body: 'sorting is procrastination with a clear conscience' });
+    const thought = await h.store.capture({ body: 'conscience, procrastination, sorting: three words together' });
+    const ios = testReminderNotifications('granted');
+    const reminders = createReminders(h.db, ios.notifications, () => 'menu-reminder');
+    const view = await mount(h, { reminders });
+    const menu = () => screen.getByRole('button', { name: 'thought actions' });
+
+    expect(screen.queryByRole('button', { name: 'thought actions' })).toBeNull();
+    await act(async () => { fireEvent.press(screen.getByText(thought.body)); });
+    await act(async () => { fireEvent.press(screen.getByText(thought.body)); });
+    for (const name of ['remind me', 'quiet reading', 'look for a connection']) {
+      expect(screen.queryByRole('button', { name })).toBeNull();
+    }
+
+    fireEvent.press(menu());
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: 'remind me' })); });
+    expect(screen.queryByRole('button', { name: 'thought actions' })).toBeNull();
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: 'set reminder' })); });
+    expect(await reminders.get(thought.id)).not.toBeNull();
+    fireEvent.press(menu());
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: /^reminder · / })); });
+    expect(screen.getByRole('button', { name: /postpone one day/ })).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'close' }));
+
+    fireEvent.press(menu());
+    fireEvent.press(screen.getByRole('button', { name: 'quiet reading' }));
+    expect(screen.queryByRole('button', { name: 'thought actions' })).toBeNull();
+    fireEvent.press(screen.getByRole('button', { name: 'exit quiet reading' }));
+
+    fireEvent.press(menu());
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: 'look for a connection' })); });
+    expect(screen.getByRole('button', { name: /^another thought .*clear conscience/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'look for a connection' })).toBeNull();
+
+    view.unmount();
+    h.db.close();
+  });
+
+  it('keeps the menu reachable at large text sizes and puts it away while writing', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const thought = await h.store.capture({ body: 'letting the morning stay quiet' });
+    const initial = { window: Dimensions.get('window'), screen: Dimensions.get('screen') };
+    const setFontScale = (fontScale: number) => Dimensions.set({
+      window: { ...initial.window, fontScale },
+      screen: { ...initial.screen, fontScale },
+    });
+    setFontScale(3.5);
+    const view = await mount(h);
+    try {
+      await act(async () => { fireEvent.press(screen.getByText(thought.body)); });
+      await act(async () => { fireEvent.press(screen.getByText(thought.body)); });
+      const header = () => StyleSheet.flatten(screen.getByTestId('thought-reader-header').props.style);
+      const menu = () => screen.getByRole('button', { name: 'thought actions' });
+      expect(header().flexDirection).toBe('column');
+      fireEvent.press(menu());
+      expect(screen.getByRole('button', { name: 'quiet reading' })).toBeTruthy();
+
+      await act(async () => { setFontScale(1); });
+      expect(header().flexDirection).toBe('row');
+      fireEvent.press(menu());
+      expect(screen.getByRole('button', { name: 'quiet reading' })).toBeTruthy();
+      fireEvent.press(screen.getByRole('button', { name: 'continue' }));
+      expect(screen.getByLabelText('a new moment, dated now')).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'thought actions' })).toBeNull();
+    } finally {
+      view.unmount();
+      Dimensions.set(initial);
+      h.db.close();
+    }
+  });
+});
 
 describe('quiet reading', () => {
   beforeEach(() => { jest.useFakeTimers(); jest.setSystemTime(T0); });
