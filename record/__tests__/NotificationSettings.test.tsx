@@ -7,6 +7,7 @@ import { testReminderNotifications } from '../__testsupport__/reminderNotificati
 import { migrate } from '../migrate';
 import { protectRecordStore } from '../privacy';
 import { createReminders } from '../reminders';
+import { createReturnAlerts } from '../returnAlerts';
 import { createRecordStore } from '../store';
 import { NotificationSettings, ScheduledReminders } from '../ui/NotificationSettings';
 
@@ -22,7 +23,7 @@ async function setup() {
   const ios = testReminderNotifications();
   const store = createRecordStore(db, { newId });
   const reminders = createReminders(db, ios.notifications, newId);
-  return { db, store, reminders, ...ios };
+  return { db, store, reminders, returnAlerts: createReturnAlerts(db, ios.notifications, newId), ...ios };
 }
 
 it('separates the iPhone permission from the pause and preview choices', async () => {
@@ -49,6 +50,24 @@ it('separates the iPhone permission from the pause and preview choices', async (
     fireEvent.press(screen.getByRole('button', { name: /scheduled reminders/ }));
     expect(openScheduled).toHaveBeenCalledTimes(1);
     expect(h.notifications.requestPermission).not.toHaveBeenCalled();
+  } finally { view.unmount(); h.db.close(); }
+});
+
+it('offers Return alerts separately and explains how iPhone Focus relates to quiet reading', async () => {
+  const h = await setup();
+  h.setPermission('ask');
+  const view = render(<NotificationSettings reminders={h.reminders} returnAlerts={h.returnAlerts}
+    openSystemSettings={() => {}} openScheduled={() => {}} />);
+  try {
+    const toggle = await screen.findByRole('switch', { name: 'Return alerts' });
+    expect(toggle.props.accessibilityState.checked).toBe(false);
+    expect(h.notifications.requestPermission).not.toHaveBeenCalled();
+    await act(async () => { fireEvent.press(toggle); });
+    expect(h.notifications.requestPermission).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('switch', { name: 'Return alerts' }).props.accessibilityState.checked).toBe(true);
+    expect(screen.getByRole('switch', { name: 'reminder alerts' }).props.accessibilityState.checked).toBe(true);
+    expect(screen.getByText(/quiet reading puts secondary controls away/)).toBeTruthy();
+    expect(screen.getByText(/Add Schedule › App › Chinotto/)).toBeTruthy();
   } finally { view.unmount(); h.db.close(); }
 });
 

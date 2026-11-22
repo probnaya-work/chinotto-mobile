@@ -1,3 +1,5 @@
+const { withMod } = require('expo/config-plugins');
+
 /**
  * After expo-splash-screen builds SplashScreen.storyboard XML, the splash UIImageView only has
  * centerX/centerY. Without width/height, Auto Layout can relayout when the bitmap loads (intrinsic
@@ -11,18 +13,9 @@
  * `expo-splash-screen` plugin `imageWidth` in app.json.
  */
 function withIosSplashLogoFixedConstraints(config, props = {}) {
-  const path = require('path');
   const imageWidth = props.imageWidth ?? 120;
 
-  // pnpm does not hoist @expo/prebuild-config to the project root; resolve it from expo's graph.
-  const expoRoot = path.dirname(require.resolve('expo/package.json'));
-  const storyboardPluginPath = require.resolve(
-    '@expo/prebuild-config/build/plugins/unversioned/expo-splash-screen/withIosSplashScreenStoryboard',
-    { paths: [expoRoot] }
-  );
-  const { withIosSplashScreenStoryboard } = require(storyboardPluginPath);
-
-  return withIosSplashScreenStoryboard(config, (cfg) => {
+  const setFixedConstraints = (cfg) => {
     const xml = cfg.modResults;
     const mainView = xml?.document?.scenes?.[0]?.scene?.[0]?.objects?.[0]?.viewController?.[0]?.view?.[0];
     if (!mainView?.constraints?.[0]?.constraint) {
@@ -52,7 +45,8 @@ function withIosSplashLogoFixedConstraints(config, props = {}) {
       }
     );
     return cfg;
-  });
+  };
+  return withMod(config, { platform: 'ios', mod: 'splashScreenStoryboard', action: setFixedConstraints });
 }
 
 module.exports = withIosSplashLogoFixedConstraints;

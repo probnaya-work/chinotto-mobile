@@ -52,5 +52,5 @@ export function AppearanceProvider({ children }: { children: React.ReactNode }) 
     return { choice, contrast, error, palette: paletteFor(choice, contrast),
       choose: (next: Appearance) => persist(next, contrast), setContrast: (next: boolean) => persist(choice, next) };
   }, [choice, contrast, error]);
-  return <Context.Provider value={value}><StatusBar barStyle={choice === 'light' ? 'dark-content' : 'light-content'} backgroundColor={value.palette.SURFACE} />{children}</Context.Provider>;
+  return <Context.Provider value={value}><StatusBar barStyle={choice === 'light' ? 'dark-content' : 'light-content'} />{children}</Context.Provider>;
 }

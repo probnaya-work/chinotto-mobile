@@ -1,5 +1,3 @@
-import type { ViewToken } from 'react-native';
-
 import {
   scrollFocusFromViewable,
   scrollFocusMotionTarget,
@@ -17,7 +15,7 @@ const moment = (key: string): Row =>
   }) as Row;
 
 const token = (item: Row, index: number, isViewable = true) =>
-  ({ item, index, isViewable }) as ViewToken<Row>;
+  ({ item, index, isViewable });
 
 describe('scrollFocusFromViewable', () => {
   it('focuses the middle visible thought and moves its visual neighbours apart', () => {

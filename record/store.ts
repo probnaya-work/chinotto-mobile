@@ -557,13 +557,14 @@ export function createRecordStore(db: RecordDb, options: StoreOptions = {}) {
   async function closeReturn(
     returnId: number,
     outcome: 'opened' | 'continued' | 'let_go' | 'expired'
-  ): Promise<void> {
-    await db.runAsync(
-      'UPDATE returns SET outcome = ?, outcome_at = ? WHERE id = ?',
+  ): Promise<boolean> {
+    const result = await db.runAsync(
+      'UPDATE returns SET outcome = ?, outcome_at = ? WHERE id = ? AND outcome IS NULL',
       outcome,
       iso(now()),
       returnId
     );
+    return result.changes > 0;
   }
 
   async function returnStatus(): Promise<{ open: SavedReturn | null; lastAt: number | null }> {

@@ -1,5 +1,10 @@
 import * as Notifications from 'expo-notifications';
 import { REMINDER_PREFIX, type ReminderNotifications, type ReminderPermission } from './reminders';
+import { RETURN_ALERT_PREFIX } from './returnAlerts';
+
+function isChinottoAlert(id: string): boolean {
+  return id.startsWith(REMINDER_PREFIX) || id.startsWith(RETURN_ALERT_PREFIX);
+}
 
 function status(value: Notifications.NotificationPermissionsStatus): ReminderPermission {
   if (value.ios?.status === Notifications.IosAuthorizationStatus.AUTHORIZED && value.ios.allowsAlert) {
@@ -11,7 +16,7 @@ function status(value: Notifications.NotificationPermissionsStatus): ReminderPer
 
 function reminderId(response: Notifications.NotificationResponse | null) {
   const id = response?.notification.request.identifier;
-  return response?.actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER && id?.startsWith(REMINDER_PREFIX)
+  return response?.actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER && id && isChinottoAlert(id)
     ? id : null;
 }
 
@@ -23,7 +28,7 @@ export const nativeReminders: ReminderNotifications = {
     ios: { allowAlert: true, allowBadge: false, allowSound: false },
   })),
   pending: async () => (await Notifications.getAllScheduledNotificationsAsync())
-    .filter(({ identifier }) => identifier.startsWith(REMINDER_PREFIX))
+    .filter(({ identifier }) => isChinottoAlert(identifier))
     .map(({ identifier, content }) => ({ id: identifier, discreet: content.body === DISCREET_COPY })),
   async schedule({ id, at, discreet }) {
     await Notifications.scheduleNotificationAsync({

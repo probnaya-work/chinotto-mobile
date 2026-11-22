@@ -20,7 +20,7 @@ import {
   Text,
   View,
   type ListRenderItemInfo,
-  type ViewToken,
+  type ListViewToken,
 } from 'react-native';
 
 import { HeldRow, MomentRow } from './MomentRow';
@@ -93,6 +93,8 @@ export type ScrollFocus = {
   belowKey: string | null;
 };
 
+type VisibleRow = Pick<ListViewToken, 'index' | 'isViewable'> & { item: Row };
+
 const noScrollFocus: ScrollFocus = {
   activeKey: null,
   aboveKey: null,
@@ -106,7 +108,7 @@ const noScrollFocus: ScrollFocus = {
  * index is below it. Labels and utility rows never take focus away from a thought.
  */
 export function scrollFocusFromViewable(
-  viewableItems: ReadonlyArray<Pick<ViewToken<Row>, 'index' | 'isViewable' | 'item'>>
+  viewableItems: ReadonlyArray<VisibleRow>
 ): ScrollFocus {
   const moments = viewableItems
     .filter(
@@ -210,7 +212,7 @@ export function RecordList(props: RecordListProps) {
   const [scrollFocus, setScrollFocus] = useState<ScrollFocus>(noScrollFocus);
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 10 }).current;
   const onViewableItemsChanged = useRef(
-    ({ viewableItems }: { viewableItems: ViewToken<Row>[] }) => {
+    ({ viewableItems }: { viewableItems: VisibleRow[] }) => {
       const next = scrollFocusFromViewable(viewableItems);
       setScrollFocus((current) =>
         current.activeKey === next.activeKey &&

@@ -33,6 +33,8 @@ Maintainer-only specs and release checklists stay local (not in the public tree)
 
 The UI saves fragments locally first. The bridge mirrors text into legacy entries for optional sync. The durable metadata channel carries authored history and links beside that legacy text. Sync runs in the background and never blocks typing.
 
+The reader's optional connection lookup prefers visible word evidence. On iOS 17 and later it can also compare short passages through the device's Natural Language framework. The native module returns similarity scores and the reader displays the corresponding current originals. There is no model index to update during capture.
+
 ## Updates
 
 Production builds check the App Store for updates. An in-app update screen may appear when a newer version is available (Firebase Remote Config policy).

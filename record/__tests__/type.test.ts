@@ -55,6 +55,13 @@ describe('the type ladder', () => {
     expect(d0.letterSpacing).toBeCloseTo(-0.21);
   });
 
+  it('leaves omitted typography properties available to composed styles', () => {
+    expect(type({ size: 21, width: 100 })).toStrictEqual({
+      fontFamily: 'Archivo-400-100',
+      fontSize: 21,
+    });
+  });
+
   it('narrows and fades in lockstep as material recedes', () => {
     const widths = [0, 1, 2, 3, 4].map((t) => TIERS[t as 0].width);
     expect(widths).toEqual([100, 88, 80, 76, 76]);

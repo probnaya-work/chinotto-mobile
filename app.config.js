@@ -3,7 +3,7 @@
 const path = require('path');
 
 // Load `.env` for native config (`extra`) — Metro may still inline `EXPO_PUBLIC_*` separately; this keeps paywall flag reliable after `expo run:ios` / prebuild.
-require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+require('dotenv').config({ path: path.resolve(__dirname, '.env'), quiet: true });
 
 const {
   assertEasPaywallHasProductionRevenueCatIosKey,
@@ -21,11 +21,9 @@ function hasAndroidGoogleServicesFile(expo) {
   return file != null && fs.existsSync(path.resolve(__dirname, file));
 }
 
-/** @type {import('expo/config').ConfigContext} */
-module.exports = () => {
+/** @param {import('expo/config').ConfigContext} context */
+module.exports = ({ config: expo }) => {
   assertEasPaywallHasProductionRevenueCatIosKey();
-
-  const { expo } = require('./app.json');
 
   const includeExperimentalIosHomeWidget = process.env.EXPO_PUBLIC_EXPERIMENTAL_IOS_HOME_WIDGET === '1';
 
@@ -33,7 +31,7 @@ module.exports = () => {
   // with no native Firebase app rather than not at all — see `plugins/withFirebaseAppIosOnly.js`.
   const androidFirebaseConfigured = hasAndroidGoogleServicesFile(expo);
 
-  const plugins = expo.plugins
+  const plugins = (expo.plugins ?? [])
     .filter((entry) => {
       const id = Array.isArray(entry) ? entry[0] : entry;
       if (id === 'expo-widgets' && !includeExperimentalIosHomeWidget) {
@@ -47,19 +45,17 @@ module.exports = () => {
         : entry
     );
 
-  const { googleServicesFile: _unused, ...androidWithoutFirebase } = expo.android;
+  const { googleServicesFile: _unused, ...androidWithoutFirebase } = expo.android ?? {};
   const android = androidFirebaseConfigured ? expo.android : androidWithoutFirebase;
 
   return {
-    expo: {
-      ...expo,
-      android,
-      plugins,
-      extra: {
-        ...(expo.extra ?? {}),
-        /** Mirrors `EXPO_PUBLIC_ENABLE_PAYWALL` at build time — read in `isPaywallEnabled()` via `expo-constants`. */
-        enableSyncPaywall: parseEnableSyncPaywall(process.env.EXPO_PUBLIC_ENABLE_PAYWALL),
-      },
+    ...expo,
+    android,
+    plugins,
+    extra: {
+      ...(expo.extra ?? {}),
+      /** Mirrors `EXPO_PUBLIC_ENABLE_PAYWALL` at build time — read in `isPaywallEnabled()` via `expo-constants`. */
+      enableSyncPaywall: parseEnableSyncPaywall(process.env.EXPO_PUBLIC_ENABLE_PAYWALL),
     },
   };
 };

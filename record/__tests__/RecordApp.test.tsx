@@ -20,10 +20,14 @@ import { RecordApp } from '../RecordApp';
 import { protectRecordStore } from '../privacy';
 import { AppearanceProvider } from '../ui/appearance';
 import { LAUNCH_HOLD } from '../ui/Launch';
+import { motion } from '../ui/tokens';
 import { createReminders } from '../reminders';
 import { fullDate, MS_DAY } from '../model/time';
 import { postponeReminder, reminderPresets, reminderTime } from '../reminderTime';
 import { testReminderNotifications } from '../__testsupport__/reminderNotifications';
+import { scoreMeaning } from '../nativeConnections';
+
+jest.mock('../nativeConnections', () => ({ scoreMeaning: jest.fn(async () => null) }));
 
 const T0 = new Date('2026-09-19T17:10:00.000Z').getTime();
 
@@ -74,7 +78,7 @@ async function mount(h: ReturnType<typeof harness>, over: Partial<AppProps> = {}
 
 describe('the record surface', () => {
   beforeEach(() => {
-    jest.useFakeTimers();
+    jest.useFakeTimers({ doNotFake: ['setImmediate'] });
     jest.setSystemTime(T0);
   });
   afterEach(() => {
@@ -668,6 +672,55 @@ describe('the record surface', () => {
     h.db.close();
   });
 
+  it.each([18, 26])('shows exact dated originals from meaning search on iOS %s', async (iosVersion) => {
+    const h = harness();
+    await migrate(h.db);
+    const earlier = await h.store.capture({
+      body: 'Silence feels harder to sit through than another distraction.', at: T0 - 800 * MS_DAY,
+    });
+    const recent = await h.store.capture({ body: 'I keep filling every pause with a screen.' });
+    jest.mocked(scoreMeaning).mockClear().mockResolvedValueOnce({ scores: [0.94] });
+    const platformVersion = jest.spyOn(Platform, 'Version', 'get').mockReturnValue(`${iosVersion}.0`);
+    const view = await mount(h);
+    try {
+      await act(async () => { fireEvent.press(screen.getByText(recent.body)); });
+      await act(async () => { fireEvent.press(screen.getByText(recent.body)); });
+      expect(scoreMeaning).not.toHaveBeenCalled();
+      if (iosVersion >= 26) {
+        fireEvent.press(screen.getByRole('button', { name: 'thought actions' }));
+      }
+      await act(async () => { fireEvent.press(screen.getByRole('button', { name: 'look for a connection' })); });
+      expect(screen.getByText('a possible similarity in meaning · compared on this device')).toBeTruthy();
+      const passage = screen.getByRole('button', { name: /another thought .*Silence feels harder/ });
+      expect(passage.props.accessibilityLabel).toContain(fullDate(earlier.at));
+      await act(async () => { fireEvent.press(passage); });
+      expect(screen.getByText(`a fragment · ${fullDate(earlier.at)}`)).toBeTruthy();
+    } finally { view.unmount(); platformVersion.mockRestore(); h.db.close(); }
+  });
+
+  it('waits for device unlock before opening a thought from its widget link', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const thought = await h.store.capture({ body: 'the exact older thought from the widget', at: T0 - 800 * MS_DAY });
+    let unlocked = false;
+    const store = protectRecordStore(h.store, () => unlocked);
+    const privacy = { locked: true, busy: false, error: null, onUnlock: jest.fn() };
+    const onReminderHandled = jest.fn();
+    const reminderRequest = { id: thought.id, source: 'widget' as const };
+    const props = { store, privacy, reminderRequest, onReminderHandled };
+    const view = await mount(h, props);
+    try {
+      expect(screen.queryByText(thought.body)).toBeNull();
+      expect(onReminderHandled).not.toHaveBeenCalled();
+      unlocked = true;
+      await act(async () => {
+        view.rerender(<RecordApp {...defaults} {...props} bridge={h.bridge} privacy={{ ...privacy, locked: false }} />);
+      });
+      expect(screen.getByText(`a fragment · ${fullDate(thought.at)}`)).toBeTruthy();
+      expect(onReminderHandled).toHaveBeenCalledWith(reminderRequest, false);
+    } finally { view.unmount(); h.db.close(); }
+  });
+
   it('says the shelf is full rather than doing nothing', async () => {
     const h = harness();
     await migrate(h.db);
@@ -986,9 +1039,12 @@ describe('the record surface', () => {
     expect(screen.getByLabelText('capture')).toBeTruthy();
 
     await act(async () => {
-      jest.advanceTimersByTime(LAUNCH_HOLD + 520 + 50);
+      await jest.advanceTimersByTimeAsync(LAUNCH_HOLD);
     });
-    await waitFor(() => expect(screen.queryByText('chinotto')).toBeNull());
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(motion.launchOut + 50);
+    });
+    expect(screen.queryByText('chinotto')).toBeNull();
     view.unmount();
     h.db.close();
   });

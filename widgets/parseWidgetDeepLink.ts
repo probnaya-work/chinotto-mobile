@@ -30,8 +30,9 @@ export function parseWidgetDeepLink(url: string | null | undefined): WidgetDeepL
     }
 
     if (host === 'thought') {
-      const thoughtId = actual.pathname.replace(/^\/+/, '').trim();
-      if (!thoughtId) {
+      const path = actual.pathname.replace(/^\//, '');
+      const thoughtId = decodeURIComponent(path).trim();
+      if (!thoughtId || path.includes('/') || /\p{Cc}/u.test(thoughtId)) {
         return null;
       }
       return { type: 'thought', thoughtId };

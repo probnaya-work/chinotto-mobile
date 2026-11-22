@@ -14,13 +14,14 @@
 import { useRecordStatusBar, useRecordTheme } from './ui/appearance';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Animated,
   AppState,
   Platform,
   Pressable,
   Text,
   TextInput,
   View,
-  type TextInput as TextInputType,
+  type TextInputInstance,
 } from 'react-native';
 
 import {
@@ -51,16 +52,19 @@ import type { AudioPlaybackPort } from './playback';
 import type { RecordStore } from './store';
 import { RecordLocked } from './privacy';
 import type { Reminders, ThoughtReminder } from './reminders';
+import type { ReturnAlerts } from './returnAlerts';
 import { reminderDate, reminderTime } from './reminderTime';
 import { ReminderSheet, reminderDraft, type ReminderDraft } from './ui/ReminderSheet';
 
-export type ReminderOpenRequest = { id: string; source: 'notification' | 'scheduled' };
+export type ReminderOpenRequest = { id: string; source: 'notification' | 'scheduled' | 'return-alert' | 'widget' };
 
 export type RecordAppProps = {
   store: RecordStore;
   privacy?: { locked: boolean; busy: boolean; error: string | null; onUnlock: () => void };
   bridge: RecordBridge;
   reminders?: Reminders;
+  returnAlerts?: ReturnAlerts;
+  returnAlertsChanged?: number;
   remindersChanged?: number;
   reminderRequest?: ReminderOpenRequest | null;
   onReminderHandled?: (request: ReminderOpenRequest, consume: boolean) => void;
@@ -125,7 +129,7 @@ export function RecordApp(props: RecordAppProps) {
   const record = useRecord(props.store, props.bridge, undefined, props.audio, !props.privacy?.locked, returnCovered);
   const capabilities = props.capabilities ?? capabilitiesFor(Platform.OS);
 
-  const { reminders, reminderRequest, onReminderHandled } = props;
+  const { reminders, returnAlerts, reminderRequest, onReminderHandled } = props;
   const [editor, setEditor] = useState<ReminderDraft | null>(null);
   const [editingFromScheduled, setEditingFromScheduled] = useState(false);
   const [scheduledReminder, setScheduledReminder] = useState<ThoughtReminder | null>(null);
@@ -133,7 +137,7 @@ export function RecordApp(props: RecordAppProps) {
   const [reminderArrival, setReminderArrival] = useState<string | null>(null);
   const focusedId = record.focus?.id;
   const locked = props.privacy?.locked ?? false;
-  const openExisting = record.openExisting;
+  const { openExisting, clearReturn } = record;
   const isAuthoring = Boolean(record.editingId || record.continuing || props.voice.state);
   const editorOpen = Boolean(editor && editor.fragmentId === focusedId);
   const quietPosition = useRef<QuietScrollPosition>({ normal: 0, quiet: 0, restore: null });
@@ -163,10 +167,36 @@ export function RecordApp(props: RecordAppProps) {
   }, [focusedId, locked, reminders, props.remindersChanged]);
 
   useEffect(() => {
-    if (!reminders || !reminderRequest || !record.ready || locked || isAuthoring || editorOpen) return;
+    if (!returnAlerts || locked || !record.ready || !active) return;
+    void returnAlerts.reconcile(props.store).catch(() => {});
+  }, [returnAlerts, active, locked, record.ready, record.ret, record.retLeaving,
+    record.material, record.heldIds, props.store, props.returnAlertsChanged]);
+
+  useEffect(() => {
+    if (!reminderRequest || !record.ready || locked || isAuthoring || editorOpen) return;
     let current = true;
     void (async () => {
       try {
+        if (reminderRequest.source === 'widget' || reminderRequest.source === 'return-alert') {
+          const fromReturn = reminderRequest.source === 'return-alert';
+          const returned = fromReturn ? await returnAlerts?.open(reminderRequest.id, props.store, () => current) : null;
+          const thought = fromReturn ? returned?.material : await props.store.getFragment(reminderRequest.id);
+          if (!current) return;
+          if (thought && thought.removedAt === null) {
+            openExisting(thought, returned ?? undefined);
+            if (returned) clearReturn();
+            setReminderArrival(null);
+            setReminderNotice(null);
+          } else {
+            setReminderNotice({
+              text: fromReturn ? 'this return is no longer available' : 'this thought is no longer available',
+              fragmentId: null,
+            });
+          }
+          onReminderHandled?.(reminderRequest, false);
+          return;
+        }
+        if (!reminders) return;
         const reminder = await reminders.resolve(reminderRequest.id);
         const thought = reminder ? await props.store.getFragment(reminder.fragmentId) : null;
         if (!current) return;
@@ -188,12 +218,17 @@ export function RecordApp(props: RecordAppProps) {
         onReminderHandled?.(reminderRequest, fromNotification || dueInApp);
       } catch (error) {
         if (current && !(error instanceof RecordLocked)) {
-          setReminderNotice({ text: 'could not open this reminder', fragmentId: null });
+          const text = reminderRequest.source === 'widget' ? 'could not open this thought'
+            : reminderRequest.source === 'return-alert' ? 'could not open this return'
+              : 'could not open this reminder';
+          setReminderNotice({ text, fragmentId: null });
+          onReminderHandled?.(reminderRequest, false);
         }
       }
     })();
     return () => { current = false; };
-  }, [editorOpen, isAuthoring, locked, onReminderHandled, openExisting, props.store, record.ready, reminderRequest, reminders]);
+  }, [active, clearReturn, editorOpen, isAuthoring, locked, onReminderHandled, openExisting,
+    props.store, record.ready, reminderRequest, reminders, returnAlerts]);
 
 
   const closeReminder = () => {
@@ -281,7 +316,7 @@ export function RecordApp(props: RecordAppProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [changedAt]);
 
-  const inputRef = useRef<TextInputType>(null);
+  const inputRef = useRef<TextInputInstance>(null);
 
   const [launchLeaving, setLaunchLeaving] = useState(false);
   /** Once per mount, whatever the prop does afterwards. */
@@ -577,9 +612,9 @@ export function RecordApp(props: RecordAppProps) {
       />
 
       {props.privacy && !record.ready ? (
-        <View style={{ flex: 1, justifyContent: 'center', paddingBottom: keyboardInset }}>
+        <Animated.View style={{ flex: 1, justifyContent: 'center', paddingBottom: keyboardInset }}>
           <RecordOpening reducedMotion={reducedMotion} />
-        </View>
+        </Animated.View>
       ) : <RecordList
         accessibilityHidden={record.quietReading}
         keyboardInset={keyboardInset}

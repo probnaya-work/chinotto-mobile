@@ -1,7 +1,8 @@
 import React, { useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, View, type LayoutChangeEvent } from 'react-native';
 
-import { connectionBetween, possibleConnection } from '../model/connections';
+import { findConnection, type ConnectionResult } from '../findConnection';
+import { connectionBetween, meaningConnectionBetween } from '../model/connections';
 import type { Material } from '../model/material';
 import { fullDate } from '../model/time';
 import type { TextPart } from '../model/words';
@@ -9,8 +10,8 @@ import { useRecordTheme } from './appearance';
 import { Marked } from './Marked';
 import { type } from './type';
 
-type PanelState = 'closed' | 'looking' | 'empty' | 'error' |
-  { id: string; dismissing?: boolean; failed?: boolean };
+type PanelState = 'closed' | 'looking' | 'error' | Extract<ConnectionResult, string> |
+  (Extract<ConnectionResult, object> & { dismissing?: boolean; failed?: boolean });
 
 export type ConnectionData = {
   material: Material[];
@@ -38,12 +39,15 @@ export function ConnectionPanel({ source, data, fontScale, onReadSource, onLayou
     return () => { mounted.current = false; };
   }, []);
 
-  const id = typeof state === 'object' ? state.id : null;
+  const result = typeof state === 'object' ? state : null;
+  const id = result?.id;
+  const meaning = result?.meaning;
   const connection = useMemo(() => {
     if (!id) return null;
     const other = data.material.find((thought) => thought.id === id);
-    return other ? connectionBetween(source, other) : null;
-  }, [source, data.material, id]);
+    if (!other) return null;
+    return meaning ? meaningConnectionBetween(source, other, meaning) : connectionBetween(source, other);
+  }, [source, data.material, id, meaning]);
 
   async function look() {
     if (state === 'looking' || (typeof state === 'object' && state.dismissing)) return;
@@ -51,20 +55,20 @@ export function ConnectionPanel({ source, data, fontScale, onReadSource, onLayou
     try {
       const rejected = await data.rejections(source.id);
       if (!mounted.current) return;
-      const relatedId = possibleConnection(source, data.material, new Set(rejected));
-      setState(relatedId ? { id: relatedId } : 'empty');
+      const match = await findConnection(source, data.material, new Set(rejected));
+      if (mounted.current) setState(match);
     } catch {
       if (mounted.current) setState('error');
     }
   }
 
   async function dismiss(relatedId: string) {
-    setState({ id: relatedId, dismissing: true });
+    setState({ id: relatedId, meaning, dismissing: true });
     try {
       await data.dismiss(source.id, relatedId);
       if (mounted.current) setState('closed');
     } catch {
-      if (mounted.current) setState({ id: relatedId, failed: true });
+      if (mounted.current) setState({ id: relatedId, meaning, failed: true });
     }
   }
 
@@ -78,7 +82,7 @@ export function ConnectionPanel({ source, data, fontScale, onReadSource, onLayou
         <ConnectionAction label="look for a connection" onPress={() => void look()} />
       ) : state === 'looking' ? (
         <Text accessibilityLiveRegion="polite" style={type({ size: 14, width: 94, color: ink.far })}>
-          looking for shared words…
+          looking for a connection…
         </Text>
       ) : (
         <>
@@ -87,7 +91,9 @@ export function ConnectionPanel({ source, data, fontScale, onReadSource, onLayou
           </Text>
           {connection && typeof state === 'object' ? (
             <>
-              <Text style={type({ size: 13, width: 92, color: ink.far })}>shared words in two moments</Text>
+              <Text style={type({ size: 13, width: 92, color: ink.far })}>
+                {meaning ? 'a possible similarity in meaning · compared on this device' : 'shared words in two moments'}
+              </Text>
               <Passage label="this thought" at={source.at} excerpt={connection.sourceExcerpt}
                 onPress={onReadSource} disabled={state.dismissing} />
               <Passage label="another thought" at={connection.related.at} excerpt={connection.relatedExcerpt}
@@ -105,9 +111,12 @@ export function ConnectionPanel({ source, data, fontScale, onReadSource, onLayou
           ) : (
             <>
               <Text accessibilityLiveRegion="polite" style={type({ size: 14, width: 94, color: ink.far })}>
-                {state === 'error' ? 'could not look for a connection' :
+                {state === 'preparing' ? 'meaning search is preparing on this device' :
+                  state === 'error' ? 'could not look for a connection' :
                   state === 'empty' ? 'no clear connection found' : 'this connection is no longer available'}
               </Text>
+              {state === 'preparing' ?
+                <ConnectionAction label="try again" onPress={() => void look()} /> : null}
               <ConnectionAction label="close connection" onPress={() => setState('closed')} />
             </>
           )}
