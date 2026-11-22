@@ -12,8 +12,10 @@ Chinotto Mobile is a minimal companion to Chinotto desktop — built for capturi
 Capture them instantly — without projects, folders, or workspaces.  
 Structure can come later — when you revisit on desktop.
 
-Local-first. Works fully offline.  
+Local-first. Capture and local reading work offline.
 Optional sync with Chinotto desktop on iOS (Chinotto Pro).
+
+The iOS 3.0.0 source is integrated into `main`. Android is in preparation and has not been published. See [release notes](docs/release-notes.md) for its scope and verification status.
 
 ## Download (iOS)
 
@@ -26,12 +28,17 @@ Optional sync with Chinotto desktop on iOS (Chinotto Pro).
 - Find remembered words or move through dates, months and years
 - Continue adds a linked moment dated now; Correct keeps earlier wording
 - Follow Lines and revisit older moments when recent writing gives them a reason to return
+- Request possible connections through shared words or on-device similarity in meaning on supported iPhones
+- Set one-shot thought reminders, manage notification preferences, and opt in to discreet Return alerts (iOS)
+- Quiet reading puts secondary controls away; iOS 26 groups thought actions in a system menu
 - Bring a page or selected text into the Record from another app (iOS)
-- iOS Home Widget — quick capture and recent thoughts
+- iOS Home Widget — quick capture and recent thoughts that open directly in the reader
 - Voice capture with retained original audio and on-device transcription where available
 - Optional Face ID or device-code protection for reading, with capture still available
 - Dark or warm light appearance, system text size and lifted contrast
 - Optional sync of words, dates, Lines and wording history with Chinotto on Mac (iOS)
+
+The upcoming Android app receives the shared Record and runtime improvements alongside its existing local capture and on-device voice. Its preparation is tracked separately from the iOS release in the [release notes](docs/release-notes.md#android--in-preparation-unpublished).
 
 ## Data ownership
 
@@ -51,6 +58,10 @@ New versions ship through the App Store. The app may prompt when a newer version
 - [Privacy](docs/privacy.md)
 - [Architecture](docs/architecture.md)
 - [Development](docs/development.md)
+- [Release notes](docs/release-notes.md)
+- [Record archives](docs/record-archive.md)
+- [Record sync](docs/record-sync.md)
+- [Implementation and verification history](docs/product-improvements.md)
 
 ## Related
 

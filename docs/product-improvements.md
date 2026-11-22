@@ -2,7 +2,15 @@
 
 Started 15 November 2026 following the product review and the owner's request to proceed in priority order. Scope: strengthen the current Record and add optional Face ID / Touch ID protection. Capture remains local, immediate and free of mandatory organisation.
 
-Both repositories use `feat/product-phases-20261115`. Each phase produces its own implementation, regression coverage and verification evidence before the next is implemented. Shipping remains a separate release step. This document tracks work; it does not schedule a background worker.
+The initial work used `feat/product-phases-20261115` in both repositories. The dated sections below preserve their verification history. Shipping remains a separate release step. This document tracks work; it does not schedule a background worker.
+
+## Current mobile integration — 22 November 2026
+
+The iOS 3.0.0 release source is integrated into mobile `main`. [PR #10](https://github.com/probnaya-work/chinotto-mobile/pull/10), merged as `d22d6fa`, retained the earlier #6 candidate and #9 thought actions menu, and added the remaining #7 semantic connections, opt-in Return alerts, widget reader entry, and #8 Expo SDK 58 migration. The merge tree matches the verified PR head `5da5356`. The shared SDK and Record improvements also update the unpublished Android app being prepared; its local capture and voice foundation predates this integration. Android preparation is tracked separately from the iOS 3.0.0 release. The native meaning model, alerts, widget reader entry, and system thought actions menu are iOS additions.
+
+Integration checks passed: 132 Jest suites, 891 tests passed and one skipped; TypeScript; Expo dependency alignment; and GitHub CI for both the PR and the [merge into main](https://github.com/probnaya-work/chinotto-mobile/actions/runs/45071615201). Meaning-search regression covers the iOS 26 menu and the earlier inline action. These checks do not establish native delivery or physical-device acceptance for the integrated build.
+
+See [release notes](release-notes.md) for the current source scope and [development](development.md) for build and verification instructions. The iOS target is 3.0.0 (46). Shared source configuration also reads 3.0.0 and Android versionCode is 3; these values do not establish a public Android release. EAS assigns platform distribution build numbers. Earlier build, submission, and device results below apply to their recorded versions and dates. This integration did not upload or publish a new app binary.
 
 | Order | Phase | Current state | Completion criterion |
 |---|---|---|---|

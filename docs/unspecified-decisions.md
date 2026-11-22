@@ -222,7 +222,7 @@ inventing an order.
 
 | # | What | Why it is open |
 |---|---|---|
-| 8.1 | **Restorable backup of the Record** | User-initiated portable export now exists (`docs/export-format.md`). Import and restore remain a separate design decision. |
+| 8.1 | **Restorable backup of the Record** | User-initiated portable export and own-archive restore are implemented. See `docs/export-format.md` and `docs/record-archive.md`; broader text imports remain a follow-up. |
 | 8.2 | Retained-audio limit | See 4.7. Usage and low-space warnings now exist. No size, age or count cap is imposed; recordings remain canonical material. |
 | 8.3 | Reading time on a shared article (`14 min`) | Not derivable offline; unresolved content in the prototype. |
 | 8.4 | Price, saving and trial copy | RevenueCat supplies them; the prototype states they are unresolved and the layout holds the longest plausible line. |
@@ -256,7 +256,7 @@ Recorded so neither repository drifts by accident.
 | Back gesture + drawn affordances | one global `esc` ladder | a phone has no `esc` (handoff-diff §1.3) |
 | `capture_origin` adds `widget`, `share` | adds `tray` | each platform's own sources; the column is free text on both sides |
 | Audio retained on the phone | audio retained on the Mac | same rule, and neither crosses the wire |
-| User-initiated ZIP export; no restore | `export_record` + backup | mobile export includes history and original audio; restore remains open (8.1) |
+| User-initiated ZIP export and own-archive restore | `export_record` + backup | mobile archives include history and original audio; current restore policy is documented in `docs/record-archive.md` (8.1) |
 
 ---
 
@@ -419,7 +419,7 @@ direction. There is no Chinotto PIN. Protected history is withheld while new cap
 available; date phrases and slash-prefixed wording in locked capture are saved as new wording.
 Find's borrowed capture draft and unfinished correction/continuation fields survive the lock.
 
-Native lifecycle code covers snapshots and invalidates read sessions. iPhone uses SDK 55's
+Native lifecycle code covers snapshots and invalidates read sessions. iPhone uses
 Expo LocalAuthentication; Mac adds the matching objc2 LocalAuthentication bindings because
 Sign in with Apple is a separate capability. Mac's native command allowlist denies private reads
 from every window, including the legacy API. Incoming write-only sync maintenance remains
@@ -503,8 +503,8 @@ Travel displays that instant in the current device time zone.
 
 The first request follows the chosen date. Denial offers iPhone Settings and
 preserves the choice through that visit in the current app session. The first
-phase keeps permission and management contextual. An in-app fallback and the
-global notification preferences remain a separate phase. The app makes no
+phase keeps permission and management contextual. The in-app fallback and
+global notification preferences are described below. The app makes no
 promises about delivery while system alerts are off, in Focus or in a scheduled
 summary. Foreground delivery leaves the active Record alone.
 
@@ -521,13 +521,12 @@ can be retried before it passes. Past times are never rescheduled. Removing a th
 retires its alert and its intent; bringing back the thought requires deliberately
 setting another reminder. Reminders are excluded from sync and Record archives.
 
-The iOS port uses Expo Notifications 55.0.13, the version paired with this Expo
-55.0.8 checkout, solely for local alert
-permission, scheduling, cancellation and response handling. Android excludes
-the notifications module and its application helper from native autolinking. The SwiftUI date editor uses the already linked
-Expo UI module. On Mac, run `pod install` from `ios/` with the workspace's
-existing CocoaPods toolchain to regenerate `Podfile.lock` for ExpoNotifications and ExpoApplication,
-then build a development binary. Verify actual foreground/background delivery,
+The iOS port uses Expo Notifications from Expo SDK 58 for local alert permission,
+scheduling, cancellation and response handling. Android excludes the notifications
+module and its application helper from native autolinking. The SwiftUI date editor
+uses the linked Expo UI module. The committed `ios/Podfile.lock` includes the
+SDK 58 native dependencies. Follow `docs/development.md` when updating dependencies
+and building a development binary. Verify actual foreground/background delivery,
 tap from cold and warm starts, permissions disabled in Settings, Face ID
 cancellation and retry, VoiceOver, and the compact date picker in both appearances.
 
@@ -554,7 +553,7 @@ Scheduled reminders are inside Notifications. Existing device protection
 gates the list and its first-line excerpts. Schema v11 adds an in-app delivery
 choice and a per-thought preview override. Both the choices and the global
 notification preference remain on the device. Quiet hours follow the device’s
-Focus settings. Automatic Return alerts are outside this phase.
+Focus settings. A separate opt-in Return-alert policy is described below.
 
 ### Compact Return on the Record
 
