@@ -360,63 +360,64 @@ function Root(props: SettingsProps & { capabilities: PlatformCapabilities }) {
         </Details>
 
         <Reference voice={can.voice} />
-        <Details title="about chinotto">
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <Mark size={28} color={agency.quiet} />
-            <Text style={type({ size: 19, width: 96, weight: 500, color: agency.quiet })}>chinotto</Text>
-          </View>
-          <SettingRow
-            title="why chinotto"
-            action="read ›"
-            onPress={props.onOpenManifesto}
-            divider={false}
-          />
-          {/* A colophon, not part of the Chinotto lockup: the instrument keeps its own name. */}
-          <View
-            style={{
-              borderTopWidth: 1,
-              borderTopColor: rule.line,
-              marginTop: 5,
-              marginHorizontal: -24,
-              paddingTop: 14,
-              paddingHorizontal: 24,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 16,
-            }}
-          >
-            <View style={{ gap: 2 }}>
-              <Text
-                style={type({ size: 9, width: 76, tracking: 0.12, color: ink.far })}
-              >
-                AN INSTRUMENT BY
-              </Text>
-              <Text
-                style={type({
-                  size: 17,
-                  width: 76,
-                  tracking: 0.11,
-                  color: ink.ink,
-                })}
-              >
-                PROBNAYA
-              </Text>
-            </View>
+      </View>
+
+      <Section label="chinotto" gap={7}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Mark size={28} color={agency.quiet} />
+          <Text style={type({ size: 19, width: 96, weight: 500, color: agency.quiet })}>chinotto</Text>
+        </View>
+        <SettingRow
+          title="why chinotto"
+          action="read ›"
+          onPress={props.onOpenManifesto}
+          divider={false}
+        />
+        <Text style={type({ size: 11, width: 90, color: ink.meta })}>
+          {props.updateLine === null ? props.version : `${props.version} · ${props.updateLine}`}
+        </Text>
+        {/* A colophon, not part of the Chinotto lockup: the instrument keeps its own name. */}
+        <View
+          style={{
+            borderTopWidth: 1,
+            borderTopColor: rule.line,
+            marginTop: 5,
+            marginHorizontal: -24,
+            paddingTop: 14,
+            paddingHorizontal: 24,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 16,
+          }}
+        >
+          <View style={{ gap: 2 }}>
             <Text
-              style={[
-                type({ size: 9, width: 76, lineHeight: 1.35, tracking: 0.08, color: ink.far }),
-                { flex: 1, textAlign: 'right' },
-              ]}
+              style={type({ size: 9, width: 76, tracking: 0.12, color: ink.far })}
             >
-              INDEPENDENT COMPUTATIONAL{`\n`}LABORATORY
+              AN INSTRUMENT BY
+            </Text>
+            <Text
+              style={type({
+                size: 17,
+                width: 76,
+                tracking: 0.11,
+                color: ink.ink,
+              })}
+            >
+              PROBNAYA
             </Text>
           </View>
-        </Details>
-      </View>
-      <Text style={type({ size: 11, width: 90, color: ink.meta })}>
-        {props.updateLine === null ? props.version : `${props.version} · ${props.updateLine}`}
-      </Text>
+          <Text
+            style={[
+              type({ size: 9, width: 76, lineHeight: 1.35, tracking: 0.08, color: ink.far }),
+              { flex: 1, textAlign: 'right' },
+            ]}
+          >
+            INDEPENDENT COMPUTATIONAL{`\n`}LABORATORY
+          </Text>
+        </View>
+      </Section>
     </ScrollView>
   );
 }

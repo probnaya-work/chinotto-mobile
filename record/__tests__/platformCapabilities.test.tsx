@@ -181,6 +181,16 @@ describe('settings on android', () => {
     ).toBeTruthy();
   });
 
+  it('shows the Chinotto footer and maker credit without opening a section', () => {
+    render(<Settings {...props} capabilities={capabilitiesFor('ios')} />);
+    expect(screen.getByRole('button', { name: 'appearance' }).props.accessibilityState.expanded).toBe(false);
+    expect(screen.getByText('AN INSTRUMENT BY')).toBeTruthy();
+    expect(screen.getByText('PROBNAYA')).toBeTruthy();
+    expect(screen.getByText(/INDEPENDENT COMPUTATIONAL\s+LABORATORY/)).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'why chinotto, read ›' }));
+    expect(props.onOpenManifesto).toHaveBeenCalled();
+  });
+
   it('keeps Quiet directly accessible while archive tools open in place', () => {
     const onExport = jest.fn();
     const onOpenQuietGuide = jest.fn();
