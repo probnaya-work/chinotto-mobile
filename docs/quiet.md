@@ -60,8 +60,9 @@ walkthrough returned to the Medium page from an unsent Messages draft and again
 after saving in Record. A read-only SQLite query found one row for the new
 thought. On the owner's iPhone 15, the owner tapped the Medium widget’s green
 disc and observed Chinotto open and recording start immediately. The owner
-then played the recording and heard the test phrase. The number of voice
-entries in Record was not reported.
+then played the recording, heard the test phrase and swiped Home from Chinotto.
+The same page with the Medium widget and green disc appeared. The number of
+voice entries in Record was not reported.
 
 **Message** presents Apple's `MFMessageComposeViewController` when the device supports it.
 The person selects or types a recipient, writes the message and presses Send in that system
