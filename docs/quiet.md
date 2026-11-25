@@ -58,8 +58,9 @@ app terminated, tapping the question focused the editor. Tapping the disc with
 microphone access denied opened voice capture and offered Settings. A separate
 walkthrough returned to the Medium page from an unsent Messages draft and again
 after saving in Record. A read-only SQLite query found one row for the new
-thought. The Medium build was also installed on the owner's iPhone 15. Physical
-microphone recording with this size still needs a device check.
+thought. On the owner's iPhone 15, the owner tapped the Medium widget’s green
+disc and observed Chinotto open and recording start immediately. Saving and
+playing back that voice entry on the device remain to be checked.
 
 **Message** presents Apple's `MFMessageComposeViewController` when the device supports it.
 The person selects or types a recipient, writes the message and presses Send in that system
