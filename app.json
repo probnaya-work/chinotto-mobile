@@ -110,6 +110,12 @@
                 "systemSmall",
                 "systemMedium"
               ]
+            },
+            {
+              "name": "QuietCaptureWidget",
+              "displayName": "Chinotto Quiet",
+              "description": "A quiet place to begin. Type or speak; your Record stays private.",
+              "supportedFamilies": ["systemLarge"]
             }
           ]
         }

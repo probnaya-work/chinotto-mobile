@@ -7,7 +7,7 @@ import { useKeyboardInset } from './useKeyboardInset';
 
 import { type } from './type';
 
-export function LockedCapture({ capture, words, change, onUnlock, busy, error, onSettings, voice }: {
+export function LockedCapture({ capture, words, change, onUnlock, busy, error, onSettings, onOpenQuiet, voice }: {
   capture: (body: string) => Promise<unknown>;
   words: string;
   change: (text: string) => void;
@@ -15,6 +15,7 @@ export function LockedCapture({ capture, words, change, onUnlock, busy, error, o
   busy: boolean;
   error: string | null;
   onSettings: () => void;
+  onOpenQuiet?: () => void;
   voice: Pick<EdgeProps, 'recording' | 'voice' | 'onStartRecording' | 'onStopRecording' | 'onCancelRecording'>;
 }) {
   const { ink, SURFACE } = useRecordTheme();
@@ -42,6 +43,10 @@ export function LockedCapture({ capture, words, change, onUnlock, busy, error, o
       <Pressable accessibilityRole="button" onPress={onSettings}>
         <Text style={type({ size: 13, width: 90, color: ink.meta })}>settings</Text>
       </Pressable>
+      {onOpenQuiet ? <Pressable accessibilityRole="button" accessibilityLabel="Enter Quiet" onPress={onOpenQuiet}
+        style={{ minHeight: 44, justifyContent: 'center' }}>
+        <Text style={type({ size: 17, width: 94, color: ink.near })}>Quiet</Text>
+      </Pressable> : null}
     </View>
     {busy ? <Animated.View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0,
       bottom: keyboardInset, justifyContent: 'center' }}>

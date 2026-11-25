@@ -33,6 +33,7 @@ import { NotificationSettings, ScheduledReminders } from './ui/NotificationSetti
 import { ShareSurface, metBeforeLabel } from './ui/ShareSurface';
 import { SyncSheet } from './ui/SyncSheet';
 import { ForcedUpdate, WidgetPreview } from './ui/WidgetPreview';
+import { Quiet } from './ui/Quiet';
 import { FONT_ASSETS } from './ui/type';
 
 import { createBridge, type RecordBridge } from './bridge';
@@ -136,6 +137,8 @@ export function ChinottoApp({ services }: { services: Services }) {
   const capabilities = services.capabilities ?? capabilitiesFor(Platform.OS);
   const [fontsReady, setFontsReady] = useState(false);
   const [surface, setSurface] = useState<Surface>({ kind: 'record' });
+  const [quietOpen, setQuietOpen] = useState(false);
+  const [captureRequest, setCaptureRequest] = useState(0);
   const [share, setShare] = useState<ShareIntake | null>(null);
   const [shareWords, setShareWords] = useState('');
   const notifications = services.reminderNotifications;
@@ -152,6 +155,7 @@ export function ChinottoApp({ services }: { services: Services }) {
     if (!notifications || !reminders) return;
     const refresh = () => { void reminders.reconcile().catch(() => {}); };
     const unsubscribe = notifications.subscribe((id) => {
+      setQuietOpen(false);
       setReminderRequest({ id, source: id.startsWith(RETURN_ALERT_PREFIX) ? 'return-alert' : 'notification' });
       setSurface({ kind: 'record' });
     });
@@ -608,6 +612,7 @@ export function ChinottoApp({ services }: { services: Services }) {
     // Nothing arrived is not something to handle. Saying it was handled is how a share
     // gets marked taken before it is made.
     if (!services.incomingShare || services.incomingShare.length === 0) return;
+    setQuietOpen(false);
     const intake = readShare(services.incomingShare);
     services.onShareHandled();
     if (!intake) return;
@@ -658,8 +663,10 @@ export function ChinottoApp({ services }: { services: Services }) {
     const open = (url: string) => {
       const action = parseWidgetDeepLink(url);
       if (!action) return false;
+      setQuietOpen(false);
       setSurface({ kind: 'record' });
       setShare(null);
+      if (action.type === 'capture' && action.mode === 'default') setCaptureRequest((n) => n + 1);
       setReminderRequest(action.type === 'thought' ? { id: action.thoughtId, source: 'widget' } : null);
       return true;
     };
@@ -683,6 +690,7 @@ export function ChinottoApp({ services }: { services: Services }) {
   const recordBack = useRef<(() => boolean) | null>(null);
   const onBack = useRef<() => boolean>(() => false);
   onBack.current = () => {
+    if (quietOpen) { setQuietOpen(false); return true; }
     const step = appBackStep({
       syncOpen: sync.open,
       share: share !== null,
@@ -735,6 +743,8 @@ export function ChinottoApp({ services }: { services: Services }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: SURFACE }}>
+      <View style={{ flex: 1 }} accessibilityElementsHidden={quietOpen}
+        importantForAccessibility={quietOpen ? 'no-hide-descendants' : 'auto'} pointerEvents={quietOpen ? 'none' : 'auto'}>
       <RecordApp
         store={surfaceStore}
         privacy={{ locked: !readAllowed, busy: protection.busy, error: protection.error,
@@ -748,8 +758,10 @@ export function ChinottoApp({ services }: { services: Services }) {
         onReminderHandled={reminderHandled}
         onReturnToScheduled={() => setSurface({ kind: 'settings', page: 'scheduled' })}
         coldStart={coldStart && fontsReady}
-        returnCovered={surface.kind !== 'record' || Boolean(share) || sync.open}
+        returnCovered={quietOpen || surface.kind !== 'record' || Boolean(share) || sync.open}
         onOpenSettings={() => setSurface({ kind: 'settings', page: 'root' })}
+        onOpenQuiet={Platform.OS === 'ios' ? () => setQuietOpen(true) : undefined}
+        captureRequest={captureRequest}
         voice={{
           start: startVoice,
           stop: stopVoice,
@@ -783,6 +795,10 @@ export function ChinottoApp({ services }: { services: Services }) {
           },
         }}
       />
+      </View>
+
+      <Quiet visible={quietOpen} capture={(body) => surfaceStore.capture({ body, origin: 'mobile' })}
+        onExit={() => setQuietOpen(false)} />
 
       {surface.kind === 'settings' ? (
         <SettingsSurface

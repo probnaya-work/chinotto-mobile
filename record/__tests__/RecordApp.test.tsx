@@ -510,6 +510,41 @@ describe('the record surface', () => {
     h.db.close();
   });
 
+  it('starts a cold voice request before the parent clears its pending flag', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const voice = { ...defaults.voice, start: jest.fn(async () => true), stop: jest.fn(async () => {}) };
+    const handled = jest.fn();
+    function FromWidget() {
+      const [pending, setPending] = React.useState(true);
+      return <RecordApp store={h.store} bridge={h.bridge} {...defaults} voice={voice}
+        voiceOnOpen={pending} onVoiceOnOpenHandled={() => { handled(); setPending(false); }} />;
+    }
+    render(<FromWidget />);
+    await act(async () => { await Promise.resolve(); });
+    expect(handled).not.toHaveBeenCalled();
+    await act(async () => { jest.advanceTimersByTime(400); await Promise.resolve(); });
+    expect(voice.start).toHaveBeenCalledTimes(1);
+    expect(handled).toHaveBeenCalledTimes(1);
+    await act(async () => { jest.advanceTimersByTime(1000); await Promise.resolve(); });
+    expect(voice.start).toHaveBeenCalledTimes(1);
+    expect(voice.stop).not.toHaveBeenCalled();
+    h.db.close();
+  });
+
+  it('cancels a pending widget recording when the surface unmounts', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const voice = { ...defaults.voice, start: jest.fn(async () => true) };
+    const handled = jest.fn();
+    const view = await mount(h, { voice, voiceOnOpen: true, onVoiceOnOpenHandled: handled });
+    view.unmount();
+    await act(async () => { jest.advanceTimersByTime(400); await Promise.resolve(); });
+    expect(voice.start).not.toHaveBeenCalled();
+    expect(handled).not.toHaveBeenCalled();
+    h.db.close();
+  });
+
   it('keeps the recording on a second voice widget tap', async () => {
     const h = harness();
     await migrate(h.db);

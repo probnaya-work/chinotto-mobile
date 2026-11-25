@@ -73,6 +73,9 @@ export type RecordAppProps = {
   coldStart: boolean;
   returnCovered?: boolean;
   onOpenSettings: () => void;
+  onOpenQuiet?: () => void;
+  /** Existing capture links focus this edge; Quiet uses its own return destination. */
+  captureRequest?: number;
   /** Press-to-record. Release keeps it; slide up locks it; discard leaves no moment behind. */
   voice: {
     start: () => Promise<boolean>;
@@ -317,6 +320,17 @@ export function RecordApp(props: RecordAppProps) {
   }, [changedAt]);
 
   const inputRef = useRef<TextInputInstance>(null);
+  useEffect(() => {
+    if (!props.captureRequest) return;
+    record.clearAnchor();
+    record.leaveFind();
+    record.setFocusId(null);
+    record.setSelectedId(null);
+    record.setYearsOpen(false);
+    inputRef.current?.focus();
+    // One focus per explicit capture request, never per render or saved thought.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.captureRequest]);
 
   const [launchLeaving, setLaunchLeaving] = useState(false);
   /** Once per mount, whatever the prop does afterwards. */
@@ -445,12 +459,17 @@ export function RecordApp(props: RecordAppProps) {
    */
   useEffect(() => {
     if (!props.voiceOnOpen) return;
-    props.onVoiceOnOpenHandled?.();
     // A link asking for listening, on a phone that cannot listen, opens the edge for typing.
-    if (!capabilities.voice) return;
+    if (!capabilities.voice) {
+      props.onVoiceOnOpenHandled?.();
+      return;
+    }
     const id = setTimeout(() => {
       if (props.voice.state) void stopRecording();
       else void startRecording();
+      // Acknowledging earlier lets the parent clear voiceOnOpen and cancel this timer
+      // before the cold-start request has actually reached the recorder.
+      props.onVoiceOnOpenHandled?.();
     }, 320);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -557,6 +576,7 @@ export function RecordApp(props: RecordAppProps) {
     capture={(body) => props.store.capture({ body, origin: 'mobile' })}
     onUnlock={props.privacy.onUnlock} busy={props.privacy.busy} error={props.privacy.error}
     onSettings={props.onOpenSettings}
+    onOpenQuiet={props.onOpenQuiet}
     voice={{ recording: props.voice.state, voice: capabilities.voice,
       onStartRecording: () => void startRecording(), onStopRecording: stopRecording,
       onCancelRecording: cancelRecording }} />;
@@ -610,6 +630,13 @@ export function RecordApp(props: RecordAppProps) {
         hint={showPullHint}
         disabled={Boolean(record.focus)}
       />
+
+      {props.onOpenQuiet && !record.focus && !record.anchor ? <Pressable
+        accessibilityRole="button" accessibilityLabel="Enter Quiet" onPress={() => { dismissKeyboard(); props.onOpenQuiet?.(); }}
+        style={{ position: 'absolute', right: 24, top: frame.statusBarHeight - 5, minHeight: 44,
+          justifyContent: 'center', paddingLeft: 14, zIndex: 4, backgroundColor: SURFACE }}>
+        <Text style={type({ size: 15, width: 94, color: ink.near })}>Quiet</Text>
+      </Pressable> : null}
 
       {props.privacy && !record.ready ? (
         <Animated.View style={{ flex: 1, justifyContent: 'center', paddingBottom: keyboardInset }}>

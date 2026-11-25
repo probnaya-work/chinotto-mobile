@@ -628,3 +628,17 @@ The reader keeps inline actions on older iOS versions and Android. The menu
 moves out of the way during quiet reading, editing, and writing a continuation.
 Choosing a connection takes the reader to the existing result below the
 thought, and reminder status messages stay in the reader.
+
+### Chinotto Quiet — first walking scenario, 25 November 2026
+
+Quiet is entered explicitly from the existing Record, including its locked capture surface.
+Ordinary launch stays capture-first. The mode follows the existing app appearance rather
+than persisting a second theme. It offers only text capture, a system Message composer and
+an exit. Capture uses the existing Edge and store, returns to Quiet only when entered there,
+and keeps a cancelled or failed draft in the current app session. Pending saves suppress
+duplicate submissions. No record material is displayed in Quiet, and its covered Record
+does not count an unseen Return as viewed. Existing capture links, shares and reminders
+keep their original destinations. Message recipients and Send belong entirely to MessageUI;
+`sent` is a composer outcome, never a delivery claim. Unavailable messaging does not prevent
+capture. The large Home Screen widget is optional and has no Record storage access.
+See `docs/quiet.md` for the implementation boundaries and device verification procedure.

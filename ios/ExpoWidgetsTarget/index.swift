@@ -5,5 +5,6 @@ import SwiftUI
 struct ExportWidgets0: WidgetBundle {
   var body: some Widget {
     CaptureHomeWidget()
+    QuietCaptureWidget()
   }
 }
