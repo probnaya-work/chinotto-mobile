@@ -649,7 +649,7 @@ See `docs/quiet.md` for the implementation boundaries and device verification pr
 
 Use system Focus to select the Quiet page. The iPhone 15 owner verified that Personal Focus returned to the widget page after Messages and restored the original icon positions when switched off. The widget keeps its center clear and offers
 direct text and voice capture along the bottom. Its Chinotto header preserves the in-app
-capture link. The Record offers an optional guide. Use the standard Messages icon for
+capture link. The optional guide lives in Chinotto Settings under Quiet Home Screen. Use the standard Messages icon for
 the walking test and record the swipe Home from Messages. The composer inside Chinotto
 exercises a separate path. See [Quiet Home Screen](quiet.md) for observations and the device test.
 

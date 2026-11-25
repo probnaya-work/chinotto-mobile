@@ -4,7 +4,7 @@ import { QuietHomeGuide } from '../ui/QuietHomeGuide';
 
 it('shows setup and daily use together with no prototype actions', () => {
   const close = jest.fn();
-  render(<QuietHomeGuide onClose={close} backTo="Settings" />);
+  render(<QuietHomeGuide onClose={close} />);
   expect(screen.getByText('Set up once')).toBeTruthy();
   expect(screen.getByText('Daily use')).toBeTruthy();
   expect(screen.getByText(/Personal Focus shows your Quiet page/)).toBeTruthy();

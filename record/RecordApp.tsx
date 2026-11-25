@@ -11,7 +11,6 @@
  *     focus / settings (z 4) · years (z 5) · share (z 6) · launch (z 20)
  */
 
-import { QuietGuideIcon } from './ui/QuietGuideIcon';
 import { useRecordStatusBar, useRecordTheme } from './ui/appearance';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -74,7 +73,6 @@ export type RecordAppProps = {
   coldStart: boolean;
   returnCovered?: boolean;
   onOpenSettings: () => void;
-  onOpenQuietGuide?: () => void;
   /** Existing capture links focus this edge; Quiet uses its own return destination. */
   captureRequest?: number;
   /** Press-to-record. Release keeps it; slide up locks it; discard leaves no moment behind. */
@@ -585,7 +583,6 @@ export function RecordApp(props: RecordAppProps) {
     capture={(body) => props.store.capture({ body, origin: 'mobile' })}
     onUnlock={props.privacy.onUnlock} busy={props.privacy.busy} error={props.privacy.error}
     onSettings={props.onOpenSettings}
-    onOpenQuietGuide={props.onOpenQuietGuide}
     voice={{ recording: props.voice.state, voice: capabilities.voice,
       onStartRecording: () => void startRecording(), onStopRecording: stopRecording,
       onCancelRecording: cancelRecording }} />;
@@ -639,13 +636,6 @@ export function RecordApp(props: RecordAppProps) {
         hint={showPullHint}
         disabled={Boolean(record.focus)}
       />
-
-      {props.onOpenQuietGuide && !record.focus && !record.anchor ? <Pressable
-        accessibilityRole="button" accessibilityLabel="Quiet Home Screen guide" onPress={() => { dismissKeyboard(); props.onOpenQuietGuide?.(); }}
-        style={{ position: 'absolute', right: 24, top: frame.statusBarHeight - 5, minHeight: 44,
-          justifyContent: 'center', alignItems: 'flex-end', minWidth: 44, zIndex: 4, backgroundColor: SURFACE }}>
-        <QuietGuideIcon />
-      </Pressable> : null}
 
       {props.privacy && !record.ready ? (
         <Animated.View style={{ flex: 1, justifyContent: 'center', paddingBottom: keyboardInset }}>

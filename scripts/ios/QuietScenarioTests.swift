@@ -20,15 +20,23 @@ final class QuietScenarioTests: XCTestCase {
 
   func testQuietGuideShowsSetupAndDailyUse() {
     app.launch()
-    let guide = element("Quiet Home Screen guide")
-    XCTAssertTrue(guide.waitForExistence(timeout: 30))
+    XCTAssertTrue(element("pull-strip").waitForExistence(timeout: 30))
+    XCTAssertFalse(element("Quiet Home Screen guide").exists)
+    app.coordinate(withNormalizedOffset: CGVector(dx: 0.10, dy: 0.08))
+      .press(forDuration: 0.15, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.10, dy: 0.35)))
+    XCTAssertTrue(element("‹ edge").waitForExistence(timeout: 5))
+    let guide = element("Quiet Home Screen, guide ›")
+    for _ in 0..<4 where !guide.isHittable { app.swipeUp() }
+    XCTAssertTrue(guide.isHittable)
     guide.tap()
     XCTAssertTrue(element("Set up once").waitForExistence(timeout: 5))
     XCTAssertTrue(element("Daily use").exists)
     XCTAssertFalse(element("Open in-app Quiet capture").exists)
     XCTAssertFalse(element("Previous app-hiding experiment").exists)
-    element("‹ Record").tap()
-    XCTAssertTrue(guide.waitForExistence(timeout: 5))
+    element("‹ Settings").tap()
+    XCTAssertTrue(element("‹ edge").waitForExistence(timeout: 5))
+    element("‹ edge").tap()
+    XCTAssertTrue(element("pull-strip").waitForExistence(timeout: 5))
   }
 
   func test01Walk() {
@@ -80,7 +88,7 @@ final class QuietScenarioTests: XCTestCase {
 
   func test03LightAppearance() {
     app.launch()
-    XCTAssertTrue(element("Quiet Home Screen guide").waitForExistence(timeout: 20))
+    XCTAssertTrue(element("pull-strip").waitForExistence(timeout: 20))
     app.swipeDown()
     // Settings is also exposed as an accessible action on the pull strip.
     if !element("light appearance").waitForExistence(timeout: 2) {
@@ -102,7 +110,7 @@ final class QuietScenarioTests: XCTestCase {
 
   func test04WidgetGallery() {
     app.launch()
-    XCTAssertTrue(element("Quiet Home Screen guide").waitForExistence(timeout: 20))
+    XCTAssertTrue(element("pull-strip").waitForExistence(timeout: 20))
     XCUIDevice.shared.press(.home)
     let home = XCUIApplication(bundleIdentifier: "com.apple.springboard")
     home.coordinate(withNormalizedOffset: CGVector(dx: 0.83, dy: 0.67)).press(forDuration: 2)

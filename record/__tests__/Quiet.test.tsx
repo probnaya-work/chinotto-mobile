@@ -125,10 +125,14 @@ describe('Quiet walking scenario', () => {
     const view = render(<ChinottoApp services={testAppServices(db, null, jest.fn())} />);
     await act(async () => { await Promise.resolve(); });
     fireEvent.changeText(screen.getByLabelText('capture'), 'a passing thought');
-    fireEvent.press(screen.getByLabelText('Quiet Home Screen guide'));
+    expect(screen.queryByLabelText('Quiet Home Screen guide')).toBeNull();
+    fireEvent(screen.getByTestId('pull-strip'), 'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
+    fireEvent.press(await screen.findByLabelText('Quiet Home Screen, guide ›'));
     expect(screen.getByText('Quiet Home Screen')).toBeTruthy();
     expect(screen.queryByLabelText('capture')).toBeNull();
-    fireEvent.press(screen.getByText('‹ Record'));
+    fireEvent.press(screen.getByText('‹ Settings'));
+    expect(screen.getByLabelText('Quiet Home Screen, guide ›')).toBeTruthy();
+    fireEvent.press(screen.getByText('‹ edge'));
     expect(screen.getByLabelText('capture').props.value).toBe('a passing thought');
     expect((await db.getAllAsync('SELECT id FROM fragments'))).toHaveLength(0);
     view.unmount(); db.close();

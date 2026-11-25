@@ -752,7 +752,6 @@ export function ChinottoApp({ services }: { services: Services }) {
         coldStart={coldStart && fontsReady}
         returnCovered={quietOpen || surface.kind !== 'record' || Boolean(share) || sync.open}
         onOpenSettings={() => setSurface({ kind: 'settings', page: 'root' })}
-        onOpenQuietGuide={capabilities.homeWidget ? () => setQuietPanel('guide') : undefined}
         captureRequest={captureRequest}
         voice={{
           start: startVoice,
@@ -786,7 +785,7 @@ export function ChinottoApp({ services }: { services: Services }) {
       />
       </View>
 
-      {quietPanel === 'guide' ? <QuietHomeGuide backTo={surface.kind === 'settings' ? 'Settings' : 'Record'} onClose={() => setQuietPanel(null)} /> : null}
+      {quietPanel === 'guide' ? <QuietHomeGuide onClose={() => setQuietPanel(null)} /> : null}
       <Quiet visible={quietPanel === 'capture'} openRequest={quietRequest} capture={(body) => surfaceStore.capture({ body, origin: 'mobile' })}
         onExit={() => setQuietPanel(null)} />
 

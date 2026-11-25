@@ -10,9 +10,7 @@ const setup = [
   ['Add the Chinotto widget', 'Hold the page background. Tap Edit › Add Widget and find Chinotto Quiet. Choose Medium or Large, then tap Add Widget › Done.'],
 ] as const;
 
-export function QuietHomeGuide({ onClose, backTo = 'Record' }: {
-  onClose: () => void; backTo?: 'Record' | 'Settings';
-}) {
+export function QuietHomeGuide({ onClose }: { onClose: () => void }) {
   const { SURFACE, ink, bandLabel, rule, mode } = useRecordTheme();
   const { contrast } = useRecordAppearance();
   const insets = useContext(SafeAreaInsetsContext) ?? initialWindowMetrics?.insets;
@@ -28,7 +26,7 @@ export function QuietHomeGuide({ onClose, backTo = 'Record' }: {
         resizeMode="cover" style={{ width: '100%', height: '100%', opacity: mode === 'dark' ? 0.032 : 0.028 }} />
     </View>}
     <Pressable accessibilityRole="button" onPress={onClose} style={styles.back}>
-      <Text style={type({ size: 14, width: 94, color: ink.near })}>{`‹ ${backTo}`}</Text>
+      <Text style={type({ size: 14, width: 94, color: ink.near })}>‹ Settings</Text>
     </Pressable>
     <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: (insets?.bottom ?? 32) + 20 }}>
       <Text accessibilityRole="header" style={[type({ size: 25, width: 96, color: ink.ink }), styles.title]}>Quiet Home Screen</Text>

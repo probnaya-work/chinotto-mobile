@@ -1,14 +1,13 @@
-import { QuietGuideIcon } from './QuietGuideIcon';
 import { useRecordTheme } from './appearance';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, Text, View, type TextInputInstance } from 'react-native';
 import { Edge, useReducedMotion, type EdgeProps } from './Edge';
 import { RecordOpening } from './record-opening';
-import { dismissKeyboard, useKeyboardInset } from './useKeyboardInset';
+import { useKeyboardInset } from './useKeyboardInset';
 
 import { type } from './type';
 
-export function LockedCapture({ capture, words, change, onUnlock, busy, error, onSettings, onOpenQuietGuide, voice }: {
+export function LockedCapture({ capture, words, change, onUnlock, busy, error, onSettings, voice }: {
   capture: (body: string) => Promise<unknown>;
   words: string;
   change: (text: string) => void;
@@ -16,7 +15,6 @@ export function LockedCapture({ capture, words, change, onUnlock, busy, error, o
   busy: boolean;
   error: string | null;
   onSettings: () => void;
-  onOpenQuietGuide?: () => void;
   voice: Pick<EdgeProps, 'recording' | 'voice' | 'onStartRecording' | 'onStopRecording' | 'onCancelRecording'>;
 }) {
   const { ink, SURFACE } = useRecordTheme();
@@ -44,10 +42,6 @@ export function LockedCapture({ capture, words, change, onUnlock, busy, error, o
       <Pressable accessibilityRole="button" onPress={onSettings}>
         <Text style={type({ size: 13, width: 90, color: ink.meta })}>settings</Text>
       </Pressable>
-      {onOpenQuietGuide ? <Pressable accessibilityRole="button" accessibilityLabel="Quiet Home Screen guide" onPress={() => { dismissKeyboard(); onOpenQuietGuide(); }}
-        style={{ minHeight: 44, minWidth: 44, alignItems: 'flex-end', justifyContent: 'center' }}>
-        <QuietGuideIcon />
-      </Pressable> : null}
     </View>
     {busy ? <Animated.View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0,
       bottom: keyboardInset, justifyContent: 'center' }}>
