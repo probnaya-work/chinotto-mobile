@@ -16,6 +16,7 @@
       "associatedDomains": ["applinks:getchinotto.app"],
       "usesAppleSignIn": true,
       "entitlements": {
+        "com.apple.developer.family-controls": true,
         "com.apple.security.application-groups": [
           "group.com.chinotto.mobile"
         ]

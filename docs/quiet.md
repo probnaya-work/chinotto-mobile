@@ -1,8 +1,38 @@
 # Quiet Home Screen for iPhone
 
-The walking page belongs to iOS. Messages, Phone and Maps open from their own icons.
+The optional Focus page belongs to iOS. Messages, Phone and Maps open from their own icons.
 Chinotto supplies a private large widget with text and voice capture. Its optional
 **Quiet guide** is at the top right of the Record, including locked capture.
+
+## Hide selected apps on the current Home Screen (prototype)
+
+Open **Quiet guide → Hide apps with Quiet** and grant individual Screen Time access.
+Choose individual apps inside the system picker, then tap **Save**. The selection
+stays on this device. Keep Chinotto and Messages available for the first test.
+Turn Quiet on or off in the sheet. On iOS 18 or later, add **Chinotto Quiet**
+once from the Control Center gallery. This path uses your existing pages and Dock.
+
+Chinotto writes the selected applications to `application.blockedApplications`
+in its own named Managed Settings store. Turning Quiet off clears that store.
+iOS owns icon placement and decides when restrictions take effect. If Chinotto
+is inaccessible, its Screen Time permission can be revoked in iPhone Settings.
+
+**Device check.** Note the exact positions of two dispensable apps, one in a
+folder and one in the Dock. Turn Quiet on, open Messages and swipe Home. Check
+whether both icons disappeared. Turn Quiet off and compare both positions,
+including the folder page. Repeat from Control Center with Chinotto closed.
+
+**25 November 2026.** On the signed iOS 27.2 iPhone 17 Pro simulator build, the
+system showed its consent prompt, passcode flow, approval and app picker. The
+Control Center gallery offered the control and the installed control rendered
+its Off state. Searches in the picker for Files, Safari and two locally installed
+sample apps returned no selectable rows. In a separate simulator-only diagnostic
+using known sample bundle IDs, one sample icon remained visible after requesting
+restrictions. That diagnostic bypassed the picker. It does not establish how
+restrictions from the picker affect a physical device. A development-signed
+build with Family Controls on both targets was installed over build 50 and
+launched on an iPhone 15. Icon hiding, return from Messages with restrictions
+active and exact layout restoration on that device await the owner's test.
 
 ## Set up on an iPhone
 

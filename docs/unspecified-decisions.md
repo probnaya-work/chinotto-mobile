@@ -652,3 +652,10 @@ direct text and voice capture along the bottom. Its Chinotto header preserves th
 capture link. The Record offers an optional guide. Use the standard Messages icon for
 the walking test and record the swipe Home from Messages. The composer inside Chinotto
 exercises a separate path. See [Quiet Home Screen](quiet.md) for observations and the device test.
+
+### Quiet on the current Home Screen (experimental)
+
+The optional Quiet guide offers individual app hiding through Family Controls.
+The user selects apps explicitly and can clear the restriction from Chinotto or
+its Control Center control. Normal Record capture requires no Screen Time
+permission. See the [device check](quiet.md#hide-selected-apps-on-the-current-home-screen-prototype).

@@ -30,6 +30,45 @@ final class QuietScenarioTests: XCTestCase {
     capture.tap()
   }
 
+  func testQuietAppSelectionOnSimulator() throws {
+    #if targetEnvironment(simulator)
+    app.launch()
+    let guide = element("Quiet Home Screen guide")
+    XCTAssertTrue(guide.waitForExistence(timeout: 30))
+    guide.tap()
+    element("Hide apps with Quiet").tap()
+    let enable = app.buttons["Turn Quiet on"]
+    XCTAssertTrue(enable.waitForExistence(timeout: 10), app.debugDescription)
+    XCTAssertFalse(enable.isEnabled, "An empty selection must never activate Quiet")
+    let allow = app.buttons["Allow Screen Time access"]
+    if allow.exists {
+      allow.tap()
+      let system = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+      let consent = system.alerts.containing(.staticText, identifier: "“Chinotto” Would Like to Access Screen Time").firstMatch
+      if consent.waitForExistence(timeout: 4) {
+        capture("quiet-apps-consent")
+        consent.buttons["Don’t Allow"].tap()
+      }
+      let failed = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Couldn’t enable Screen Time access.")).firstMatch
+      XCTAssertTrue(failed.waitForExistence(timeout: 10), app.debugDescription)
+      XCTAssertTrue(allow.isEnabled)
+    } else {
+      // The simulator owner may already have completed the real consent prompt.
+      app.buttons["Choose apps (0)"].tap()
+      XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 5))
+      capture("quiet-apps-picker")
+      app.buttons["Cancel"].tap()
+      XCTAssertTrue(app.buttons["Choose apps (0)"].waitForExistence(timeout: 5))
+    }
+    XCTAssertFalse(enable.isEnabled)
+    capture("quiet-apps-setup")
+    app.buttons["Done"].tap()
+    XCTAssertTrue(element("Hide apps with Quiet").waitForExistence(timeout: 4))
+    #else
+    throw XCTSkip("This test exercises simulator authorization.")
+    #endif
+  }
+
   func test01Walk() {
     openQuiet()
     capture("quiet-dark")
