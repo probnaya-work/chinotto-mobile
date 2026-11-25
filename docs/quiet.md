@@ -41,6 +41,17 @@ Quiet was turned off, both reappeared on the second page. This failed the
 requirement to restore the usual layout. The owner did not separately report
 the swipe Home from Messages or the positions within a folder or the Dock.
 
+## Suggested pages on a physical iPhone
+
+On 25 November 2026, an iPhone 15 running iOS 27.0.1 offered three suggested
+Home Screen pages under Settings → Focus → Personal → Choose Home Screen →
+Create a New Page. Existing pages appeared in a separate section below.
+Opening the first suggestion showed a New Page preview with Edit Apps and
+Add. The inspection ended with Back and Cancel. Work was marked Set Up.
+Adding a suggested page, widget placement, and switching it on and off after
+a visit to Messages still require a separate device test. This observation is
+specific to Personal Focus.
+
 ## Set up on an iPhone
 
 1. Hold the Home Screen background. In edit mode, swipe left past the last page to the
