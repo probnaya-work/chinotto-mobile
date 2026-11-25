@@ -91,7 +91,7 @@ describe('the type ladder', () => {
     );
   });
 
-  it('uses the approved sage for chronology landmarks', () => {
-    expect(bandLabel.color).toBe('#bfd39c');
+  it('uses muted sage for chronology landmarks', () => {
+    expect(bandLabel.color).toBe('#95a18d');
   });
 });

@@ -194,7 +194,7 @@ export const edge = {
 /** The band label above every tier but D0. */
 export const bandLabel = {
   size: 10,
-  color: '#bfd39c',
+  color: '#95a18d',
   /** `0.06em` at 10px. RN letter spacing is in points, not em. */
   letterSpacing: 0.6,
   marginBottom: 6,
