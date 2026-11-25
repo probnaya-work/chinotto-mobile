@@ -26,7 +26,6 @@ final class QuietScenarioTests: XCTestCase {
       .press(forDuration: 0.15, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.10, dy: 0.35)))
     XCTAssertTrue(element("‹ edge").waitForExistence(timeout: 5))
     let guide = element("Quiet Home Screen, guide ›")
-    for _ in 0..<4 where !guide.isHittable { app.swipeUp() }
     XCTAssertTrue(guide.isHittable)
     guide.tap()
     XCTAssertTrue(element("Set up once").waitForExistence(timeout: 5))
@@ -89,15 +88,12 @@ final class QuietScenarioTests: XCTestCase {
   func test03LightAppearance() {
     app.launch()
     XCTAssertTrue(element("pull-strip").waitForExistence(timeout: 20))
-    app.swipeDown()
-    // Settings is also exposed as an accessible action on the pull strip.
-    if !element("light appearance").waitForExistence(timeout: 2) {
-      app.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.075))
-        .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.35)))
-    }
-    print("APPEARANCE_TREE\n" + app.debugDescription)
+    app.coordinate(withNormalizedOffset: CGVector(dx: 0.10, dy: 0.08))
+      .press(forDuration: 0.15, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.10, dy: 0.35)))
+    let appearance = app.buttons["appearance"]
+    XCTAssertTrue(appearance.waitForExistence(timeout: 5))
+    appearance.tap()
     let light = element("light appearance")
-    if !light.exists { app.swipeUp() }
     XCTAssertTrue(light.waitForExistence(timeout: 5))
     light.tap()
     let back = element("‹ edge")

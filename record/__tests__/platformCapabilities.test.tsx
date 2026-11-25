@@ -110,6 +110,8 @@ describe('settings on android', () => {
         capabilities={capabilitiesFor('android')}
       />
     );
+    fireEvent.press(screen.getByRole('button', { name: 'capture & sharing' }));
+    fireEvent.press(screen.getByRole('button', { name: 'appearance' }));
     expect(screen.getByText('this phone')).toBeTruthy();
     expect(screen.queryByText('sync')).toBeNull();
     expect(screen.queryByText('set up ›')).toBeNull();
@@ -128,6 +130,8 @@ describe('settings on android', () => {
         capabilities={capabilitiesFor('android')}
       />
     );
+    fireEvent.press(screen.getByRole('button', { name: 'capture & sharing' }));
+    fireEvent.press(screen.getByRole('button', { name: 'privacy & protection' }));
     expect(screen.getByText('microphone')).toBeTruthy();
     expect(
       screen.getByText(/not asked yet · android asks the first time you tap the circle/)
@@ -156,8 +160,11 @@ describe('settings on android', () => {
     render(<Settings {...props} capabilities={capabilitiesFor('ios')} />);
     expect(screen.getByText('this iphone')).toBeTruthy();
     expect(screen.getByText('set up ›')).toBeTruthy();
+    expect(screen.queryByText('home screen icon')).toBeNull();
+    fireEvent.press(screen.getByRole('button', { name: 'appearance' }));
     expect(screen.getByText('home screen icon')).toBeTruthy();
-    expect(screen.getByText('see it')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'capture & sharing' }));
+    fireEvent.press(screen.getByRole('button', { name: 'privacy & protection' }));
     expect(screen.getByText('microphone')).toBeTruthy();
     expect(screen.getByText(/not asked yet · ios asks/)).toBeTruthy();
     expect(
@@ -172,6 +179,23 @@ describe('settings on android', () => {
         'share sheet · send a page or a selection to chinotto from any app. it lands dated now.'
       )
     ).toBeTruthy();
+  });
+
+  it('keeps Quiet directly accessible while archive tools open in place', () => {
+    const onExport = jest.fn();
+    const onOpenQuietGuide = jest.fn();
+    render(<Settings {...props} onExport={onExport} onOpenQuietGuide={onOpenQuietGuide}
+      capabilities={capabilitiesFor('ios')} />);
+    const archive = screen.getByRole('button', { name: 'backup & restore' });
+    expect(archive.props.accessibilityState.expanded).toBe(false);
+    expect(screen.queryByText('export the record')).toBeNull();
+    fireEvent.press(screen.getByLabelText('Quiet Home Screen, guide ›'));
+    expect(onOpenQuietGuide).toHaveBeenCalledTimes(1);
+    fireEvent.press(archive);
+    fireEvent.press(screen.getByLabelText('export the record, export ›'));
+    expect(onExport).toHaveBeenCalledTimes(1);
+    fireEvent.press(archive);
+    expect(screen.queryByText('export the record')).toBeNull();
   });
 
   it('opens a compact interaction reference only when asked', () => {
@@ -235,8 +259,10 @@ describe('settings on android', () => {
     );
 
     fireEvent.press(screen.getByLabelText('sync, set up ›'));
+    fireEvent.press(screen.getByRole('button', { name: 'capture & sharing' }));
     fireEvent.press(screen.getByLabelText('from elsewhere, see it'));
     fireEvent.press(screen.getByLabelText('Quiet Home Screen, guide ›'));
+    fireEvent.press(screen.getByRole('button', { name: 'privacy & protection' }));
     fireEvent.press(screen.getByLabelText('anonymous usage, off ›'));
 
     expect(onOpenSync).toHaveBeenCalledTimes(1);
