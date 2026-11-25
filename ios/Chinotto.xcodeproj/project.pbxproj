@@ -17,6 +17,7 @@
 		32A24D1BC965A85F480D3CFA /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = E51C14F264D9937F8A5FF259 /* PrivacyInfo.xcprivacy */; };
 		3D14414CA395094D9653186B /* QuietApps.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D0A8C57B17D302FE1E58BD2 /* QuietApps.swift */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
+		41703133C5622A11B62C572C /* Archivo-540-94.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C5391F1CAFEF0A8053F412E6 /* Archivo-540-94.ttf */; };
 		4D9EDD112F994A6BB0A87864 /* index.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18D62A4DEC3E4BF08E405F95 /* index.swift */; };
 		5C6F6985C7B7358BF6B94736 /* QuietAppsControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F2F77AE08A1580704B9FFEB /* QuietAppsControl.swift */; };
 		6A6D7E57B7FA4C718801F13D /* expo-sharing-extension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 27924A1078674FCC8373C10D /* expo-sharing-extension.appex */; };
@@ -125,6 +126,7 @@
 		AFD8A87C948A481D8EE20C11 /* GoogleService-Info.plist */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "Chinotto/GoogleService-Info.plist"; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
 		BD0F92396A4FF3F4F9002E24 /* Pods-Chinotto.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Chinotto.release.xcconfig"; path = "Target Support Files/Pods-Chinotto/Pods-Chinotto.release.xcconfig"; sourceTree = "<group>"; };
+		C5391F1CAFEF0A8053F412E6 /* Archivo-540-94.ttf */ = {isa = PBXFileReference; includeInIndex = 1; name = "Archivo-540-94.ttf"; path = "../assets/fonts/android/Archivo-540-94.ttf"; sourceTree = "<group>"; };
 		C9668DBF06D143258D522D10 /* ExpoWidgetsTarget.entitlements */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = ExpoWidgetsTarget.entitlements; path = ExpoWidgetsTarget.entitlements; sourceTree = "<group>"; };
 		CA57F17E24934552AB3529EE /* ShareIntoFileStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ShareIntoFileStore.swift; path = "../../../node_modules/expo-sharing/ios/shared/ShareIntoFileStore.swift"; sourceTree = "<group>"; };
 		CABF5DD81ADEBB4314300E02 /* SetQuietAppsIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SetQuietAppsIntent.swift; path = Quiet/SetQuietAppsIntent.swift; sourceTree = "<group>"; };
@@ -271,6 +273,7 @@
 				504D661C889BEA3454D64034 /* QuietAppsModule.swift */,
 				8031B4EAFD3C431519313358 /* QuietAppsModule.m */,
 				CABF5DD81ADEBB4314300E02 /* SetQuietAppsIntent.swift */,
+				C5391F1CAFEF0A8053F412E6 /* Archivo-540-94.ttf */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -348,6 +351,7 @@
 				E28728E827FA4D4AB7ABD34A /* Sources */,
 				807AF6D6C8B743B99083510C /* Frameworks */,
 				E33B982E5A02959B0BF7C828 /* [CP] Copy Pods Resources */,
+				78173B08F1BCEBFD5727B1B2 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -459,6 +463,14 @@
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
 				32A24D1BC965A85F480D3CFA /* PrivacyInfo.xcprivacy in Resources */,
 				707487B40EDF4C349436633B /* GoogleService-Info.plist in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		78173B08F1BCEBFD5727B1B2 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				41703133C5622A11B62C572C /* Archivo-540-94.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

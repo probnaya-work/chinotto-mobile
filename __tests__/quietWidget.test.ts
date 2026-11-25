@@ -27,10 +27,20 @@ describe('the native Quiet widget contract', () => {
     const widgets = config.expo.plugins.find((plugin: unknown[]) => plugin[0] === 'expo-widgets')[1].widgets;
     expect(widgets).toEqual(expect.arrayContaining([
       expect.objectContaining({ name: 'CaptureHomeWidget' }),
-      expect.objectContaining({ name: 'QuietCaptureWidget', supportedFamilies: ['systemLarge'] }),
+      expect.objectContaining({ name: 'QuietCaptureWidget', supportedFamilies: ['systemMedium', 'systemLarge'] }),
     ]));
     const project = fs.readFileSync(path.join(root, 'ios/Chinotto.xcodeproj/project.pbxproj'), 'utf8');
     expect(project).toContain('QuietCaptureWidget.swift in Sources');
+  });
+
+  it('offers both sizes and exposes accessible text and voice links on Medium', () => {
+    expect(source).toContain('.supportedFamilies([.systemMedium, .systemLarge])');
+    const medium = source.split('private struct QuietMediumFace: View')[1];
+    expect(medium).toContain('Link(destination: textURL)');
+    expect(medium).toContain('.accessibilityLabel("What arrived? Write a thought")');
+    expect(medium).toContain('Link(destination: voiceURL)');
+    expect(medium).toContain('.accessibilityLabel("Record a thought")');
+    expect(medium).not.toContain('systemName: "mic"');
   });
 
   it('cannot read personal material and reuses the existing widget palette', () => {

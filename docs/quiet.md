@@ -1,45 +1,14 @@
 # Quiet Home Screen for iPhone
 
 The optional Focus page belongs to iOS. Messages, Phone and Maps open from their own icons.
-Chinotto supplies a private large widget with text and voice capture. Its optional
+Chinotto supplies a private Medium or Large widget with text and voice capture. Its optional
 **Quiet guide** is at the top right of the Record, including locked capture.
 
-## Hide selected apps on the current Home Screen (prototype)
+## Set up the suggested Personal Focus page
 
-**Layout change observed on iPhone 15.** Turning Quiet off moved both selected
-icons from the first Home Screen page to the second. Restoring their original
-positions requires manual rearrangement.
-
-Open **Quiet guide → Hide apps with Quiet** and grant individual Screen Time access.
-Choose individual apps inside the system picker, then tap **Save**. The selection
-stays on this device. Keep Chinotto and Messages available for the first test.
-Turn Quiet on or off in the sheet. On iOS 18 or later, add **Chinotto Quiet**
-once from the Control Center gallery. This path uses your existing pages and Dock.
-
-Chinotto writes the selected applications to `application.blockedApplications`
-in its own named Managed Settings store. Turning Quiet off clears that store.
-iOS owns icon placement and decides when restrictions take effect. If Chinotto
-is inaccessible, its Screen Time permission can be revoked in iPhone Settings.
-
-**Device check.** Note the exact positions of two dispensable apps, one in a
-folder and one in the Dock. Turn Quiet on, open Messages and swipe Home. Check
-whether both icons disappeared. Turn Quiet off and compare both positions,
-including the folder page. Repeat from Control Center with Chinotto closed.
-
-**25 November 2026.** On the signed iOS 27.2 iPhone 17 Pro simulator build, the
-system showed its consent prompt, passcode flow, approval and app picker. The
-Control Center gallery offered the control and the installed control rendered
-its Off state. Searches in the picker for Files, Safari and two locally installed
-sample apps returned no selectable rows. In a separate simulator-only diagnostic
-using known sample bundle IDs, one sample icon remained visible after requesting
-restrictions. That diagnostic bypassed the picker. It does not establish how
-restrictions from the picker affect a physical device. A development-signed
-build with Family Controls on both targets was installed over build 50 and
-launched on an iPhone 15. The owner selected two apps they had grouped on the
-first Home Screen page. Both icons disappeared when Quiet was turned on. When
-Quiet was turned off, both reappeared on the second page. This failed the
-requirement to restore the usual layout. The owner did not separately report
-the swipe Home from Messages or the positions within a folder or the Dock.
+1. Open **Settings → Focus → Personal**. Under **Customize Screens**, choose the Home Screen, select a suggestion under **Create a New Page** and tap **Add**.
+2. Turn Personal on from **Control Center → Focus**. Hold the background of the suggested page, then tap **Edit → Add Widget**. Search for Chinotto and select **Chinotto Quiet** in Medium. Add it and tap **Done**. Use the standard apps already on the page or in the Dock.
+3. During use, swipe Home from Messages or Chinotto to return to this page. Toggle Personal in Control Center to restore your usual pages or bring the suggested page back.
 
 ## Suggested pages on a physical iPhone
 
@@ -54,7 +23,7 @@ confirmed that swiping Home from Messages returned to that page and turning
 off Personal Focus restored the usual layout with icons in their original
 positions. Setup time and a second activation were not measured.
 
-## Set up on an iPhone
+## Alternative using a manually arranged page and custom Focus
 
 1. Hold the Home Screen background. In edit mode, swipe left past the last page to the
    blank page. Tap **Edit → Add Widget → Chinotto**. Slide across the preview dots until the
@@ -77,11 +46,20 @@ The physical-device observation above covers Personal Focus. The timings below d
 
 ## Widget and existing in-app capture
 
-The widget uses the existing light and dark palette, a local date and no Record data.
-**What arrived?** and the background open `chinotto://capture`. The microphone opens
-`chinotto://capture?mode=voice`. The Chinotto header retains build 50’s in-app capture
-destination at `chinotto://quiet`, also accessible at the end of the guide.
+Both sizes display the local date and contain no Record data. In Medium, the
+two-line **What arrived?** opens `chinotto://capture` and the sage disc opens
+`chinotto://capture?mode=voice`. In Large, the question and microphone open the
+same two destinations. Its header opens build 50’s in-app capture at
+`chinotto://quiet`, also accessible in the guide.
 These app links operate independently of system Focus.
+
+On the iPhone 17 Pro simulator (iOS 27.2), the gallery offered Medium. With the
+app terminated, tapping the question focused the editor. Tapping the disc with
+microphone access denied opened voice capture and offered Settings. A separate
+walkthrough returned to the Medium page from an unsent Messages draft and again
+after saving in Record. A read-only SQLite query found one row for the new
+thought. The Medium build was also installed on the owner's iPhone 15. Physical
+microphone recording with this size still needs a device check.
 
 **Message** presents Apple's `MFMessageComposeViewController` when the device supports it.
 The person selects or types a recipient, writes the message and presses Send in that system
@@ -176,3 +154,40 @@ Tests 06–08 cover cold widget entry. Test 09 uses a clean simulator with the p
 page and Apple’s sample Messages data. It checks actual bottom-edge gestures and keeps
 screenshots of both returns. Run `pnpm typecheck` and `pnpm test --runInBand` for the
 app tests.
+
+## Hide selected apps on the current Home Screen (prototype)
+
+**Layout change observed on iPhone 15.** Turning Quiet off moved both selected
+icons from the first Home Screen page to the second. Restoring their original
+positions requires manual rearrangement.
+
+Open **Quiet guide → Previous app-hiding experiment → Hide apps with Quiet** and grant individual Screen Time access.
+Choose individual apps inside the system picker, then tap **Save**. The selection
+stays on this device. Keep Chinotto and Messages available for the first test.
+Turn Quiet on or off in the sheet. On iOS 18 or later, add **Chinotto Quiet**
+once from the Control Center gallery. This path uses your existing pages and Dock.
+
+Chinotto writes the selected applications to `application.blockedApplications`
+in its own named Managed Settings store. Turning Quiet off clears that store.
+iOS owns icon placement and decides when restrictions take effect. If Chinotto
+is inaccessible, its Screen Time permission can be revoked in iPhone Settings.
+
+**Device check.** Note the exact positions of two dispensable apps, one in a
+folder and one in the Dock. Turn Quiet on, open Messages and swipe Home. Check
+whether both icons disappeared. Turn Quiet off and compare both positions,
+including the folder page. Repeat from Control Center with Chinotto closed.
+
+**25 November 2026.** On the signed iOS 27.2 iPhone 17 Pro simulator build, the
+system showed its consent prompt, passcode flow, approval and app picker. The
+Control Center gallery offered the control and the installed control rendered
+its Off state. Searches in the picker for Files, Safari and two locally installed
+sample apps returned no selectable rows. In a separate simulator-only diagnostic
+using known sample bundle IDs, one sample icon remained visible after requesting
+restrictions. That diagnostic bypassed the picker. It does not establish how
+restrictions from the picker affect a physical device. A development-signed
+build with Family Controls on both targets was installed over build 50 and
+launched on an iPhone 15. The owner selected two apps they had grouped on the
+first Home Screen page. Both icons disappeared when Quiet was turned on. When
+Quiet was turned off, both reappeared on the second page. This failed the
+requirement to restore the usual layout. The owner did not separately report
+the swipe Home from Messages or the positions within a folder or the Dock.

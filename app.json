@@ -116,7 +116,7 @@
               "name": "QuietCaptureWidget",
               "displayName": "Chinotto Quiet",
               "description": "Write or speak a thought from your Home Screen.",
-              "supportedFamilies": ["systemLarge"]
+              "supportedFamilies": ["systemMedium", "systemLarge"]
             }
           ]
         }

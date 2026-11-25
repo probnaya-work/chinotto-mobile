@@ -659,3 +659,11 @@ The optional Quiet guide offers individual app hiding through Family Controls.
 The user selects apps explicitly and can clear the restriction from Chinotto or
 its Control Center control. Normal Record capture requires no Screen Time
 permission. See the [device check](quiet.md#hide-selected-apps-on-the-current-home-screen-prototype).
+
+### Quiet widget size and artwork
+
+The approved Medium uses the App Store Search Results graphite and sage artwork
+in both full-color appearances. The disc is the voice capture link. The existing
+Large stays available under the same widget kind so installed widgets keep
+their size and destinations. The guide leads with the Personal Focus page the
+owner used successfully on iPhone.

@@ -458,7 +458,7 @@ private func readWidgetState() -> WidgetState {
 ///
 /// Ratios are the design's 64-unit geometry divided by 64: ring r28 stroke 3.5, a dot of r9
 /// centred at y=23, and a dot of r5 centred at y=40.
-private struct ChinottoLogoMark: View {
+struct ChinottoLogoMark: View {
   let size: CGFloat
   let scheme: ColorScheme
 

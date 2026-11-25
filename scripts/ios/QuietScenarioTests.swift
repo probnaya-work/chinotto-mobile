@@ -36,6 +36,10 @@ final class QuietScenarioTests: XCTestCase {
     let guide = element("Quiet Home Screen guide")
     XCTAssertTrue(guide.waitForExistence(timeout: 30))
     guide.tap()
+    let previous = element("Previous app-hiding experiment")
+    if !previous.isHittable { app.swipeUp() }
+    previous.tap()
+    if !element("Hide apps with Quiet").isHittable { app.swipeUp() }
     element("Hide apps with Quiet").tap()
     let enable = app.buttons["Turn Quiet on"]
     XCTAssertTrue(enable.waitForExistence(timeout: 10), app.debugDescription)

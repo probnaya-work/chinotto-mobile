@@ -13,6 +13,9 @@ describe('Quiet apps experiment', () => {
     NativeModules.QuietAppsModule = { open };
     guide();
     expect(open).not.toHaveBeenCalled();
+    expect(screen.getByText('Choose your Quiet page')).toBeTruthy();
+    expect(screen.queryByText('Hide apps with Quiet')).toBeNull();
+    fireEvent.press(screen.getByText('Previous app-hiding experiment'));
     fireEvent.press(screen.getByText('Hide apps with Quiet'));
     await screen.findByText('Couldn’t open Quiet. Try again.');
     fireEvent.press(screen.getByText('Hide apps with Quiet'));
