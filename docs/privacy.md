@@ -40,7 +40,7 @@ Return alerts have a separate device-local switch, off by default. When enabled,
 
 ## Analytics (opt-in)
 
-Analytics are **off by default**. You can turn them on or off in Settings → Privacy.
+Analytics are **off by default**. You can turn them on or off in Settings → privacy & protection.
 
 When enabled, Chinotto sends only simple event names and numbers — for example “entry created” with the text length, or “search used” with the number of results. It never sends:
 

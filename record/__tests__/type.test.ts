@@ -3,7 +3,7 @@ import { join } from 'path';
 
 import { FACES, face, type } from '../ui/type';
 import { FOCUSED_TIER_COLORS, TIERS, tierTextStyle } from '../ui/tiers';
-import { agency, bandLabel, ink } from '../ui/tokens';
+import { bandLabel, ink } from '../ui/tokens';
 
 const FONT_DIR = join(__dirname, '..', '..', 'assets', 'fonts');
 
@@ -91,7 +91,7 @@ describe('the type ladder', () => {
     );
   });
 
-  it('uses the quiet cream for chronology landmarks', () => {
-    expect(bandLabel.color).toBe(agency.quiet);
+  it('uses muted sage for chronology landmarks', () => {
+    expect(bandLabel.color).toBe('#95a18d');
   });
 });

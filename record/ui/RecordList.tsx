@@ -324,7 +324,7 @@ export function RecordList(props: RecordListProps) {
           return (
             <Text
               style={[
-                type({ size: 12, width: 90, color: ink.meta }),
+                type({ size: 12, width: 90, color: bandLabel.color }),
                 { marginBottom: 22 },
               ]}
             >
@@ -400,7 +400,7 @@ function YearsBand({
   years: YearSummary[];
   onPress: (year: number) => void;
 }) {
-  const { ink, agency, rule } = useRecordTheme();
+  const { ink, bandLabel, rule } = useRecordTheme();
 
   return (
     <View style={{ marginBottom: 16 }}>
@@ -413,7 +413,7 @@ function YearsBand({
           accessibilityRole="button"
           accessibilityLabel={`${y.y}, ${y.count} moments`}
         >
-          <Text style={type({ size: 12, width: 90, color: agency.quiet })}>{y.y}</Text>
+          <Text style={type({ size: 12, width: 90, color: bandLabel.color })}>{y.y}</Text>
           <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 3, height: 12 }}>
             {y.months.map((count, i) => (
               <View

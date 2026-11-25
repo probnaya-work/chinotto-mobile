@@ -65,6 +65,7 @@ export type EdgeProps = {
   input: string;
   accessibilityHidden?: boolean;
   captureOnly?: boolean;
+  saving?: boolean;
   onChangeInput: (text: string) => void;
   onSubmit: () => void;
   inputRef?: React.RefObject<TextInputInstance | null>;
@@ -303,7 +304,7 @@ export function Edge(props: EdgeProps) {
                 { flex: 1, paddingVertical: 22 },
               ]}
             >
-              ▲ back to the edge
+              ▲ back to now
             </Text>
           ) : (
             <>
@@ -327,6 +328,7 @@ export function Edge(props: EdgeProps) {
               ) : null}
 
               <CaptureField
+                editable={!props.saving}
                 value={props.input}
                 onChangeText={props.onChangeInput}
                 onSubmitEditing={props.onSubmit}
@@ -346,6 +348,7 @@ export function Edge(props: EdgeProps) {
               {showSend ? (
                 <Pressable
                   onPress={props.onSubmit}
+                  disabled={props.saving}
                   accessibilityRole="button"
                   accessibilityLabel="leave it"
                   style={{

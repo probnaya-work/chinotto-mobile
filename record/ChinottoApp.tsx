@@ -19,7 +19,7 @@
  */
 
 import { useRecordTheme } from './ui/appearance';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { AppState, BackHandler, Linking, Platform, View } from 'react-native';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
@@ -33,6 +33,9 @@ import { NotificationSettings, ScheduledReminders } from './ui/NotificationSetti
 import { ShareSurface, metBeforeLabel } from './ui/ShareSurface';
 import { SyncSheet } from './ui/SyncSheet';
 import { ForcedUpdate, WidgetPreview } from './ui/WidgetPreview';
+import { QuietHomeGuide } from './ui/QuietHomeGuide';
+import { Quiet } from './ui/Quiet';
+import { dismissKeyboard } from './ui/useKeyboardInset';
 import { FONT_ASSETS } from './ui/type';
 
 import { createBridge, type RecordBridge } from './bridge';
@@ -135,7 +138,16 @@ export function ChinottoApp({ services }: { services: Services }) {
   const readAllowed = protection.ready && !protection.locked;
   const capabilities = services.capabilities ?? capabilitiesFor(Platform.OS);
   const [fontsReady, setFontsReady] = useState(false);
+  const [splashHidden, setSplashHidden] = useState(false);
   const [surface, setSurface] = useState<Surface>({ kind: 'record' });
+  const [quietRequest, setQuietRequest] = useState(0);
+  const [quietPanel, setQuietPanel] = useState<'guide' | 'capture' | null>(null);
+  const quietOpen = quietPanel !== null;
+  const settingsVisible = surface.kind === 'settings' && !quietOpen;
+  useLayoutEffect(() => {
+    if (settingsVisible) dismissKeyboard();
+  }, [settingsVisible]);
+  const [captureRequest, setCaptureRequest] = useState(0);
   const [share, setShare] = useState<ShareIntake | null>(null);
   const [shareWords, setShareWords] = useState('');
   const notifications = services.reminderNotifications;
@@ -152,6 +164,7 @@ export function ChinottoApp({ services }: { services: Services }) {
     if (!notifications || !reminders) return;
     const refresh = () => { void reminders.reconcile().catch(() => {}); };
     const unsubscribe = notifications.subscribe((id) => {
+      setQuietPanel(null);
       setReminderRequest({ id, source: id.startsWith(RETURN_ALERT_PREFIX) ? 'return-alert' : 'notification' });
       setSurface({ kind: 'record' });
     });
@@ -383,7 +396,7 @@ export function ChinottoApp({ services }: { services: Services }) {
     const hide = () => {
       if (done) return;
       done = true;
-      void SplashScreen.hideAsync().catch(() => {});
+      void SplashScreen.hideAsync().catch(() => {}).then(() => setSplashHidden(true));
     };
     const bailout = setTimeout(hide, 4000);
     let second = 0;
@@ -562,18 +575,6 @@ export function ChinottoApp({ services }: { services: Services }) {
     return () => clearInterval(id);
   }, [recording?.phase]);
 
-  /**
-   * The widget's circle opens the app already listening. Held until the fonts are up so the
-   * first frame is not a half-drawn surface behind a recording.
-   */
-  useEffect(() => {
-    // Handled inside `RecordApp`, where the permission rules live. This only gates it on
-    // the fonts, so the surface exists before it starts listening.
-    if (!services.voiceOnOpen || !fontsReady) return;
-    setVoiceOnOpenReady(true);
-  }, [services.voiceOnOpen, fontsReady]);
-  const [voiceOnOpenReady, setVoiceOnOpenReady] = useState(false);
-
   const startVoice = useCallback(async () => {
     recordingTranscript.current = '';
     setVoiceIssue(null);
@@ -608,6 +609,7 @@ export function ChinottoApp({ services }: { services: Services }) {
     // Nothing arrived is not something to handle. Saying it was handled is how a share
     // gets marked taken before it is made.
     if (!services.incomingShare || services.incomingShare.length === 0) return;
+    setQuietPanel(null);
     const intake = readShare(services.incomingShare);
     services.onShareHandled();
     if (!intake) return;
@@ -657,9 +659,12 @@ export function ChinottoApp({ services }: { services: Services }) {
     let newerURL = false;
     const open = (url: string) => {
       const action = parseWidgetDeepLink(url);
-      if (!action) return false;
+      if (!action || (action.type === 'quiet' && !capabilities.homeWidget)) return false;
+      setQuietPanel(action.type === 'quiet' ? 'capture' : null);
+      if (action.type === 'quiet') setQuietRequest((request) => request + 1);
       setSurface({ kind: 'record' });
       setShare(null);
+      if (action.type === 'capture' && action.mode === 'default') setCaptureRequest((n) => n + 1);
       setReminderRequest(action.type === 'thought' ? { id: action.thoughtId, source: 'widget' } : null);
       return true;
     };
@@ -668,7 +673,7 @@ export function ChinottoApp({ services }: { services: Services }) {
     }).catch(() => {});
     const sub = Linking.addEventListener('url', ({ url }) => { if (open(url)) newerURL = true; });
     return () => { current = false; sub.remove(); };
-  }, []);
+  }, [capabilities.homeWidget]);
 
   /* --------------------------------------------------------------------- back */
 
@@ -683,6 +688,7 @@ export function ChinottoApp({ services }: { services: Services }) {
   const recordBack = useRef<(() => boolean) | null>(null);
   const onBack = useRef<() => boolean>(() => false);
   onBack.current = () => {
+    if (quietOpen) { setQuietPanel(null); return true; }
     const step = appBackStep({
       syncOpen: sync.open,
       share: share !== null,
@@ -735,6 +741,8 @@ export function ChinottoApp({ services }: { services: Services }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: SURFACE }}>
+      <View style={{ flex: 1 }} accessibilityElementsHidden={quietOpen}
+        importantForAccessibility={quietOpen ? 'no-hide-descendants' : 'auto'} pointerEvents={quietOpen ? 'none' : 'auto'}>
       <RecordApp
         store={surfaceStore}
         privacy={{ locked: !readAllowed, busy: protection.busy, error: protection.error,
@@ -748,8 +756,10 @@ export function ChinottoApp({ services }: { services: Services }) {
         onReminderHandled={reminderHandled}
         onReturnToScheduled={() => setSurface({ kind: 'settings', page: 'scheduled' })}
         coldStart={coldStart && fontsReady}
-        returnCovered={surface.kind !== 'record' || Boolean(share) || sync.open}
+        captureReady={protection.ready && splashHidden}
+        returnCovered={quietOpen || surface.kind !== 'record' || Boolean(share) || sync.open}
         onOpenSettings={() => setSurface({ kind: 'settings', page: 'root' })}
+        captureRequest={captureRequest}
         voice={{
           start: startVoice,
           stop: stopVoice,
@@ -761,11 +771,8 @@ export function ChinottoApp({ services }: { services: Services }) {
         }}
         voiceIssue={voiceIssue}
         audio={services.audio}
-        voiceOnOpen={voiceOnOpenReady}
-        onVoiceOnOpenHandled={() => {
-          setVoiceOnOpenReady(false);
-          services.onVoiceOnOpenHandled();
-        }}
+        voiceOnOpen={services.voiceOnOpen && fontsReady}
+        onVoiceOnOpenHandled={services.onVoiceOnOpenHandled}
         changedAt={changedAt}
         capabilities={capabilities}
         backRef={recordBack}
@@ -783,13 +790,19 @@ export function ChinottoApp({ services }: { services: Services }) {
           },
         }}
       />
+      </View>
 
-      {surface.kind === 'settings' ? (
+      {quietPanel === 'guide' ? <QuietHomeGuide onClose={() => setQuietPanel(null)} /> : null}
+      <Quiet visible={quietPanel === 'capture'} openRequest={quietRequest} capture={(body) => surfaceStore.capture({ body, origin: 'mobile' })}
+        onExit={() => setQuietPanel(null)} />
+
+      {settingsVisible ? (
         <SettingsSurface
           page={surface.page}
           onRestored={() => setChangedAt((n) => n + 1)}
           setPage={(page) => setSurface({ kind: 'settings', page })}
           onClose={() => setSurface({ kind: 'record' })}
+          onOpenQuietGuide={() => setQuietPanel('guide')}
           onSeeWidget={() => setSurface({ kind: 'widget' })}
           onOpenSync={openSync}
           sync={sync}
@@ -838,15 +851,15 @@ export function ChinottoApp({ services }: { services: Services }) {
         />
       ) : null}
 
-      {surface.kind === 'widget' && readAllowed ? (
+      {surface.kind === 'widget' ? (
         <WidgetLive
-          store={surfaceStore}
+          store={readAllowed && !protection.enabled ? surfaceStore : null}
           onClose={() => setSurface({ kind: 'settings', page: 'root' })}
           onCapture={() => setSurface({ kind: 'record' })}
         />
       ) : null}
 
-      {sync.open && readAllowed ? (
+      {sync.open && !quietOpen && readAllowed ? (
         <SyncSheet
           state={account.phase === 'idle' ? sync.state : account.phase}
           offline={sync.offline}
@@ -916,6 +929,7 @@ function SettingsSurface(props: {
   page: SettingsPage;
   setPage: (page: SettingsPage) => void;
   onClose: () => void;
+  onOpenQuietGuide: () => void;
   onSeeWidget: () => void;
   onOpenSync: () => void;
   sync: ReturnType<typeof useSyncSurface>;
@@ -1044,6 +1058,7 @@ function SettingsSurface(props: {
       micLine={settingsCopy.microphone(permission, props.capabilities.systemName)}
       micDenied={permission === 'denied'}
       onOpenSystemSettings={props.services.openSystemSettings}
+      onOpenQuietGuide={props.onOpenQuietGuide}
       onSeeWidget={props.onSeeWidget}
       analyticsOn={props.analyticsOn}
       onToggleAnalytics={props.setAnalyticsOn}
@@ -1084,19 +1099,24 @@ function WidgetLive({
   onClose,
   onCapture,
 }: {
-  store: RecordStore;
+  store: RecordStore | null;
   onClose: () => void;
   onCapture: () => void;
 }) {
   const [last, setLast] = useState<Material | null>(null);
   useEffect(() => {
-    void store.loadRecord(1).then((rows) => setLast(rows[0] ?? null));
+    if (!store) return;
+    let active = true;
+    void store.loadRecord(1).then(rows => {
+      if (active) setLast(rows[0] ?? null);
+    }).catch(() => { if (active) setLast(null); });
+    return () => { active = false; };
   }, [store]);
 
   const now = Date.now();
   return (
     <WidgetPreview
-      lastLine={last ? firstLine(last) : 'nothing yet'}
+      lastLine={store ? (last ? firstLine(last) : 'nothing yet') : null}
       lastWhen={
         last ? (dayLabel(last.at, now) === 'today' ? fmtTime(last.at) : dayLabel(last.at, now)) : ''
       }

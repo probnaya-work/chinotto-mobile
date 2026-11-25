@@ -21,7 +21,7 @@ const source = fs.readFileSync(WIDGET, 'utf8');
 
 /** The mark's own body, so ring/dot counts are not confused with the capture affordance. */
 const markBody = (() => {
-  const start = source.indexOf('private struct ChinottoLogoMark');
+  const start = source.indexOf('struct ChinottoLogoMark');
   expect(start).toBeGreaterThan(-1);
   const end = source.indexOf('\n}', source.indexOf('var body', start));
   return source.slice(start, end);

@@ -510,6 +510,41 @@ describe('the record surface', () => {
     h.db.close();
   });
 
+  it('starts a cold voice request before the parent clears its pending flag', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const voice = { ...defaults.voice, start: jest.fn(async () => true), stop: jest.fn(async () => {}) };
+    const handled = jest.fn();
+    function FromWidget() {
+      const [pending, setPending] = React.useState(true);
+      return <RecordApp store={h.store} bridge={h.bridge} {...defaults} voice={voice}
+        voiceOnOpen={pending} onVoiceOnOpenHandled={() => { handled(); setPending(false); }} />;
+    }
+    render(<FromWidget />);
+    await act(async () => { await Promise.resolve(); });
+    expect(handled).not.toHaveBeenCalled();
+    await act(async () => { jest.advanceTimersByTime(400); await Promise.resolve(); });
+    expect(voice.start).toHaveBeenCalledTimes(1);
+    expect(handled).toHaveBeenCalledTimes(1);
+    await act(async () => { jest.advanceTimersByTime(1000); await Promise.resolve(); });
+    expect(voice.start).toHaveBeenCalledTimes(1);
+    expect(voice.stop).not.toHaveBeenCalled();
+    h.db.close();
+  });
+
+  it('cancels a pending widget recording when the surface unmounts', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const voice = { ...defaults.voice, start: jest.fn(async () => true) };
+    const handled = jest.fn();
+    const view = await mount(h, { voice, voiceOnOpen: true, onVoiceOnOpenHandled: handled });
+    view.unmount();
+    await act(async () => { jest.advanceTimersByTime(400); await Promise.resolve(); });
+    expect(voice.start).not.toHaveBeenCalled();
+    expect(handled).not.toHaveBeenCalled();
+    h.db.close();
+  });
+
   it('keeps the recording on a second voice widget tap', async () => {
     const h = harness();
     await migrate(h.db);
@@ -771,7 +806,7 @@ describe('the record surface', () => {
     await act(async () => {
       fireEvent.press(screen.getByText('the folder thing again'));
     });
-    await waitFor(() => expect(screen.getByText('‹ edge')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('‹ Record')).toBeTruthy());
     expect(screen.getByText(/^a fragment · /)).toBeTruthy();
     h.db.close();
   });
@@ -853,14 +888,14 @@ describe('the record surface', () => {
     });
 
     await waitFor(() => expect(screen.getByText(/you are in mar 2024/)).toBeTruthy());
-    expect(screen.getByText('▲ back to the edge')).toBeTruthy();
+    expect(screen.getByText('▲ back to now')).toBeTruthy();
     // The field took the date as a movement, not as material.
     expect((await h.store.loadRecord()).map((r) => r.body)).not.toContain('march 2024');
 
     await act(async () => {
-      fireEvent.press(screen.getByText('▲ back to the edge'));
+      fireEvent.press(screen.getByText('▲ back to now'));
     });
-    await waitFor(() => expect(screen.queryByText('▲ back to the edge')).toBeNull());
+    await waitFor(() => expect(screen.queryByText('▲ back to now')).toBeNull());
 
     // Standing unmounted the field, which therefore never said it lost focus — and the
     // caret is drawn from that flag. The edge used to come back from standing bare.
@@ -1049,6 +1084,20 @@ describe('the record surface', () => {
     h.db.close();
   });
 
+  it('ends the launch animation as soon as the user starts typing', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const view = await mount(h, { coldStart: true });
+    expect(screen.getByLabelText('by PROBNAYA')).toBeTruthy();
+    const field = screen.getByLabelText('capture');
+    fireEvent(field, 'focus');
+    fireEvent.changeText(field, 'still here');
+    expect(screen.queryByLabelText('by PROBNAYA')).toBeNull();
+    expect(field.props.value).toBe('still here');
+    view.unmount();
+    h.db.close();
+  });
+
   it('still plays the lockup when the fonts arrive after the record does', async () => {
     const h = harness();
     await migrate(h.db);
@@ -1106,6 +1155,34 @@ describe('the record surface', () => {
       await Promise.resolve();
     });
     expect(screen.queryByText('chinotto')).toBeNull();
+    view.unmount();
+    h.db.close();
+  });
+
+  it.each([
+    ['voice', { voiceOnOpen: true }],
+    ['text', { captureRequest: 1 }],
+  ] as const)('drops a visible lockup immediately for a %s widget request', async (_, request) => {
+    const h = harness();
+    await migrate(h.db);
+    const props = { ...defaults, store: h.store, bridge: h.bridge, coldStart: true };
+    const view = await mount(h, { coldStart: true });
+    expect(screen.getByLabelText('by PROBNAYA')).toBeTruthy();
+
+    view.rerender(<RecordApp {...props} {...request} />);
+    expect(screen.queryByLabelText('by PROBNAYA')).toBeNull();
+    view.rerender(<RecordApp {...props} />);
+    expect(screen.queryByLabelText('by PROBNAYA')).toBeNull();
+    view.unmount();
+    h.db.close();
+  });
+
+  it('does not show the lockup when fonts arrive after a widget request', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const view = await mount(h, { captureRequest: 1 });
+    view.rerender(<RecordApp store={h.store} bridge={h.bridge} {...defaults} coldStart />);
+    expect(screen.queryByLabelText('by PROBNAYA')).toBeNull();
     view.unmount();
     h.db.close();
   });
@@ -1536,7 +1613,7 @@ describe('quiet reading', () => {
     expect(scrollTo).toHaveBeenLastCalledWith({ y: 120, animated: false });
     scrollTo.mockRestore();
     expect(screen.getByLabelText('a new moment, dated now').props.value).toBe('a draft in the same Line');
-    expect(screen.getByRole('button', { name: '‹ edge' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '‹ Record' })).toBeTruthy();
     expect(screen.getByLabelText('capture')).toBeTruthy();
     expect(await h.store.loadRecord()).toHaveLength(2);
     view.unmount(); h.db.close();

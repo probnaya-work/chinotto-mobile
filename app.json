@@ -3,19 +3,20 @@
     "name": "Chinotto",
     "owner": "bogart-labs",
     "slug": "chinotto-mobile",
-    "version": "3.0.0",
+    "version": "3.0.1",
     "scheme": "chinotto",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": false,
-      "buildNumber": "46",
+      "buildNumber": "50",
       "bundleIdentifier": "com.chinotto.mobile",
       "googleServicesFile": "./GoogleService-Info.plist",
       "associatedDomains": ["applinks:getchinotto.app"],
       "usesAppleSignIn": true,
       "entitlements": {
+        "com.apple.developer.family-controls": true,
         "com.apple.security.application-groups": [
           "group.com.chinotto.mobile"
         ]
@@ -110,6 +111,12 @@
                 "systemSmall",
                 "systemMedium"
               ]
+            },
+            {
+              "name": "QuietCaptureWidget",
+              "displayName": "Chinotto Quiet",
+              "description": "Write or speak a thought from your Home Screen.",
+              "supportedFamilies": ["systemMedium", "systemLarge"]
             }
           ]
         }

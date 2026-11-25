@@ -56,7 +56,7 @@ window is bounded. See `record/ui/` and decision 1.2 in `unspecified-decisions.m
 The prototype registers a global `keydown` handler and unwinds a ladder on `Escape`:
 recording → widget → sync → settings → editing → years → focus → selected → input → anchor.
 A phone has no `esc`. The ladder is real and is preserved, but it is driven by the iOS back
-gesture, the drawn `‹ edge` affordances and the sheet dismissals rather than by a key.
+gesture, the drawn `‹ Record` affordances and the sheet dismissals rather than by a key.
 
 ### 1.4 The prototype's `returnFor()` is corpus-specific
 

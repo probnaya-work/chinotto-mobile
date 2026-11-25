@@ -148,7 +148,7 @@ describe('the record on android', () => {
     });
     expect(await back()).toBe(true);
     expect(screen.queryByLabelText('correct the wording')).toBeNull();
-    expect(screen.getByText('‹ edge')).toBeTruthy();
+    expect(screen.getByText('‹ Record')).toBeTruthy();
 
     // …and the unfinished correction was let go of, not saved.
     const rows = await h.store.loadRecord();
@@ -156,7 +156,7 @@ describe('the record on android', () => {
 
     // Then back closes the moment itself.
     expect(await back()).toBe(true);
-    expect(screen.queryByText('‹ edge')).toBeNull();
+    expect(screen.queryByText('‹ Record')).toBeNull();
 
     // With nothing in front, back is the system's: the app leaves the ordinary way.
     expect(await back()).toBe(false);

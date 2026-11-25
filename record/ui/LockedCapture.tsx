@@ -1,5 +1,5 @@
 import { useRecordTheme } from './appearance';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Animated, Pressable, Text, View, type TextInputInstance } from 'react-native';
 import { Edge, useReducedMotion, type EdgeProps } from './Edge';
 import { RecordOpening } from './record-opening';
@@ -7,7 +7,8 @@ import { useKeyboardInset } from './useKeyboardInset';
 
 import { type } from './type';
 
-export function LockedCapture({ capture, words, change, onUnlock, busy, error, onSettings, voice }: {
+export function LockedCapture({ inputRef, capture, words, change, onUnlock, busy, error, onSettings, voice }: {
+  inputRef: React.RefObject<TextInputInstance | null>;
   capture: (body: string) => Promise<unknown>;
   words: string;
   change: (text: string) => void;
@@ -22,8 +23,7 @@ export function LockedCapture({ capture, words, change, onUnlock, busy, error, o
   const wordsNow = useRef(words);
   wordsNow.current = words;
   const [message, setMessage] = useState('the record is locked. a new thought can still land.');
-  const input = useRef<TextInputInstance>(null);
-  useEffect(() => { input.current?.focus(); }, []);
+  const [focused, setFocused] = useState(false);
   const keyboardInset = useKeyboardInset();
   const reducedMotion = useReducedMotion();
   const save = async () => {
@@ -47,8 +47,8 @@ export function LockedCapture({ capture, words, change, onUnlock, busy, error, o
       bottom: keyboardInset, justifyContent: 'center' }}>
       <RecordOpening reducedMotion={reducedMotion} />
     </Animated.View> : null}
-    <Edge captureOnly input={words} onChangeInput={(text) => { wordsNow.current = text; change(text); }} onSubmit={() => void save()} inputRef={input}
-      focused={true} onFocus={() => {}} onBlur={() => {}} onPressCaret={() => input.current?.focus()}
+    <Edge captureOnly input={words} onChangeInput={(text) => { wordsNow.current = text; change(text); }} onSubmit={() => void save()} inputRef={inputRef}
+      focused={focused} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} onPressCaret={() => inputRef.current?.focus()}
       anchored={false} onClearAnchor={() => {}} findSummary={null} notices={[]}
       keyboardInset={keyboardInset} {...voice} />
   </View>;

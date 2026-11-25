@@ -72,7 +72,11 @@ export type RecordAppProps = {
   /** False on a warm resume, so the lockup plays once per cold start and no more. */
   coldStart: boolean;
   returnCovered?: boolean;
+  /** The native splash has handed over and the privacy decision is known. */
+  captureReady?: boolean;
   onOpenSettings: () => void;
+  /** Existing capture links focus this edge; Quiet uses its own return destination. */
+  captureRequest?: number;
   /** Press-to-record. Release keeps it; slide up locks it; discard leaves no moment behind. */
   voice: {
     start: () => Promise<boolean>;
@@ -124,7 +128,9 @@ export function RecordApp(props: RecordAppProps) {
   useRecordStatusBar(props.privacy?.busy ?? false);
 
   const [active, setActive] = useState(() => !AppState.currentState || AppState.currentState === 'active');
-  const [launchVisible, setLaunchVisible] = useState(props.coldStart);
+  const captureInProgress = Boolean(props.captureRequest || props.voiceOnOpen || props.voice.state);
+  const [showLaunch, setShowLaunch] = useState(props.coldStart);
+  const launchVisible = showLaunch && !captureInProgress;
   const returnCovered = Boolean(props.returnCovered || !active || launchVisible || props.voice.state || props.reminderRequest);
   const record = useRecord(props.store, props.bridge, undefined, props.audio, !props.privacy?.locked, returnCovered);
   const capabilities = props.capabilities ?? capabilitiesFor(Platform.OS);
@@ -317,6 +323,35 @@ export function RecordApp(props: RecordAppProps) {
   }, [changedAt]);
 
   const inputRef = useRef<TextInputInstance>(null);
+  useEffect(() => {
+    if (!props.captureRequest) return;
+    record.clearAnchor();
+    record.leaveFind();
+    record.setFocusId(null);
+    record.setSelectedId(null);
+    record.setYearsOpen(false);
+    // Reset navigation once per explicit capture request.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.captureRequest]);
+
+  const focusedRequest = useRef(0);
+  const focusedLockedCapture = useRef(false);
+  useEffect(() => {
+    if (!locked) focusedLockedCapture.current = false;
+    if (props.captureReady === false || !active || props.privacy?.busy) return;
+    const request = props.captureRequest ?? 0;
+    if (props.voiceOnOpen || props.voice.state || props.returnCovered) {
+      focusedRequest.current = request;
+      focusedLockedCapture.current = locked;
+      return;
+    }
+    if ((!locked && record.anchor) || !inputRef.current) return;
+    if (focusedRequest.current === request && (!locked || focusedLockedCapture.current)) return;
+    focusedRequest.current = request;
+    focusedLockedCapture.current = locked;
+    inputRef.current.focus();
+  }, [active, locked, props.captureReady, props.captureRequest, props.privacy?.busy, props.returnCovered,
+    props.voice.state, props.voiceOnOpen, record.anchor]);
 
   const [launchLeaving, setLaunchLeaving] = useState(false);
   /** Once per mount, whatever the prop does afterwards. */
@@ -326,11 +361,11 @@ export function RecordApp(props: RecordAppProps) {
   /* ------------------------------------------------------------------- launch */
 
   const dismissLaunch = useCallback(() => {
-    setLaunchLeaving((already) => {
-      if (!already) return true;
-      return already;
-    });
+    setLaunchLeaving(true);
   }, []);
+
+  // Launch's exit animation must keep the same completion callback across Record updates.
+  const finishLaunch = useCallback(() => setShowLaunch(false), []);
 
   /**
    * The lockup waits for the fonts, so `coldStart` arrives false and turns true a moment
@@ -339,10 +374,16 @@ export function RecordApp(props: RecordAppProps) {
    * time it was true, nothing was looking. It is latched here instead, once per mount.
    */
   useEffect(() => {
+    if (captureInProgress) {
+      // A widget request can precede font loading, or arrive halfway through the animation.
+      launchPlayed.current = true;
+      finishLaunch();
+      return;
+    }
     if (!props.coldStart || launchPlayed.current) return;
     launchPlayed.current = true;
-    setLaunchVisible(true);
-  }, [props.coldStart]);
+    setShowLaunch(true);
+  }, [props.coldStart, captureInProgress, finishLaunch]);
 
   useEffect(() => {
     if (!launchVisible) return;
@@ -445,12 +486,17 @@ export function RecordApp(props: RecordAppProps) {
    */
   useEffect(() => {
     if (!props.voiceOnOpen) return;
-    props.onVoiceOnOpenHandled?.();
     // A link asking for listening, on a phone that cannot listen, opens the edge for typing.
-    if (!capabilities.voice) return;
+    if (!capabilities.voice) {
+      props.onVoiceOnOpenHandled?.();
+      return;
+    }
     const id = setTimeout(() => {
       if (props.voice.state) void stopRecording();
       else void startRecording();
+      // Acknowledging earlier lets the parent clear voiceOnOpen and cancel this timer
+      // before the cold-start request has actually reached the recorder.
+      props.onVoiceOnOpenHandled?.();
     }, 320);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -553,7 +599,7 @@ export function RecordApp(props: RecordAppProps) {
   );
 
   if (props.privacy?.locked) return <LockedCapture
-    words={record.captureInput} change={record.setCaptureInput}
+    inputRef={inputRef} words={record.captureInput} change={record.setCaptureInput}
     capture={(body) => props.store.capture({ body, origin: 'mobile' })}
     onUnlock={props.privacy.onUnlock} busy={props.privacy.busy} error={props.privacy.error}
     onSettings={props.onOpenSettings}
@@ -702,7 +748,11 @@ export function RecordApp(props: RecordAppProps) {
         onSubmit={record.submit}
         inputRef={inputRef}
         focused={record.inputFocused}
-        onFocus={() => record.setInputFocused(true)}
+        onFocus={() => {
+          launchPlayed.current = true;
+          finishLaunch();
+          record.setInputFocused(true);
+        }}
         onBlur={() => record.setInputFocused(false)}
         onPressCaret={() => inputRef.current?.focus()}
         anchored={Boolean(record.anchor)}
@@ -814,7 +864,7 @@ export function RecordApp(props: RecordAppProps) {
         <Launch
           leaving={launchLeaving}
           reducedMotion={reducedMotion}
-          onFinished={() => setLaunchVisible(false)}
+          onFinished={finishLaunch}
         />
       ) : null}
     </View>

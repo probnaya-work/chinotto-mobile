@@ -1,12 +1,14 @@
 import { CHINOTTO_WIDGET_CAPTURE_URL } from './chinottoWidgetConstants';
 
 export type WidgetDeepLinkAction =
+  | { type: 'quiet' }
   | { type: 'capture'; mode: 'default' | 'voice' }
   | { type: 'thought'; thoughtId: string };
 
 /**
  * Parses widget deep links used by iOS home widgets.
  * Supported:
+ * - chinotto://quiet
  * - chinotto://capture
  * - chinotto://capture?mode=voice
  * - chinotto://thought/<id>
@@ -27,6 +29,10 @@ export function parseWidgetDeepLink(url: string | null | undefined): WidgetDeepL
     if (host === expected.hostname.toLowerCase()) {
       const mode = actual.searchParams.get('mode')?.trim().toLowerCase();
       return { type: 'capture', mode: mode === 'voice' ? 'voice' : 'default' };
+    }
+
+    if (host === 'quiet' && (actual.pathname === '' || actual.pathname === '/')) {
+      return { type: 'quiet' };
     }
 
     if (host === 'thought') {

@@ -3,7 +3,8 @@
  */
 
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { NativeModules } from 'react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import { capabilitiesFor } from '../platform';
 import { Settings, settingsCopy, type SettingsProps } from '../ui/Settings';
@@ -109,11 +110,13 @@ describe('settings on android', () => {
         capabilities={capabilitiesFor('android')}
       />
     );
+    fireEvent.press(screen.getByRole('button', { name: 'capture & sharing' }));
+    fireEvent.press(screen.getByRole('button', { name: 'appearance' }));
     expect(screen.getByText('this phone')).toBeTruthy();
     expect(screen.queryByText('sync')).toBeNull();
     expect(screen.queryByText('set up ›')).toBeNull();
     expect(screen.queryByText('home screen icon')).toBeNull();
-    expect(screen.queryByText(/home widget/)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Widgets, preview ›' })).toBeNull();
     expect(screen.queryByText(/apple|icloud|iphone|\bios\b|\bmac\b|subscri|cloud account/i)).toBeNull();
     expect(screen.getByText(/send a page or a selection to chinotto/)).toBeTruthy();
   });
@@ -127,6 +130,8 @@ describe('settings on android', () => {
         capabilities={capabilitiesFor('android')}
       />
     );
+    fireEvent.press(screen.getByRole('button', { name: 'capture & sharing' }));
+    fireEvent.press(screen.getByRole('button', { name: 'privacy & protection' }));
     expect(screen.getByText('microphone')).toBeTruthy();
     expect(
       screen.getByText(/not asked yet · android asks the first time you tap the circle/)
@@ -155,8 +160,11 @@ describe('settings on android', () => {
     render(<Settings {...props} capabilities={capabilitiesFor('ios')} />);
     expect(screen.getByText('this iphone')).toBeTruthy();
     expect(screen.getByText('set up ›')).toBeTruthy();
+    expect(screen.queryByText('home screen icon')).toBeNull();
+    fireEvent.press(screen.getByRole('button', { name: 'appearance' }));
     expect(screen.getByText('home screen icon')).toBeTruthy();
-    expect(screen.getByText('see it')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'capture & sharing' }));
+    fireEvent.press(screen.getByRole('button', { name: 'privacy & protection' }));
     expect(screen.getByText('microphone')).toBeTruthy();
     expect(screen.getByText(/not asked yet · ios asks/)).toBeTruthy();
     expect(
@@ -171,6 +179,44 @@ describe('settings on android', () => {
         'share sheet · send a page or a selection to chinotto from any app. it lands dated now.'
       )
     ).toBeTruthy();
+  });
+
+  it.each([
+    ['root', '‹ Record'], ['manifesto', '‹ Settings'], ['delete', '‹ Settings'],
+    ['notifications', '‹ Settings'], ['scheduled', '‹ notifications'],
+  ] as const)('names the destination of the back button on %s', (page, label) => {
+    const onClose = jest.fn();
+    const onBack = jest.fn();
+    render(<Settings {...props} page={page} onClose={onClose} onBack={onBack} />);
+    fireEvent.press(screen.getByRole('button', { name: label }));
+    expect(page === 'root' ? onClose : onBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the Chinotto footer and maker credit without opening a section', () => {
+    render(<Settings {...props} capabilities={capabilitiesFor('ios')} />);
+    expect(screen.getByRole('button', { name: 'appearance' }).props.accessibilityState.expanded).toBe(false);
+    expect(screen.getByText('AN INSTRUMENT BY')).toBeTruthy();
+    expect(screen.getByText('PROBNAYA')).toBeTruthy();
+    expect(screen.getByText(/INDEPENDENT COMPUTATIONAL\s+LABORATORY/)).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'why chinotto, read ›' }));
+    expect(props.onOpenManifesto).toHaveBeenCalled();
+  });
+
+  it('keeps Quiet directly accessible while archive tools open in place', () => {
+    const onExport = jest.fn();
+    const onOpenQuietGuide = jest.fn();
+    render(<Settings {...props} onExport={onExport} onOpenQuietGuide={onOpenQuietGuide}
+      capabilities={capabilitiesFor('ios')} />);
+    const archive = screen.getByRole('button', { name: 'backup & restore' });
+    expect(archive.props.accessibilityState.expanded).toBe(false);
+    expect(screen.queryByText('export the record')).toBeNull();
+    fireEvent.press(screen.getByLabelText('Quiet Home Screen, guide ›'));
+    expect(onOpenQuietGuide).toHaveBeenCalledTimes(1);
+    fireEvent.press(archive);
+    fireEvent.press(screen.getByLabelText('export the record, export ›'));
+    expect(onExport).toHaveBeenCalledTimes(1);
+    fireEvent.press(archive);
+    expect(screen.queryByText('export the record')).toBeNull();
   });
 
   it('opens a compact interaction reference only when asked', () => {
@@ -195,26 +241,53 @@ describe('settings on android', () => {
     expect(screen.queryByText('/ find')).toBeNull();
   });
 
+  it.each([true, false])('shows legacy hidden apps only with a previous configuration (%s)', async (configured) => {
+    const original = NativeModules.QuietAppsModule;
+    const open = jest.fn().mockRejectedValueOnce(new Error('busy')).mockResolvedValue(undefined);
+    NativeModules.QuietAppsModule = { previouslyConfigured: async () => configured, open };
+    try {
+      render(<Settings {...props} capabilities={capabilitiesFor('ios')} />);
+      await act(async () => {});
+      const name = 'hidden apps, manage ›';
+      if (configured) {
+        fireEvent.press(screen.getByLabelText(name));
+        await screen.findByText('Couldn’t open hidden apps. Try again.');
+        fireEvent.press(screen.getByLabelText(name));
+        await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+        expect(open).toHaveBeenCalledTimes(2);
+      } else {
+        expect(screen.queryByLabelText(name)).toBeNull();
+      }
+    } finally {
+      NativeModules.QuietAppsModule = original;
+    }
+  });
+
   it('makes the quiet rows full-size controls instead of inline text links', () => {
     const onOpenSync = jest.fn();
     const onSeeWidget = jest.fn();
+    const onOpenQuietGuide = jest.fn();
     const onToggleAnalytics = jest.fn();
     render(
       <Settings
         {...props}
         onOpenSync={onOpenSync}
         onSeeWidget={onSeeWidget}
+        onOpenQuietGuide={onOpenQuietGuide}
         onToggleAnalytics={onToggleAnalytics}
         capabilities={capabilitiesFor('ios')}
       />
     );
 
     fireEvent.press(screen.getByLabelText('sync, set up ›'));
-    fireEvent.press(screen.getByLabelText('from elsewhere, see it'));
+    fireEvent.press(screen.getByRole('button', { name: 'Widgets, preview ›' }));
+    fireEvent.press(screen.getByLabelText('Quiet Home Screen, guide ›'));
+    fireEvent.press(screen.getByRole('button', { name: 'privacy & protection' }));
     fireEvent.press(screen.getByLabelText('anonymous usage, off ›'));
 
     expect(onOpenSync).toHaveBeenCalledTimes(1);
     expect(onSeeWidget).toHaveBeenCalledTimes(1);
+    expect(onOpenQuietGuide).toHaveBeenCalledTimes(1);
     expect(onToggleAnalytics).toHaveBeenCalledTimes(1);
   });
 });

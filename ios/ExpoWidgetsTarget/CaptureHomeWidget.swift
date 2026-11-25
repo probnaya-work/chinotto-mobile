@@ -5,7 +5,7 @@ private let WIDGET_THOUGHTS_APP_GROUP_ID = "group.com.chinotto.mobile"
 private let WIDGET_THOUGHTS_KEY = "chinotto_widget_recent_thoughts_v1"
 
 /// The widget's ink and paper palette in both appearances.
-private enum WidgetInk {
+enum WidgetInk {
   /// #e6e6e3 on the dark field, #1b1b1d on paper. The mark, `capture`, the ring affordance.
   static func ink(_ scheme: ColorScheme) -> Color {
     scheme == .light
@@ -458,7 +458,7 @@ private func readWidgetState() -> WidgetState {
 ///
 /// Ratios are the design's 64-unit geometry divided by 64: ring r28 stroke 3.5, a dot of r9
 /// centred at y=23, and a dot of r5 centred at y=40.
-private struct ChinottoLogoMark: View {
+struct ChinottoLogoMark: View {
   let size: CGFloat
   let scheme: ColorScheme
 

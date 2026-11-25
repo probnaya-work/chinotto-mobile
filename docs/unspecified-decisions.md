@@ -628,3 +628,42 @@ The reader keeps inline actions on older iOS versions and Android. The menu
 moves out of the way during quiet reading, editing, and writing a continuation.
 Choosing a connection takes the reader to the existing result below the
 thought, and reminder status messages stay in the reader.
+
+### Chinotto Quiet — first walking scenario, 25 November 2026
+
+Quiet is entered explicitly from the existing Record, including its locked capture surface.
+Ordinary launch stays capture-first. The mode follows the existing app appearance rather
+than persisting a second theme. It offers only text capture, a system Message composer and
+an exit. Capture uses the existing Edge and store, returns to Quiet only when entered there,
+and keeps a cancelled or failed draft in the current app session. Pending saves suppress
+duplicate submissions. No record material is displayed in Quiet, and its covered Record
+does not count an unseen Return as viewed. Existing capture links, shares and reminders
+keep their original destinations. Message recipients and Send belong entirely to MessageUI;
+`sent` is a composer outcome, never a delivery claim. Unavailable messaging does not prevent
+capture. Build 50 offered Open Quiet across the large widget’s central field.
+What arrived? and the microphone have their own targets for direct Record capture.
+The widget has no Record storage access.
+See `docs/quiet.md` for the implementation boundaries and device verification procedure.
+
+### Quiet Home Screen
+
+Use system Focus to select the Quiet page. The iPhone 15 owner verified that Personal Focus returned to the widget page after Messages and restored the original icon positions when switched off. The widget keeps its center clear and offers
+direct text and voice capture along the bottom. Its Chinotto header preserves the in-app
+capture link. Quiet Home Screen opens the guide directly from the top of Chinotto Settings. Capture and sharing, archive tools, appearance and privacy expand in place. The Chinotto footer and PROBNAYA credit remain visible below the settings. Use the standard Messages icon for
+the walking test and record the swipe Home from Messages. The composer inside Chinotto
+exercises a separate path. See [Quiet Home Screen](quiet.md) for observations and the device test.
+
+### Quiet on the current Home Screen (experimental)
+
+Chinotto Settings offers the old Family Controls sheet only for a saved app-hiding selection or an active restriction.
+The user selects apps explicitly and can clear the restriction from Chinotto or
+its Control Center control. Normal Record capture requires no Screen Time
+permission. See the [device check](quiet.md#hide-selected-apps-on-the-current-home-screen-prototype).
+
+### Quiet widget size and artwork
+
+Both Quiet sizes use the approved darker graphite and sage artwork and the
+original Medium logo. The disc opens voice capture. Large adds a week strip
+using the local calendar. Both sizes retain their widget kind and routes.
+Record chronology uses muted grey-green in dark appearance and a deeper grey-green on paper. The guide leads with the Personal Focus page the
+owner used successfully on iPhone.

@@ -31,7 +31,9 @@ export function paletteFor(mode: Appearance, contrast = false): Palette {
     rule: mode === 'dark' ? dark.rule : { line: light.rule, hair: light.hair, chip: light.chip, chipInert: light.chipInert },
     wash: mode === 'dark' ? dark.wash : { match: light.evidenceGround, matchTrace: light.evidenceTrace,
       selected: light.rowSelected, selection: light.selection },
-    bandLabel: { ...dark.bandLabel, color: agency.quiet },
+    bandLabel: { ...dark.bandLabel, color: mode === 'dark'
+      ? (contrast ? '#c0cbb9' : dark.bandLabel.color)
+      : (contrast ? '#374333' : '#505c4b') },
     focused: mode === 'dark' ? { 0: '#e9e7e0', 1: '#d8d6cf', 2: '#cbc9c2', 3: '#b8b6af', 4: '#b8b6af' }
       : Object.fromEntries(light.focused.map((color, index) => [index, color])),
   };
