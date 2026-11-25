@@ -166,4 +166,23 @@ final class QuietScenarioTests: XCTestCase {
     capture("quiet-widget-voice-cold-denied")
   }
 
+  func test08ColdWidgetQuiet() {
+    app.terminate()
+    XCUIDevice.shared.press(.home)
+    let home = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+    let link = home.buttons["Open Quiet"]
+    for _ in 0..<3 {
+      if link.exists && link.isHittable { break }
+      home.swipeLeft()
+    }
+    XCTAssertTrue(link.isHittable, home.debugDescription)
+    capture("quiet-widget-open-home")
+    // Tap the clear space beside the title, as a person can do one-handed.
+    link.coordinate(withNormalizedOffset: CGVector(dx: 0.88, dy: 0.45)).tap()
+    XCTAssertTrue(app.wait(for: .runningForeground, timeout: 15))
+    XCTAssertTrue(element("Message").waitForExistence(timeout: 10), app.debugDescription)
+    XCTAssertTrue(element("What arrived?").isHittable)
+    XCTAssertFalse(app.keyboards.firstMatch.exists)
+    capture("quiet-widget-open-destination")
+  }
 }

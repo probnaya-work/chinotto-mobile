@@ -137,6 +137,7 @@ export function ChinottoApp({ services }: { services: Services }) {
   const capabilities = services.capabilities ?? capabilitiesFor(Platform.OS);
   const [fontsReady, setFontsReady] = useState(false);
   const [surface, setSurface] = useState<Surface>({ kind: 'record' });
+  const [quietRequest, setQuietRequest] = useState(0);
   const [quietOpen, setQuietOpen] = useState(false);
   const [captureRequest, setCaptureRequest] = useState(0);
   const [share, setShare] = useState<ShareIntake | null>(null);
@@ -662,8 +663,9 @@ export function ChinottoApp({ services }: { services: Services }) {
     let newerURL = false;
     const open = (url: string) => {
       const action = parseWidgetDeepLink(url);
-      if (!action) return false;
-      setQuietOpen(false);
+      if (!action || (action.type === 'quiet' && !capabilities.homeWidget)) return false;
+      setQuietOpen(action.type === 'quiet');
+      if (action.type === 'quiet') setQuietRequest((request) => request + 1);
       setSurface({ kind: 'record' });
       setShare(null);
       if (action.type === 'capture' && action.mode === 'default') setCaptureRequest((n) => n + 1);
@@ -675,7 +677,7 @@ export function ChinottoApp({ services }: { services: Services }) {
     }).catch(() => {});
     const sub = Linking.addEventListener('url', ({ url }) => { if (open(url)) newerURL = true; });
     return () => { current = false; sub.remove(); };
-  }, []);
+  }, [capabilities.homeWidget]);
 
   /* --------------------------------------------------------------------- back */
 
@@ -797,7 +799,7 @@ export function ChinottoApp({ services }: { services: Services }) {
       />
       </View>
 
-      <Quiet visible={quietOpen} capture={(body) => surfaceStore.capture({ body, origin: 'mobile' })}
+      <Quiet visible={quietOpen} openRequest={quietRequest} capture={(body) => surfaceStore.capture({ body, origin: 'mobile' })}
         onExit={() => setQuietOpen(false)} />
 
       {surface.kind === 'settings' ? (
@@ -862,7 +864,7 @@ export function ChinottoApp({ services }: { services: Services }) {
         />
       ) : null}
 
-      {sync.open && readAllowed ? (
+      {sync.open && !quietOpen && readAllowed ? (
         <SyncSheet
           state={account.phase === 'idle' ? sync.state : account.phase}
           offline={sync.offline}

@@ -8,7 +8,7 @@ struct QuietCaptureWidget: Widget {
       QuietCaptureWidgetView(date: entry.date)
     }
     .configurationDisplayName("Chinotto Quiet")
-    .description("A quiet place to begin. Type or speak; your Record stays private.")
+    .description("Open Quiet, write a thought, or capture one by voice.")
     .supportedFamilies([.systemLarge])
   }
 }
@@ -41,6 +41,7 @@ private struct QuietCaptureWidgetView: View {
   let date: Date
   @Environment(\.colorScheme) private var scheme
 
+  private let quietURL = URL(string: "chinotto://quiet")!
   private let textURL = URL(string: "chinotto://capture")!
   private let voiceURL = URL(string: "chinotto://capture?mode=voice")!
 
@@ -57,12 +58,27 @@ private struct QuietCaptureWidgetView: View {
           .lineLimit(1)
       }
 
-      Spacer(minLength: 24)
+      Link(destination: quietURL) {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+          Text("Open Quiet")
+            .font(.system(.largeTitle, design: .serif))
+          Image(systemName: "arrow.right")
+            .font(.title2.weight(.light))
+            .accessibilityHidden(true)
+        }
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
+        .padding(.top, 44)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+      }
+      .foregroundStyle(WidgetInk.ink(scheme))
+      .accessibilityLabel("Open Quiet")
 
       HStack(alignment: .center, spacing: 12) {
         Link(destination: textURL) {
           Text("What arrived?")
-            .font(.system(size: 28, design: .serif))
+            .font(.system(.title3, design: .serif))
             .lineLimit(1)
             .minimumScaleFactor(0.75)
             .frame(minHeight: 44, alignment: .leading)
@@ -84,7 +100,7 @@ private struct QuietCaptureWidgetView: View {
     }
     .padding(8)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    .widgetURL(textURL)
+    .widgetURL(quietURL)
   }
 
   var body: some View {

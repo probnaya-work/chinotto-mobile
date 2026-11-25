@@ -640,5 +640,7 @@ duplicate submissions. No record material is displayed in Quiet, and its covered
 does not count an unseen Return as viewed. Existing capture links, shares and reminders
 keep their original destinations. Message recipients and Send belong entirely to MessageUI;
 `sent` is a composer outcome, never a delivery claim. Unavailable messaging does not prevent
-capture. The large Home Screen widget is optional and has no Record storage access.
+capture. The optional large Home Screen widget offers Open Quiet across its central field.
+What arrived? and the microphone have their own targets for direct Record capture.
+The widget has no Record storage access.
 See `docs/quiet.md` for the implementation boundaries and device verification procedure.

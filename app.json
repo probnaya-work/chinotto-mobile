@@ -114,7 +114,7 @@
             {
               "name": "QuietCaptureWidget",
               "displayName": "Chinotto Quiet",
-              "description": "A quiet place to begin. Type or speak; your Record stays private.",
+              "description": "Open Quiet, write a thought, or capture one by voice.",
               "supportedFamilies": ["systemLarge"]
             }
           ]

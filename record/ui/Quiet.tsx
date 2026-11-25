@@ -8,7 +8,8 @@ import { useRecordTheme } from './appearance';
 import { dismissKeyboard, useKeyboardInset } from './useKeyboardInset';
 import { type } from './type';
 
-export function Quiet({ visible, capture, onExit }: {
+export function Quiet({ visible, openRequest, capture, onExit }: {
+  openRequest?: number;
   visible: boolean;
   capture: (body: string) => Promise<unknown>;
   onExit: () => void;
@@ -38,6 +39,13 @@ export function Quiet({ visible, capture, onExit }: {
   useEffect(() => {
     if (visible && editing) input.current?.focus();
   }, [visible, editing]);
+
+  useEffect(() => {
+    if (!openRequest) return;
+    setEditing(false);
+    setNotice(wordsNow.current ? 'Draft kept in Quiet. Tap What arrived? to continue.' : null);
+    dismissKeyboard();
+  }, [openRequest]);
 
   const change = (text: string) => { wordsNow.current = text; setWords(text); };
   const save = async () => {

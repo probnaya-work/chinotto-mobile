@@ -33,10 +33,11 @@ allow-list is required. Calls, maps, Screen Time, profiles and onboarding are ou
 ## Optional Home Screen widget
 
 `QuietCaptureWidget` is a second native widget in the existing `ExpoWidgetsTarget` bundle.
-It supports `.systemLarge`: Chinotto and the date above an empty field, with What arrived?
-and a microphone below. It shares the existing widget palette and has no Record storage access.
-Its explicit links remain `chinotto://capture` and `chinotto://capture?mode=voice`; these open
-ordinary text/voice capture. The date timeline supplies seven future local midnights so it can
+The large widget shows Chinotto and the date above **Open Quiet →**. Tap the title or the
+space around it to enter Quiet through `chinotto://quiet`. The two bottom controls open
+ordinary capture directly. **What arrived?** uses `chinotto://capture` and the microphone
+uses `chinotto://capture?mode=voice`. The widget shares the existing light and dark palette
+and has no Record storage access. The date timeline supplies seven future local midnights so it can
 advance without a running app. The widget is optional for the in-app Quiet scenario.
 
 ## Verification
@@ -50,6 +51,12 @@ walking thought, also visible in the ordinary Record. MessageUI's real unavailab
 was exercised. The cold voice entrance was checked with microphone permission denied;
 recording audio, the available composer and real messaging remain physical-device checks.
 No real contact was selected and no SMS or iMessage was sent.
+
+After adding Open Quiet, all three widget routes passed cold-launch UI tests on the same
+simulator. A tap in the clear space to the right of the title reached the Quiet screen
+with Message and What arrived? available and the keyboard hidden, in both light and dark
+appearance. The bottom controls reached the focused Record input and the microphone
+permission recovery screen respectively.
 
 Run `pnpm typecheck` and `pnpm test --runInBand`. Jest covers message-result handling, a real
 SQLite capture, cancellation, failed save/retry, duplicate submission, protected capture,

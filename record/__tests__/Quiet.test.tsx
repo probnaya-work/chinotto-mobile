@@ -138,7 +138,7 @@ describe('Quiet walking scenario', () => {
     view.unmount(); db.close();
   });
 
-  it('honors an existing capture deep link while Quiet is open', async () => {
+  it('opens Quiet from the widget, keeps a draft on re-entry, and routes text capture to Record', async () => {
     const listeners = new Set<(event: { url: string }) => void>();
     const listen = jest.spyOn(Linking, 'addEventListener').mockImplementation((_type, callback) => {
       listeners.add(callback);
@@ -147,8 +147,18 @@ describe('Quiet walking scenario', () => {
     const db = openTestDb(); await migrate(db);
     const view = render(<ChinottoApp services={testAppServices(db, null, jest.fn())} />);
     await act(async () => { await Promise.resolve(); });
-    fireEvent.press(screen.getByLabelText('Enter Quiet'));
-    await act(async () => { listeners.forEach((listener) => listener({ url: 'chinotto://capture' })); });
+    const open = async (url: string) => act(async () => {
+      listeners.forEach((listener) => listener({ url }));
+    });
+    await open('chinotto://quiet');
+    expect(screen.getByLabelText('Message')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('What arrived?'));
+    fireEvent.changeText(screen.getByLabelText('capture'), 'draft by the water');
+    await open('chinotto://quiet');
+    expect(screen.getByLabelText('Message')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('What arrived?'));
+    expect(screen.getByLabelText('capture').props.value).toBe('draft by the water');
+    await open('chinotto://capture');
     expect(screen.queryByTestId('quiet')).toBeNull();
     expect(screen.getByLabelText('capture')).toBeTruthy();
     view.unmount(); db.close(); listen.mockRestore();

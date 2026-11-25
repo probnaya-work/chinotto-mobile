@@ -6,12 +6,15 @@ const root = path.join(__dirname, '..');
 const source = fs.readFileSync(path.join(root, 'ios/ExpoWidgetsTarget/QuietCaptureWidget.swift'), 'utf8');
 
 describe('the native Quiet widget contract', () => {
-  it('keeps both native links compatible with the existing app handler', () => {
+  it('routes the widget field to Quiet and the two capture links to their editors', () => {
     const links = [...source.matchAll(/URL\(string: "([^"]+)"\)/g)].map((match) => match[1]);
     expect(links.map(parseWidgetDeepLink)).toEqual([
+      { type: 'quiet' },
       { type: 'capture', mode: 'default' },
       { type: 'capture', mode: 'voice' },
     ]);
+    expect(source).toContain('Link(destination: quietURL)');
+    expect(source).toContain('.widgetURL(quietURL)');
     expect(source).toContain('Link(destination: textURL)');
     expect(source).toContain('Link(destination: voiceURL)');
   });
