@@ -47,6 +47,7 @@ export type SettingsProps = {
   micLine: string;
   micDenied: boolean;
   onOpenSystemSettings: () => void;
+  onOpenQuietGuide?: () => void;
   onSeeWidget: () => void;
 
   analyticsOn: boolean;
@@ -188,6 +189,10 @@ function Root(props: SettingsProps & { capabilities: PlatformCapabilities }) {
         ) : null}
         {can.voice ? (
           <SettingRow title="original audio" detail={props.audioUsage ?? 'measuring on this phone…'} />
+        ) : null}
+        {can.homeWidget && props.onOpenQuietGuide ? (
+          <SettingRow title="Quiet Home Screen" detail="Focus page and capture widgets"
+            action="guide ›" onPress={props.onOpenQuietGuide} />
         ) : null}
         <SettingRow
           title="from elsewhere"

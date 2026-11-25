@@ -198,12 +198,14 @@ describe('settings on android', () => {
   it('makes the quiet rows full-size controls instead of inline text links', () => {
     const onOpenSync = jest.fn();
     const onSeeWidget = jest.fn();
+    const onOpenQuietGuide = jest.fn();
     const onToggleAnalytics = jest.fn();
     render(
       <Settings
         {...props}
         onOpenSync={onOpenSync}
         onSeeWidget={onSeeWidget}
+        onOpenQuietGuide={onOpenQuietGuide}
         onToggleAnalytics={onToggleAnalytics}
         capabilities={capabilitiesFor('ios')}
       />
@@ -211,10 +213,12 @@ describe('settings on android', () => {
 
     fireEvent.press(screen.getByLabelText('sync, set up ›'));
     fireEvent.press(screen.getByLabelText('from elsewhere, see it'));
+    fireEvent.press(screen.getByLabelText('Quiet Home Screen, guide ›'));
     fireEvent.press(screen.getByLabelText('anonymous usage, off ›'));
 
     expect(onOpenSync).toHaveBeenCalledTimes(1);
     expect(onSeeWidget).toHaveBeenCalledTimes(1);
+    expect(onOpenQuietGuide).toHaveBeenCalledTimes(1);
     expect(onToggleAnalytics).toHaveBeenCalledTimes(1);
   });
 });

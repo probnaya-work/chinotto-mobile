@@ -11,6 +11,7 @@
  *     focus / settings (z 4) · years (z 5) · share (z 6) · launch (z 20)
  */
 
+import { QuietGuideIcon } from './ui/QuietGuideIcon';
 import { useRecordStatusBar, useRecordTheme } from './ui/appearance';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -642,8 +643,8 @@ export function RecordApp(props: RecordAppProps) {
       {props.onOpenQuietGuide && !record.focus && !record.anchor ? <Pressable
         accessibilityRole="button" accessibilityLabel="Quiet Home Screen guide" onPress={() => { dismissKeyboard(); props.onOpenQuietGuide?.(); }}
         style={{ position: 'absolute', right: 24, top: frame.statusBarHeight - 5, minHeight: 44,
-          justifyContent: 'center', paddingLeft: 14, zIndex: 4, backgroundColor: SURFACE }}>
-        <Text style={type({ size: 15, width: 94, color: ink.near })}>Quiet guide</Text>
+          justifyContent: 'center', alignItems: 'flex-end', minWidth: 44, zIndex: 4, backgroundColor: SURFACE }}>
+        <QuietGuideIcon />
       </Pressable> : null}
 
       {props.privacy && !record.ready ? (

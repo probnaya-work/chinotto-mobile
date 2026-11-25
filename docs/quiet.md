@@ -2,7 +2,7 @@
 
 The optional Focus page belongs to iOS. Messages, Phone and Maps open from their own icons.
 Chinotto supplies a private Medium or Large widget with text and voice capture. Its optional
-**Quiet guide** is at the top right of the Record, including locked capture.
+**Quiet guide** opens from the book icon at the top right of Record, including locked capture, or from **Settings → Quiet Home Screen**.
 
 ## Set up the suggested Personal Focus page
 
@@ -48,8 +48,7 @@ The physical-device observation above covers Personal Focus. The timings below d
 
 Both sizes display the local date and contain no Record data. In Medium, the
 two-line **What arrived?** opens `chinotto://capture` and the sage disc opens
-`chinotto://capture?mode=voice`. In Large, the question and microphone open the
-same two destinations. Its header opens build 50’s in-app capture at
+`chinotto://capture?mode=voice`. Large uses the same two controls and shows the local calendar week with today highlighted. Its header opens build 50’s in-app capture at
 `chinotto://quiet`, also accessible in the guide.
 These app links operate independently of system Focus.
 

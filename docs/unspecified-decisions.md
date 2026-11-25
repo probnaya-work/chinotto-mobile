@@ -662,8 +662,8 @@ permission. See the [device check](quiet.md#hide-selected-apps-on-the-current-ho
 
 ### Quiet widget size and artwork
 
-The approved Medium uses the App Store Search Results graphite and sage artwork
-in both full-color appearances. The disc is the voice capture link. The existing
-Large stays available under the same widget kind so installed widgets keep
-their size and destinations. The guide leads with the Personal Focus page the
+Both Quiet sizes use the approved darker graphite and sage artwork and the
+original Medium logo. The disc opens voice capture. Large adds a week strip
+using the local calendar. Both sizes retain their widget kind and routes.
+Record chronology uses light sage in dark appearance and olive on paper. The guide leads with the Personal Focus page the
 owner used successfully on iPhone.

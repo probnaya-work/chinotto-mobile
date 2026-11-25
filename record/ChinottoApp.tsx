@@ -786,17 +786,18 @@ export function ChinottoApp({ services }: { services: Services }) {
       />
       </View>
 
-      {quietPanel === 'guide' ? <QuietHomeGuide onClose={() => setQuietPanel(null)}
+      {quietPanel === 'guide' ? <QuietHomeGuide backTo={surface.kind === 'settings' ? 'Settings' : 'Record'} onClose={() => setQuietPanel(null)}
         onCapture={() => setQuietPanel('capture')} /> : null}
       <Quiet visible={quietPanel === 'capture'} openRequest={quietRequest} capture={(body) => surfaceStore.capture({ body, origin: 'mobile' })}
         onExit={() => setQuietPanel(null)} />
 
-      {surface.kind === 'settings' ? (
+      {surface.kind === 'settings' && !quietOpen ? (
         <SettingsSurface
           page={surface.page}
           onRestored={() => setChangedAt((n) => n + 1)}
           setPage={(page) => setSurface({ kind: 'settings', page })}
           onClose={() => setSurface({ kind: 'record' })}
+          onOpenQuietGuide={() => setQuietPanel('guide')}
           onSeeWidget={() => setSurface({ kind: 'widget' })}
           onOpenSync={openSync}
           sync={sync}
@@ -923,6 +924,7 @@ function SettingsSurface(props: {
   page: SettingsPage;
   setPage: (page: SettingsPage) => void;
   onClose: () => void;
+  onOpenQuietGuide: () => void;
   onSeeWidget: () => void;
   onOpenSync: () => void;
   sync: ReturnType<typeof useSyncSurface>;
@@ -1051,6 +1053,7 @@ function SettingsSurface(props: {
       micLine={settingsCopy.microphone(permission, props.capabilities.systemName)}
       micDenied={permission === 'denied'}
       onOpenSystemSettings={props.services.openSystemSettings}
+      onOpenQuietGuide={props.onOpenQuietGuide}
       onSeeWidget={props.onSeeWidget}
       analyticsOn={props.analyticsOn}
       onToggleAnalytics={props.setAnalyticsOn}

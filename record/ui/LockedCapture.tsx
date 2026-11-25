@@ -1,3 +1,4 @@
+import { QuietGuideIcon } from './QuietGuideIcon';
 import { useRecordTheme } from './appearance';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, Text, View, type TextInputInstance } from 'react-native';
@@ -44,8 +45,8 @@ export function LockedCapture({ capture, words, change, onUnlock, busy, error, o
         <Text style={type({ size: 13, width: 90, color: ink.meta })}>settings</Text>
       </Pressable>
       {onOpenQuietGuide ? <Pressable accessibilityRole="button" accessibilityLabel="Quiet Home Screen guide" onPress={() => { dismissKeyboard(); onOpenQuietGuide(); }}
-        style={{ minHeight: 44, justifyContent: 'center' }}>
-        <Text style={type({ size: 17, width: 94, color: ink.near })}>Quiet guide</Text>
+        style={{ minHeight: 44, minWidth: 44, alignItems: 'flex-end', justifyContent: 'center' }}>
+        <QuietGuideIcon />
       </Pressable> : null}
     </View>
     {busy ? <Animated.View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0,
