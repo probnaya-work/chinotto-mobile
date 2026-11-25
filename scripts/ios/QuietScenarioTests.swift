@@ -46,6 +46,38 @@ final class QuietScenarioTests: XCTestCase {
     XCTAssertTrue(element("pull-strip").waitForExistence(timeout: 5))
   }
 
+  func testOrdinaryColdLaunchKeepsKeyboardHiddenUntilTyping() {
+    app.terminate()
+    app.launch()
+    let field = app.textViews["capture"]
+    XCTAssertTrue(field.waitForExistence(timeout: 15))
+    let keyboard = app.keyboards.firstMatch
+    XCTAssertFalse(keyboard.waitForExistence(timeout: 2))
+    field.tap()
+    XCTAssertTrue(keyboard.waitForExistence(timeout: 5))
+    XCTAssertFalse(element("by PROBNAYA").exists)
+  }
+
+  func testSettingsDismissesCaptureKeyboardAndKeepsDraft() {
+    app.terminate()
+    app.open(URL(string: "chinotto://capture")!)
+    let field = app.textViews["capture"]
+    XCTAssertTrue(field.waitForExistence(timeout: 15))
+    let keyboard = app.keyboards.firstMatch
+    XCTAssertTrue(keyboard.waitForExistence(timeout: 5))
+    let draft = "Settings keyboard check"
+    field.typeText(draft)
+    app.coordinate(withNormalizedOffset: CGVector(dx: 0.10, dy: 0.08))
+      .press(forDuration: 0.15, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.10, dy: 0.35)))
+    let back = element("‹ Record")
+    XCTAssertTrue(back.waitForExistence(timeout: 5))
+    XCTAssertTrue(keyboard.waitForNonExistence(timeout: 3))
+    back.tap()
+    XCTAssertTrue(field.waitForExistence(timeout: 5))
+    XCTAssertEqual(field.value as? String, draft)
+    XCTAssertFalse(keyboard.exists)
+  }
+
   func test01Walk() {
     openQuiet()
     capture("quiet-dark")

@@ -19,7 +19,7 @@
  */
 
 import { useRecordTheme } from './ui/appearance';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { AppState, BackHandler, Linking, Platform, View } from 'react-native';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
@@ -35,6 +35,7 @@ import { SyncSheet } from './ui/SyncSheet';
 import { ForcedUpdate, WidgetPreview } from './ui/WidgetPreview';
 import { QuietHomeGuide } from './ui/QuietHomeGuide';
 import { Quiet } from './ui/Quiet';
+import { dismissKeyboard } from './ui/useKeyboardInset';
 import { FONT_ASSETS } from './ui/type';
 
 import { createBridge, type RecordBridge } from './bridge';
@@ -137,10 +138,15 @@ export function ChinottoApp({ services }: { services: Services }) {
   const readAllowed = protection.ready && !protection.locked;
   const capabilities = services.capabilities ?? capabilitiesFor(Platform.OS);
   const [fontsReady, setFontsReady] = useState(false);
+  const [splashHidden, setSplashHidden] = useState(false);
   const [surface, setSurface] = useState<Surface>({ kind: 'record' });
   const [quietRequest, setQuietRequest] = useState(0);
   const [quietPanel, setQuietPanel] = useState<'guide' | 'capture' | null>(null);
   const quietOpen = quietPanel !== null;
+  const settingsVisible = surface.kind === 'settings' && !quietOpen;
+  useLayoutEffect(() => {
+    if (settingsVisible) dismissKeyboard();
+  }, [settingsVisible]);
   const [captureRequest, setCaptureRequest] = useState(0);
   const [share, setShare] = useState<ShareIntake | null>(null);
   const [shareWords, setShareWords] = useState('');
@@ -390,7 +396,7 @@ export function ChinottoApp({ services }: { services: Services }) {
     const hide = () => {
       if (done) return;
       done = true;
-      void SplashScreen.hideAsync().catch(() => {});
+      void SplashScreen.hideAsync().catch(() => {}).then(() => setSplashHidden(true));
     };
     const bailout = setTimeout(hide, 4000);
     let second = 0;
@@ -750,6 +756,7 @@ export function ChinottoApp({ services }: { services: Services }) {
         onReminderHandled={reminderHandled}
         onReturnToScheduled={() => setSurface({ kind: 'settings', page: 'scheduled' })}
         coldStart={coldStart && fontsReady}
+        captureReady={protection.ready && splashHidden}
         returnCovered={quietOpen || surface.kind !== 'record' || Boolean(share) || sync.open}
         onOpenSettings={() => setSurface({ kind: 'settings', page: 'root' })}
         captureRequest={captureRequest}
@@ -789,7 +796,7 @@ export function ChinottoApp({ services }: { services: Services }) {
       <Quiet visible={quietPanel === 'capture'} openRequest={quietRequest} capture={(body) => surfaceStore.capture({ body, origin: 'mobile' })}
         onExit={() => setQuietPanel(null)} />
 
-      {surface.kind === 'settings' && !quietOpen ? (
+      {settingsVisible ? (
         <SettingsSurface
           page={surface.page}
           onRestored={() => setChangedAt((n) => n + 1)}

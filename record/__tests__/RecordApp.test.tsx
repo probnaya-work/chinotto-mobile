@@ -1084,6 +1084,20 @@ describe('the record surface', () => {
     h.db.close();
   });
 
+  it('ends the launch animation as soon as the user starts typing', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const view = await mount(h, { coldStart: true });
+    expect(screen.getByLabelText('by PROBNAYA')).toBeTruthy();
+    const field = screen.getByLabelText('capture');
+    fireEvent(field, 'focus');
+    fireEvent.changeText(field, 'still here');
+    expect(screen.queryByLabelText('by PROBNAYA')).toBeNull();
+    expect(field.props.value).toBe('still here');
+    view.unmount();
+    h.db.close();
+  });
+
   it('still plays the lockup when the fonts arrive after the record does', async () => {
     const h = harness();
     await migrate(h.db);

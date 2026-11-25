@@ -72,6 +72,8 @@ export type RecordAppProps = {
   /** False on a warm resume, so the lockup plays once per cold start and no more. */
   coldStart: boolean;
   returnCovered?: boolean;
+  /** The native splash has handed over and the privacy decision is known. */
+  captureReady?: boolean;
   onOpenSettings: () => void;
   /** Existing capture links focus this edge; Quiet uses its own return destination. */
   captureRequest?: number;
@@ -328,10 +330,28 @@ export function RecordApp(props: RecordAppProps) {
     record.setFocusId(null);
     record.setSelectedId(null);
     record.setYearsOpen(false);
-    inputRef.current?.focus();
-    // One focus per explicit capture request, never per render or saved thought.
+    // Reset navigation once per explicit capture request.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.captureRequest]);
+
+  const focusedRequest = useRef(0);
+  const focusedLockedCapture = useRef(false);
+  useEffect(() => {
+    if (!locked) focusedLockedCapture.current = false;
+    if (props.captureReady === false || !active || props.privacy?.busy) return;
+    const request = props.captureRequest ?? 0;
+    if (props.voiceOnOpen || props.voice.state || props.returnCovered) {
+      focusedRequest.current = request;
+      focusedLockedCapture.current = locked;
+      return;
+    }
+    if ((!locked && record.anchor) || !inputRef.current) return;
+    if (focusedRequest.current === request && (!locked || focusedLockedCapture.current)) return;
+    focusedRequest.current = request;
+    focusedLockedCapture.current = locked;
+    inputRef.current.focus();
+  }, [active, locked, props.captureReady, props.captureRequest, props.privacy?.busy, props.returnCovered,
+    props.voice.state, props.voiceOnOpen, record.anchor]);
 
   const [launchLeaving, setLaunchLeaving] = useState(false);
   /** Once per mount, whatever the prop does afterwards. */
@@ -579,7 +599,7 @@ export function RecordApp(props: RecordAppProps) {
   );
 
   if (props.privacy?.locked) return <LockedCapture
-    words={record.captureInput} change={record.setCaptureInput}
+    inputRef={inputRef} words={record.captureInput} change={record.setCaptureInput}
     capture={(body) => props.store.capture({ body, origin: 'mobile' })}
     onUnlock={props.privacy.onUnlock} busy={props.privacy.busy} error={props.privacy.error}
     onSettings={props.onOpenSettings}
@@ -728,7 +748,11 @@ export function RecordApp(props: RecordAppProps) {
         onSubmit={record.submit}
         inputRef={inputRef}
         focused={record.inputFocused}
-        onFocus={() => record.setInputFocused(true)}
+        onFocus={() => {
+          launchPlayed.current = true;
+          finishLaunch();
+          record.setInputFocused(true);
+        }}
         onBlur={() => record.setInputFocused(false)}
         onPressCaret={() => inputRef.current?.focus()}
         anchored={Boolean(record.anchor)}
