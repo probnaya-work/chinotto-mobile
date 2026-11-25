@@ -45,7 +45,7 @@ describe('Quiet walking scenario', () => {
       expect(screen.queryByLabelText('capture')).toBeNull();
       expect((await store.loadRecord()).map((m) => m.body)).toEqual(['By the water, a thought arrived.']);
       expect(exit).not.toHaveBeenCalled();
-      fireEvent.press(screen.getByLabelText('Exit Quiet'));
+      fireEvent.press(screen.getByLabelText('Back to Record'));
       expect(exit).toHaveBeenCalledTimes(1);
       view.unmount(); db.close();
     }
@@ -120,19 +120,34 @@ describe('Quiet walking scenario', () => {
     db.close();
   });
 
+  it('lets someone read the Home Screen guide and resume their unfinished Record input', async () => {
+    const db = openTestDb(); await migrate(db);
+    const view = render(<ChinottoApp services={testAppServices(db, null, jest.fn())} />);
+    await act(async () => { await Promise.resolve(); });
+    fireEvent.changeText(screen.getByLabelText('capture'), 'a passing thought');
+    fireEvent.press(screen.getByLabelText('Quiet Home Screen guide'));
+    expect(screen.getByText('Quiet Home Screen')).toBeTruthy();
+    expect(screen.queryByLabelText('capture')).toBeNull();
+    fireEvent.press(screen.getByText('‹ Record'));
+    expect(screen.getByLabelText('capture').props.value).toBe('a passing thought');
+    expect((await db.getAllAsync('SELECT id FROM fragments'))).toHaveLength(0);
+    view.unmount(); db.close();
+  });
+
   it('keeps the ordinary capture entrance and returns from Quiet to the same Record', async () => {
     const db = openTestDb(); await migrate(db);
     const view = render(<ChinottoApp services={testAppServices(db, null, jest.fn())} />);
     await act(async () => { await Promise.resolve(); });
     expect(screen.queryByTestId('quiet')).toBeNull();
     expect(screen.getByLabelText('capture')).toBeTruthy();
-    fireEvent.press(screen.getByLabelText('Enter Quiet'));
+    fireEvent.press(screen.getByLabelText('Quiet Home Screen guide'));
+    fireEvent.press(screen.getByText('Open in-app Quiet capture'));
     expect(screen.getByTestId('quiet')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('What arrived?'));
     fireEvent.changeText(screen.getByLabelText('capture'), 'a single local moment');
     fireEvent.press(screen.getByLabelText('leave it'));
     await waitFor(() => expect(screen.getByText('Saved to your Record.')).toBeTruthy());
-    fireEvent.press(screen.getByLabelText('Exit Quiet'));
+    fireEvent.press(screen.getByLabelText('Back to Record'));
     await waitFor(() => expect(screen.getByText('a single local moment')).toBeTruthy());
     expect((await db.getAllAsync<{ n: number }>('SELECT COUNT(*) AS n FROM fragments'))[0].n).toBe(1);
     view.unmount(); db.close();

@@ -8,7 +8,7 @@ struct QuietCaptureWidget: Widget {
       QuietCaptureWidgetView(date: entry.date)
     }
     .configurationDisplayName("Chinotto Quiet")
-    .description("Open Quiet, write a thought, or capture one by voice.")
+    .description("Write or speak a thought from your Home Screen.")
     .supportedFamilies([.systemLarge])
   }
 }
@@ -48,9 +48,13 @@ private struct QuietCaptureWidgetView: View {
   private var content: some View {
     VStack(alignment: .leading, spacing: 0) {
       HStack(alignment: .firstTextBaseline) {
-        Text("Chinotto")
-          .font(.system(size: 16, weight: .medium))
-          .foregroundStyle(WidgetInk.ink(scheme))
+        Link(destination: quietURL) {
+          Text("Chinotto")
+            .font(.headline)
+            .foregroundStyle(WidgetInk.ink(scheme))
+            .frame(minHeight: 44)
+        }
+        .accessibilityLabel("Open in-app Quiet capture")
         Spacer(minLength: 12)
         Text(date, format: .dateTime.month(.abbreviated).day())
           .font(.system(size: 12))
@@ -58,27 +62,12 @@ private struct QuietCaptureWidgetView: View {
           .lineLimit(1)
       }
 
-      Link(destination: quietURL) {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-          Text("Open Quiet")
-            .font(.system(.largeTitle, design: .serif))
-          Image(systemName: "arrow.right")
-            .font(.title2.weight(.light))
-            .accessibilityHidden(true)
-        }
-        .lineLimit(1)
-        .minimumScaleFactor(0.7)
-        .padding(.top, 44)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .contentShape(Rectangle())
-      }
-      .foregroundStyle(WidgetInk.ink(scheme))
-      .accessibilityLabel("Open Quiet")
+      Spacer(minLength: 16)
 
       HStack(alignment: .center, spacing: 12) {
         Link(destination: textURL) {
           Text("What arrived?")
-            .font(.system(.title3, design: .serif))
+            .font(.system(.title, design: .serif))
             .lineLimit(1)
             .minimumScaleFactor(0.75)
             .frame(minHeight: 44, alignment: .leading)
@@ -100,7 +89,7 @@ private struct QuietCaptureWidgetView: View {
     }
     .padding(8)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    .widgetURL(quietURL)
+    .widgetURL(textURL)
   }
 
   var body: some View {

@@ -101,7 +101,7 @@ export function Quiet({ visible, openRequest, capture, onExit }: {
           {today.toLocaleDateString(undefined, { day: 'numeric', month: 'long' })}
         </Text>
       </View>
-      <Text style={[type({ size: 13, width: 94, color: ink.meta }), { marginTop: 10 }]}>Quiet</Text>
+      <Text style={[type({ size: 13, width: 94, color: ink.meta }), { marginTop: 10 }]}>In-app Quiet capture</Text>
       {editing ? <Pressable accessibilityRole="button" accessibilityLabel="Back to Quiet"
         disabled={saving} onPress={cancel} style={{ minHeight: 48, justifyContent: 'center', alignSelf: 'flex-start' }}>
         <Text style={type({ size: 16, width: 94, weight: agency.weight, color: agency.ink })}>‹ Quiet</Text>
@@ -121,9 +121,9 @@ export function Quiet({ visible, openRequest, capture, onExit }: {
           style={{ minHeight: 48, justifyContent: 'center', alignSelf: 'flex-start' }}>
           <Text style={type({ size: 19, width: 94, weight: agency.weight, color: agency.ink })}>{messaging ? 'Opening Messages…' : 'Message'}</Text>
         </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="Exit Quiet" onPress={() => { dismissKeyboard(); onExit(); }}
+        <Pressable accessibilityRole="button" accessibilityLabel="Back to Record" onPress={() => { dismissKeyboard(); onExit(); }}
           style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' }}>
-          <Text style={type({ size: 15, width: 94, color: ink.meta })}>Exit Quiet · Record</Text>
+          <Text style={type({ size: 15, width: 94, color: ink.meta })}>Back to Record</Text>
         </Pressable>
       </View> : <View style={{ minHeight: 240 }} />}
     </ScrollView>

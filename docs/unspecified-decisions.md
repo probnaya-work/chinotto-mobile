@@ -640,7 +640,15 @@ duplicate submissions. No record material is displayed in Quiet, and its covered
 does not count an unseen Return as viewed. Existing capture links, shares and reminders
 keep their original destinations. Message recipients and Send belong entirely to MessageUI;
 `sent` is a composer outcome, never a delivery claim. Unavailable messaging does not prevent
-capture. The optional large Home Screen widget offers Open Quiet across its central field.
+capture. Build 50 offered Open Quiet across the large widget’s central field.
 What arrived? and the microphone have their own targets for direct Record capture.
 The widget has no Record storage access.
 See `docs/quiet.md` for the implementation boundaries and device verification procedure.
+
+### Quiet Home Screen
+
+The system Focus selects the walking page. The widget keeps its center clear and offers
+direct text and voice capture along the bottom. Its Chinotto header preserves the in-app
+capture link. The Record offers an optional guide. Use the standard Messages icon for
+the walking test and record the swipe Home from Messages. The composer inside Chinotto
+exercises a separate path. See [Quiet Home Screen](quiet.md) for observations and the device test.

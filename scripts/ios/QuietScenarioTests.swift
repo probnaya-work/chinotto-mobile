@@ -14,10 +14,20 @@ final class QuietScenarioTests: XCTestCase {
   }
   private func openQuiet() {
     app.launch()
-    let entry = element("Enter Quiet")
+    let entry = element("Quiet Home Screen guide")
     XCTAssertTrue(entry.waitForExistence(timeout: 30), app.debugDescription)
     entry.tap()
+    openInAppCapture()
     XCTAssertTrue(element("Message").waitForExistence(timeout: 5))
+  }
+
+  private func openInAppCapture() {
+    let capture = element("Open in-app Quiet capture")
+    for _ in 0..<8 {
+      if capture.isHittable { break }
+      app.swipeUp()
+    }
+    capture.tap()
   }
 
   func test01Walk() {
@@ -46,11 +56,12 @@ final class QuietScenarioTests: XCTestCase {
     XCTAssertTrue(element("Saved to your Record.").waitForExistence(timeout: 10), app.debugDescription)
     XCTAssertFalse(field.exists)
     capture("quiet-saved")
-    element("Exit Quiet").tap()
+    element("Back to Record").tap()
     XCTAssertTrue(element("Quiet verification: a thought by the water.").waitForExistence(timeout: 8), app.debugDescription)
     capture("quiet-record")
     // Inspect SQLite independently for an exact count; the UI confirms the ordinary Record.
-    element("Enter Quiet").tap()
+    element("Quiet Home Screen guide").tap()
+    openInAppCapture()
   }
 
   func test02DraftCancellation() {
@@ -69,7 +80,7 @@ final class QuietScenarioTests: XCTestCase {
 
   func test03LightAppearance() {
     app.launch()
-    XCTAssertTrue(element("Enter Quiet").waitForExistence(timeout: 20))
+    XCTAssertTrue(element("Quiet Home Screen guide").waitForExistence(timeout: 20))
     app.swipeDown()
     // Settings is also exposed as an accessible action on the pull strip.
     if !element("light appearance").waitForExistence(timeout: 2) {
@@ -84,14 +95,15 @@ final class QuietScenarioTests: XCTestCase {
     let back = element("‹ edge")
     XCTAssertTrue(back.waitForExistence(timeout: 5), app.debugDescription)
     back.tap()
-    element("Enter Quiet").tap()
+    element("Quiet Home Screen guide").tap()
+    openInAppCapture()
     XCTAssertTrue(element("Message").waitForExistence(timeout: 5))
     capture("quiet-light")
   }
 
   func test04WidgetGallery() {
     app.launch()
-    XCTAssertTrue(element("Enter Quiet").waitForExistence(timeout: 20))
+    XCTAssertTrue(element("Quiet Home Screen guide").waitForExistence(timeout: 20))
     XCUIDevice.shared.press(.home)
     let home = XCUIApplication(bundleIdentifier: "com.apple.springboard")
     home.coordinate(withNormalizedOffset: CGVector(dx: 0.83, dy: 0.67)).press(forDuration: 2)
@@ -122,7 +134,7 @@ final class QuietScenarioTests: XCTestCase {
 
   func test05LargeText() {
     openQuiet()
-    let exit = element("Exit Quiet")
+    let exit = element("Back to Record")
     if !exit.isHittable { app.swipeUp() }
     XCTAssertTrue(exit.isHittable, app.debugDescription)
     XCTAssertTrue(element("What arrived?").exists)
@@ -170,19 +182,72 @@ final class QuietScenarioTests: XCTestCase {
     app.terminate()
     XCUIDevice.shared.press(.home)
     let home = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-    let link = home.buttons["Open Quiet"]
+    let link = home.buttons["Open in-app Quiet capture"]
     for _ in 0..<3 {
       if link.exists && link.isHittable { break }
       home.swipeLeft()
     }
     XCTAssertTrue(link.isHittable, home.debugDescription)
     capture("quiet-widget-open-home")
-    // Tap the clear space beside the title, as a person can do one-handed.
-    link.coordinate(withNormalizedOffset: CGVector(dx: 0.88, dy: 0.45)).tap()
+    link.tap()
     XCTAssertTrue(app.wait(for: .runningForeground, timeout: 15))
     XCTAssertTrue(element("Message").waitForExistence(timeout: 10), app.debugDescription)
     XCTAssertTrue(element("What arrived?").isHittable)
     XCTAssertFalse(app.keyboards.firstMatch.exists)
     capture("quiet-widget-open-destination")
   }
+  #if targetEnvironment(simulator)
+  /// Use a clean simulator with the widget page and Apple’s sample conversations.
+  func test09SwipeHomeFromMessagesAndRecord() throws {
+    let home = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+    let messages = XCUIApplication(bundleIdentifier: "com.apple.MobileSMS")
+    let invitation = home.buttons["What arrived? Write a thought"]
+    app.terminate()
+    XCUIDevice.shared.press(.home)
+    for _ in 0..<3 {
+      if invitation.exists && invitation.isHittable { break }
+      home.swipeLeft()
+    }
+    try XCTSkipUnless(invitation.isHittable && home.icons["Messages"].isHittable,
+                      "Show the widget page with Messages in the Dock or on the page.")
+    capture("walk-before-messages")
+    home.icons["Messages"].tap()
+    let body = messages.textFields["messageBodyField"]
+    if !body.exists {
+      let sample = messages.cells.matching(NSPredicate(format: "label CONTAINS %@", "564-8583")).firstMatch
+      XCTAssertTrue(sample.waitForExistence(timeout: 10))
+      sample.tap()
+    }
+    XCTAssertTrue(body.waitForExistence(timeout: 10))
+    body.tap()
+    body.typeText("Walking by the water")
+    XCTAssertTrue((body.value as? String)?.contains("Walking by the water") == true)
+    capture("walk-unsent-draft")
+    swipeHome(from: messages)
+    XCTAssertTrue(invitation.waitForExistence(timeout: 10))
+    XCTAssertTrue(home.icons.matching(identifier: "Maps").allElementsBoundByIndex.contains { $0.isHittable })
+
+    capture("walk-home-after-messages")
+    invitation.tap()
+    XCTAssertTrue(app.wait(for: .runningForeground, timeout: 15))
+    let field = app.textViews["capture"]
+    XCTAssertTrue(field.waitForExistence(timeout: 15))
+    let words = "A heron by the water " + UUID().uuidString.prefix(4)
+    field.typeText(words)
+    element("leave it").tap()
+    let saved = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", words)).firstMatch
+    XCTAssertTrue(saved.waitForExistence(timeout: 12), app.debugDescription)
+    capture("walk-saved-in-record")
+    swipeHome(from: app)
+    XCTAssertTrue(invitation.waitForExistence(timeout: 10))
+    XCTAssertTrue(home.icons["Messages"].isHittable)
+    capture("walk-home-after-record")
+  }
+
+  private func swipeHome(from application: XCUIApplication) {
+    let start = application.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.997))
+    let end = application.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.29))
+    start.press(forDuration: 0.02, thenDragTo: end, withVelocity: .fast, thenHoldForDuration: 0)
+  }
+  #endif
 }

@@ -1,8 +1,37 @@
-# Chinotto Quiet
+# Quiet Home Screen for iPhone
 
-Quiet is a mode inside the existing iPhone app. Open Chinotto and tap **Quiet** at the top
-right of the Record. A protected Record also offers Quiet without asking to unlock it.
-An ordinary app launch still opens the Record's capture surface.
+The walking page belongs to iOS. Messages, Phone and Maps open from their own icons.
+Chinotto supplies a private large widget with text and voice capture. Its optional
+**Quiet guide** is at the top right of the Record, including locked capture.
+
+## Set up on an iPhone
+
+1. Hold the Home Screen background. In edit mode, swipe left past the last page to the
+   blank page. Tap **Edit → Add Widget → Chinotto**. Slide across the preview dots until the
+   title reads **Chinotto Quiet**, then tap **Add Widget → Done**.
+2. Count icons already on that page and in the Dock. For a missing app, swipe left from
+   the new page to App Library, open the category containing its icon, hold the icon past
+   the context menu and drag it onto the widget page. Tap **Done**. Keep the Dock as it is.
+3. In iPhone **Settings → Focus → + → Custom**, name the Focus **Quiet**. Under
+   **Customize Screens**, choose the **Home Screen** and select only the widget page.
+4. Open Control Center by swiping down from the upper-right corner. Tap **Focus → Quiet**
+   and dismiss Control Center. Open Apple’s Messages from the page or Dock. Swiping Home
+   should bring back the widget page. **What arrived?** opens the Record editor.
+5. Turn Quiet off in Control Center. If the extra page still appears among your usual
+   pages, edit the Home Screen while Quiet is off, tap the page dots, uncheck only that
+   page and tap **Done**. Turn Quiet on again and check the page reappears.
+
+The iPhone system steps follow Apple’s guides to [Focus](https://support.apple.com/guide/iphone/iphd6288a67f/ios)
+and [Home Screen pages](https://support.apple.com/guide/iphone/iphd2fc8ce30/ios).
+The Focus-specific acceptance and timings below require a physical device.
+
+## Widget and existing in-app capture
+
+The widget uses the existing light and dark palette, a local date and no Record data.
+**What arrived?** and the background open `chinotto://capture`. The microphone opens
+`chinotto://capture?mode=voice`. The Chinotto header retains build 50’s in-app capture
+destination at `chinotto://quiet`, also accessible at the end of the guide.
+These app links operate independently of system Focus.
 
 **Message** presents Apple's `MFMessageComposeViewController` when the device supports it.
 The person selects or types a recipient, writes the message and presses Send in that system
@@ -20,68 +49,80 @@ failure, and only clears it after success. Success dismisses the keyboard and re
 Back to Quiet cancels editing without saving and keeps the draft in this app session, including
 when Quiet is left and reopened. Drafts are not promised to survive process termination.
 
-**Exit Quiet · Record** returns to the existing Record. A widget capture link, reminder or
+**Back to Record** returns to the existing Record. A widget capture link, reminder or
 incoming share uses its existing destination instead of inheriting Quiet's save destination.
 Quiet does not read or show personal Record material. The hidden Record is excluded from
 accessibility and does not display a Return as though the person had read it.
 
 Appearance follows the app's existing light/dark and contrast preferences. Quiet uses the app's
 Archivo families, a Georgia serif capture invitation, scalable text, scrolling, safe-area
-padding and minimum touch areas. No setup, Focus, Shortcut, widget, contacts access or app
-allow-list is required. Calls, maps, Screen Time, profiles and onboarding are outside this slice.
+padding and minimum touch areas.
 
-## Optional Home Screen widget
+## Walkthrough and friction measurements, 25 November 2026
 
-`QuietCaptureWidget` is a second native widget in the existing `ExpoWidgetsTarget` bundle.
-The large widget shows Chinotto and the date above **Open Quiet →**. Tap the title or the
-space around it to enter Quiet through `chinotto://quiet`. The two bottom controls open
-ordinary capture directly. **What arrived?** uses `chinotto://capture` and the microphone
-uses `chinotto://capture?mode=voice`. The widget shares the existing light and dark palette
-and has no Record storage access. The date timeline supplies seven future local midnights so it can
-advance without a running app. The widget is optional for the in-app Quiet scenario.
+Build 50 came from `fd09f16`. The walkthrough used an iPhone 17 Pro simulator,
+iOS 27.2 (24B8117), Xcode 27.2. It started with Chinotto installed and opened once,
+two ordinary pages, a regular Maps icon on page one, Messages and Safari in the Dock,
+and no Quiet page. The simulator image omits the Phone app. No personal account was
+signed in. The setup used normal system gestures.
 
-## Verification
+| Task | Observed result |
+| --- | --- |
+| Create the page on the clean configuration | 75 seconds, 17 actions, from holding the background on page one through Done with Maps and the widget visible. Includes inspection time, a failed Maps drag and the retry. |
+| Repeat page creation after restoring the two-page layout | 19.8 seconds, 12 actions. One continuous slide across the gallery dots replaced three swipes. Maps was visible in App Library after the earlier run, saving the category tap. |
+| Hide the page from ordinary browsing | Six actions on the first attempt: hold background, tap page dots, uncheck the widget page, Done twice, acknowledge the system alert. About 14 seconds including inspection. The two ordinary pages led directly to App Library. The original Maps icon and Dock were preserved. |
+| Configure Focus and perform a second activation | Requires measurement on an iPhone. Settings search and the Control Center control gallery both returned “No Results for Focus” in this simulator. |
 
-Verified on 25 November 2026 with Xcode 27.2 and an iPhone 17 Pro simulator on iOS 27.2:
-the app and Widget Extension built in Release; typecheck passed; Jest passed 918 tests
-(one existing skip). Seven UI tests passed across the walking scenario, retained cancelled
-draft, light appearance, widget gallery/placement, maximum accessibility text size and both
-cold widget links. An independent read-only SQLite check found one fragment for the synthetic
-walking thought, also visible in the ordinary Record. MessageUI's real unavailable branch
-was exercised. The cold voice entrance was checked with microphone permission denied;
-recording audio, the available composer and real messaging remain physical-device checks.
-No real contact was selected and no SMS or iMessage was sent.
+The 12 replay actions were a hold, two page swipes, Edit, Add Widget, Chinotto, a slide
+across the dots, Add Widget, Done, a swipe to App Library, a hold-and-drag of Maps, and
+Done. Duration is wall time including system animation and automation waits. The timer
+excludes app installation, reading the guide and Focus configuration. This is an operator
+walkthrough. A first-time participant has yet to attempt the task.
 
-After adding Open Quiet, all three widget routes passed cold-launch UI tests on the same
-simulator. A tap in the clear space to the right of the title reached the Quiet screen
-with Message and What arrived? available and the keyboard hidden, in both light and dark
-appearance. The bottom controls reached the focused Record input and the microphone
-permission recovery screen respectively.
+**Where the operator got stuck.** Edit mode reveals the empty page. Several widget previews
+share the Chinotto name, so the guide gives the exact preview title. Dragging Maps from
+Spotlight displaced an existing icon during exploration. App Library preserved the original
+icon, and holding through the contextual menu let the operator place the additional icon.
+Messages opened from the existing Dock. When a page was first hidden, iOS displayed a
+notice that newly downloaded apps would appear in App Library.
 
-Run `pnpm typecheck` and `pnpm test --runInBand`. Jest covers message-result handling, a real
-SQLite capture, cancellation, failed save/retry, duplicate submission, protected capture,
-ordinary entry and existing capture links. The native widget contract is checked alongside
-the existing widget tests. The voice entrance includes a regression for acknowledging its
-request before a parent clears the flag and cancels its startup timer.
+**What the recording proves.** With Chinotto closed, the operator navigated to the page,
+opened Apple’s Messages from the Dock, typed in an empty simulator sample conversation,
+and swiped up from the bottom edge. The same widget and Maps icon were visible.
+What arrived? opened the focused Record input. One Save and another swipe Home returned
+to that page. A read-only SQLite query found one fragment for the recorded thought
+`A heron by the water FEAE`. The microphone link was tested separately with permission
+denied and opened the existing recovery action. The recording contains manual page
+navigation. System Focus activation, deactivation and second activation require an iPhone.
+Whether Focus automatically hides a previously visible page when turned off is still open.
 
-For UI verification, install a simulator Release build, then generate an independent runner:
+## Physical iPhone acceptance
 
-```sh
-ruby scripts/ios/create-quiet-tests.rb /tmp/chinotto-quiet-ui
-xcodebuild -project /tmp/chinotto-quiet-ui/QuietScenarioTests.xcodeproj \
-  -scheme QuietScenarioTests -destination 'platform=iOS Simulator,id=SIMULATOR_ID' \
-  -only-testing:QuietScenarioTests/QuietScenarioTests/test01Walk test
-```
+For a first-time participant, give only this prompt:
 
-The runner never enters a recipient or taps Send. On a simulator without MessageUI support it
-checks the real native unavailability branch, then captures one synthetic thought, returns to
-Quiet and opens that thought in the Record. Read the simulator's `Documents/SQLite/chinotto.db`
-in read-only mode to verify exactly one fragment. Use a dedicated simulator with no personal data.
-The other UI tests cover cancellation, light appearance, the widget gallery and enlarged text.
+> Set up a quiet Home Screen for a walk, then bring your usual Home Screen back.
 
-On a physical iPhone, verify recipient selection without an app contacts permission, editing
-“Я у воды, скоро буду”, and cancellation returning to Quiet. An owner-approved manual Send
-should return the composer result and Quiet, then allow one local thought to be saved. Check
-delivery separately in Messages or with the recipient; Chinotto cannot confirm it. Also test
-messaging unavailable, failed sending when reproducible, background/foreground while composing,
-and the protected Record across a relock. No automated test sends SMS or iMessage.
+Let the participant find the guide. Record elapsed setup time, actions, first hesitation
+and any help requested. Time the next activation separately. An owner checking the
+mechanism can also use build 50’s large widget and its bottom capture controls.
+
+1. Note which pages are visible before setup. Leave the new page checked for the first
+   on/off cycle. Choose it as the sole Home Screen in the Quiet Focus.
+2. Start a continuous screen recording on the ordinary Home Screen with Chinotto closed.
+   Activate Quiet in Control Center. Open Messages, compose an unsent sample draft and
+   swipe Home. Confirm the widget, native app icons and Dock. Use a test phone with an
+   empty Messages inbox, or keep any recording containing private threads on the device.
+3. Use What arrived?, save one distinctive thought, swipe Home, then turn Quiet off.
+   Compare both the set of pages and their contents with the starting layout.
+4. Only if the extra page remains visible, uncheck it in the page picker with Focus off.
+   Repeat the on/off cycle. Report whether the hidden page is shown by Focus.
+5. On the next activation, count from the ordinary Home Screen until the Quiet page is
+   visible, including dismissal of Control Center. Keep Chinotto closed throughout.
+   Confirm Phone, Messages and Maps are reachable. Verify the thought appears once in Record.
+
+The XCUITest runner lives in `scripts/ios/QuietScenarioTests.swift`.
+Generate it with `ruby scripts/ios/create-quiet-tests.rb /tmp/chinotto-quiet-ui`.
+Tests 06–08 cover cold widget entry. Test 09 uses a clean simulator with the prepared
+page and Apple’s sample Messages data. It checks actual bottom-edge gestures and keeps
+screenshots of both returns. Run `pnpm typecheck` and `pnpm test --runInBand` for the
+app tests.

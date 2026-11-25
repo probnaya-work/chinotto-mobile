@@ -33,6 +33,7 @@ import { NotificationSettings, ScheduledReminders } from './ui/NotificationSetti
 import { ShareSurface, metBeforeLabel } from './ui/ShareSurface';
 import { SyncSheet } from './ui/SyncSheet';
 import { ForcedUpdate, WidgetPreview } from './ui/WidgetPreview';
+import { QuietHomeGuide } from './ui/QuietHomeGuide';
 import { Quiet } from './ui/Quiet';
 import { FONT_ASSETS } from './ui/type';
 
@@ -138,7 +139,8 @@ export function ChinottoApp({ services }: { services: Services }) {
   const [fontsReady, setFontsReady] = useState(false);
   const [surface, setSurface] = useState<Surface>({ kind: 'record' });
   const [quietRequest, setQuietRequest] = useState(0);
-  const [quietOpen, setQuietOpen] = useState(false);
+  const [quietPanel, setQuietPanel] = useState<'guide' | 'capture' | null>(null);
+  const quietOpen = quietPanel !== null;
   const [captureRequest, setCaptureRequest] = useState(0);
   const [share, setShare] = useState<ShareIntake | null>(null);
   const [shareWords, setShareWords] = useState('');
@@ -156,7 +158,7 @@ export function ChinottoApp({ services }: { services: Services }) {
     if (!notifications || !reminders) return;
     const refresh = () => { void reminders.reconcile().catch(() => {}); };
     const unsubscribe = notifications.subscribe((id) => {
-      setQuietOpen(false);
+      setQuietPanel(null);
       setReminderRequest({ id, source: id.startsWith(RETURN_ALERT_PREFIX) ? 'return-alert' : 'notification' });
       setSurface({ kind: 'record' });
     });
@@ -613,7 +615,7 @@ export function ChinottoApp({ services }: { services: Services }) {
     // Nothing arrived is not something to handle. Saying it was handled is how a share
     // gets marked taken before it is made.
     if (!services.incomingShare || services.incomingShare.length === 0) return;
-    setQuietOpen(false);
+    setQuietPanel(null);
     const intake = readShare(services.incomingShare);
     services.onShareHandled();
     if (!intake) return;
@@ -664,7 +666,7 @@ export function ChinottoApp({ services }: { services: Services }) {
     const open = (url: string) => {
       const action = parseWidgetDeepLink(url);
       if (!action || (action.type === 'quiet' && !capabilities.homeWidget)) return false;
-      setQuietOpen(action.type === 'quiet');
+      setQuietPanel(action.type === 'quiet' ? 'capture' : null);
       if (action.type === 'quiet') setQuietRequest((request) => request + 1);
       setSurface({ kind: 'record' });
       setShare(null);
@@ -692,7 +694,7 @@ export function ChinottoApp({ services }: { services: Services }) {
   const recordBack = useRef<(() => boolean) | null>(null);
   const onBack = useRef<() => boolean>(() => false);
   onBack.current = () => {
-    if (quietOpen) { setQuietOpen(false); return true; }
+    if (quietOpen) { setQuietPanel(null); return true; }
     const step = appBackStep({
       syncOpen: sync.open,
       share: share !== null,
@@ -762,7 +764,7 @@ export function ChinottoApp({ services }: { services: Services }) {
         coldStart={coldStart && fontsReady}
         returnCovered={quietOpen || surface.kind !== 'record' || Boolean(share) || sync.open}
         onOpenSettings={() => setSurface({ kind: 'settings', page: 'root' })}
-        onOpenQuiet={Platform.OS === 'ios' ? () => setQuietOpen(true) : undefined}
+        onOpenQuietGuide={capabilities.homeWidget ? () => setQuietPanel('guide') : undefined}
         captureRequest={captureRequest}
         voice={{
           start: startVoice,
@@ -799,8 +801,10 @@ export function ChinottoApp({ services }: { services: Services }) {
       />
       </View>
 
-      <Quiet visible={quietOpen} openRequest={quietRequest} capture={(body) => surfaceStore.capture({ body, origin: 'mobile' })}
-        onExit={() => setQuietOpen(false)} />
+      {quietPanel === 'guide' ? <QuietHomeGuide onClose={() => setQuietPanel(null)}
+        onCapture={() => setQuietPanel('capture')} /> : null}
+      <Quiet visible={quietPanel === 'capture'} openRequest={quietRequest} capture={(body) => surfaceStore.capture({ body, origin: 'mobile' })}
+        onExit={() => setQuietPanel(null)} />
 
       {surface.kind === 'settings' ? (
         <SettingsSurface

@@ -73,7 +73,7 @@ export type RecordAppProps = {
   coldStart: boolean;
   returnCovered?: boolean;
   onOpenSettings: () => void;
-  onOpenQuiet?: () => void;
+  onOpenQuietGuide?: () => void;
   /** Existing capture links focus this edge; Quiet uses its own return destination. */
   captureRequest?: number;
   /** Press-to-record. Release keeps it; slide up locks it; discard leaves no moment behind. */
@@ -576,7 +576,7 @@ export function RecordApp(props: RecordAppProps) {
     capture={(body) => props.store.capture({ body, origin: 'mobile' })}
     onUnlock={props.privacy.onUnlock} busy={props.privacy.busy} error={props.privacy.error}
     onSettings={props.onOpenSettings}
-    onOpenQuiet={props.onOpenQuiet}
+    onOpenQuietGuide={props.onOpenQuietGuide}
     voice={{ recording: props.voice.state, voice: capabilities.voice,
       onStartRecording: () => void startRecording(), onStopRecording: stopRecording,
       onCancelRecording: cancelRecording }} />;
@@ -631,11 +631,11 @@ export function RecordApp(props: RecordAppProps) {
         disabled={Boolean(record.focus)}
       />
 
-      {props.onOpenQuiet && !record.focus && !record.anchor ? <Pressable
-        accessibilityRole="button" accessibilityLabel="Enter Quiet" onPress={() => { dismissKeyboard(); props.onOpenQuiet?.(); }}
+      {props.onOpenQuietGuide && !record.focus && !record.anchor ? <Pressable
+        accessibilityRole="button" accessibilityLabel="Quiet Home Screen guide" onPress={() => { dismissKeyboard(); props.onOpenQuietGuide?.(); }}
         style={{ position: 'absolute', right: 24, top: frame.statusBarHeight - 5, minHeight: 44,
           justifyContent: 'center', paddingLeft: 14, zIndex: 4, backgroundColor: SURFACE }}>
-        <Text style={type({ size: 15, width: 94, color: ink.near })}>Quiet</Text>
+        <Text style={type({ size: 15, width: 94, color: ink.near })}>Quiet guide</Text>
       </Pressable> : null}
 
       {props.privacy && !record.ready ? (
