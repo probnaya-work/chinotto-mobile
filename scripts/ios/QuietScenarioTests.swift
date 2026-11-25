@@ -13,6 +13,7 @@ final class QuietScenarioTests: XCTestCase {
     add(attachment)
   }
   private func openQuiet() {
+    app.terminate()
     app.open(URL(string: "chinotto://quiet")!)
     XCTAssertTrue(element("Message").waitForExistence(timeout: 15))
   }
