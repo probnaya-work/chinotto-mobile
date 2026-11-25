@@ -33,19 +33,17 @@ describe('the native Quiet widget contract', () => {
     expect(project).toContain('QuietCaptureWidget.swift in Sources');
   });
 
-  it('offers both sizes and exposes accessible text and voice links on Medium', () => {
+  it('uses the original Medium mark and the shared capture controls in both sizes', () => {
     expect(source).toContain('.supportedFamilies([.systemMedium, .systemLarge])');
-    const medium = source.split('private struct QuietMediumFace: View')[1];
-    expect(medium).toContain('Link(destination: textURL)');
-    expect(medium).toContain('.accessibilityLabel("What arrived? Write a thought")');
-    expect(medium).toContain('Link(destination: voiceURL)');
-    expect(medium).toContain('.accessibilityLabel("Record a thought")');
-    expect(medium).not.toContain('systemName: "mic"');
+    expect(source).toContain('ChinottoLogoMark(size: 12, scheme: .dark)');
+    expect(source).toContain('.accessibilityLabel("What arrived? Write a thought")');
+    expect(source).toContain('.accessibilityLabel("Record a thought")');
+    expect(source).not.toContain('systemName: "mic"');
   });
 
-  it('cannot read personal material and reuses the existing widget palette', () => {
+  it('derives the Large calendar strip from the entry date without access to Record', () => {
+    expect(source).toContain('calendar.dateInterval(of: .weekOfYear, for: date)');
+    expect(source).toContain('calendar.isDate(day, inSameDayAs: date)');
     expect(source).not.toMatch(/UserDefaults|WidgetThought|readWidgetState|SQLite|FileManager|URLSession/);
-    expect(source).toContain('WidgetInk.surface(scheme)');
-    expect(source).toContain('WidgetInk.ink(scheme)');
   });
 });

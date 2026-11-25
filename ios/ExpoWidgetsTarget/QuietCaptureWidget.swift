@@ -39,79 +39,116 @@ private struct QuietCaptureTimeline: TimelineProvider {
 
 private struct QuietCaptureWidgetView: View {
   let date: Date
-  @Environment(\.colorScheme) private var scheme
   @Environment(\.widgetFamily) private var family
+  @Environment(\.widgetRenderingMode) private var renderingMode
+  @ScaledMetric(relativeTo: .title) private var headline: CGFloat = 34
 
   private let quietURL = URL(string: "chinotto://quiet")!
   private let textURL = URL(string: "chinotto://capture")!
   private let voiceURL = URL(string: "chinotto://capture?mode=voice")!
+  private let ink = Color(red: 0.965, green: 0.957, blue: 0.929)
+  private let sage = Color(red: 0.718, green: 0.788, blue: 0.667)
+  private let charcoal = Color(red: 0.098, green: 0.110, blue: 0.102)
 
-  private var large: some View {
-    VStack(alignment: .leading, spacing: 0) {
-      HStack(alignment: .firstTextBaseline) {
-        Link(destination: quietURL) {
-          Text("Chinotto")
-            .font(.headline)
-            .foregroundStyle(WidgetInk.ink(scheme))
-            .frame(minHeight: 44)
+  private var large: Bool { family == .systemLarge }
+
+  private var brand: some View {
+    HStack(spacing: 4) {
+      ChinottoLogoMark(size: 12, scheme: .dark)
+      Text("CHINOTTO").tracking(0.4)
+    }
+    .font(.system(size: large ? 12 : 10, weight: .medium, design: .monospaced))
+  }
+
+  private var background: some View {
+    RadialGradient(colors: [Color(red: 0.22, green: 0.277, blue: 0.208), charcoal],
+                   center: UnitPoint(x: 0.80, y: large ? 0.72 : 0.50),
+                   startRadius: 0, endRadius: large ? 330 : 245)
+  }
+
+  private func voiceDisc(diameter: CGFloat) -> some View {
+    Link(destination: voiceURL) {
+      Circle()
+        .fill(LinearGradient(colors: [Color(red: 0.77, green: 0.83, blue: 0.70), sage],
+                             startPoint: .topLeading, endPoint: .bottomTrailing))
+        .overlay { Circle().strokeBorder(.white.opacity(0.24), lineWidth: 0.7) }
+        .shadow(color: .black.opacity(0.24), radius: 2, y: 2)
+        .overlay {
+          Circle().fill(renderingMode == .fullColor ? charcoal : Color.primary)
+            .frame(width: diameter * 0.12, height: diameter * 0.12)
         }
+        .frame(width: diameter, height: diameter)
+        .contentShape(Circle())
+    }
+    .accessibilityLabel("Record a thought")
+    .background {
+      ZStack {
+        ForEach([1.50, 1.86, 2.37, 2.91], id: \.self) { factor in
+          Circle().stroke(sage.opacity(0.32 / factor), lineWidth: 0.65)
+            .frame(width: diameter * factor, height: diameter * factor)
+        }
+      }
+      .accessibilityHidden(true)
+      .allowsHitTesting(false)
+    }
+  }
+
+  private var largeHeader: some View {
+    HStack {
+      Link(destination: quietURL) { brand.frame(minHeight: 44) }
         .accessibilityLabel("Open in-app Quiet capture")
-        Spacer(minLength: 12)
-        Text(date, format: .dateTime.month(.abbreviated).day())
-          .font(.system(size: 12))
-          .foregroundStyle(WidgetInk.meta(scheme))
-          .lineLimit(1)
-      }
-
-      Spacer(minLength: 16)
-
-      HStack(alignment: .center, spacing: 12) {
-        Link(destination: textURL) {
-          Text("What arrived?")
-            .font(.system(.title, design: .serif))
-            .lineLimit(1)
-            .minimumScaleFactor(0.75)
-            .frame(minHeight: 44, alignment: .leading)
-            .contentShape(Rectangle())
-        }
-        .accessibilityLabel("What arrived? Write a thought")
-
-        Spacer(minLength: 0)
-
-        Link(destination: voiceURL) {
-          Image(systemName: "mic")
-            .font(.system(size: 23, weight: .regular))
-            .frame(width: 44, height: 44)
-            .contentShape(Rectangle())
-        }
-        .accessibilityLabel("Record a thought")
-      }
-      .foregroundStyle(WidgetInk.ink(scheme))
+      Spacer()
+      Text(date, format: .dateTime.month(.abbreviated).year())
+        .textCase(.uppercase)
+        .font(.system(.caption, design: .monospaced))
     }
-    .padding(8)
-    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+  }
+
+  private var content: some View {
+    GeometryReader { geometry in
+      let diameter = min(large ? 101 : 86, geometry.size.height * 0.69, geometry.size.width * 0.31)
+      VStack(alignment: .leading, spacing: 0) {
+        if large {
+          largeHeader
+          QuietWeek(date: date, sage: sage, charcoal: charcoal)
+            .padding(.top, 8)
+          Spacer(minLength: 10)
+        }
+        HStack(spacing: 12) {
+          Link(destination: textURL) {
+            VStack(alignment: .leading, spacing: 0) {
+              if !large {
+                brand
+                Spacer(minLength: 3)
+                Text(date, format: .dateTime.day().month(.abbreviated))
+                  .textCase(.uppercase)
+                  .font(.system(size: 11, design: .monospaced))
+              }
+              VStack(alignment: .leading, spacing: -5) {
+                Text("What")
+                Text("arrived?")
+              }
+              .font(.custom("Archivo-540-94", fixedSize: min(headline * (large ? 1.26 : 1), geometry.size.height * 0.29)))
+              .tracking(-0.6)
+              .lineLimit(1)
+              .minimumScaleFactor(0.75)
+              .padding(.top, 3)
+              if !large { Spacer(minLength: 2) }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+          }
+          .accessibilityLabel("What arrived? Write a thought")
+          voiceDisc(diameter: diameter)
+            .padding(.trailing, 7)
+        }
+        .padding(.bottom, large ? 15 : 0)
+      }
+      .padding(.leading, 3)
+      .foregroundStyle(ink)
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
     .widgetURL(textURL)
-  }
-
-  @ViewBuilder private var background: some View {
-    if family == .systemMedium {
-      RadialGradient(colors: [
-        Color(red: 0.32, green: 0.38, blue: 0.28),
-        Color(red: 0.20, green: 0.25, blue: 0.19),
-        Color(red: 0.09, green: 0.10, blue: 0.09),
-      ], center: UnitPoint(x: 0.80, y: 0.5), startRadius: 0, endRadius: 245)
-    } else {
-      WidgetInk.surface(scheme)
-    }
-  }
-
-  @ViewBuilder private var content: some View {
-    if family == .systemMedium {
-      QuietMediumFace(date: date, textURL: textURL, voiceURL: voiceURL)
-        .widgetURL(textURL)
-    } else {
-      large
-    }
   }
 
   var body: some View {
@@ -123,80 +160,34 @@ private struct QuietCaptureWidgetView: View {
   }
 }
 
-/// The Search Results artwork at widget scale. Only the two capture targets are interactive.
-private struct QuietMediumFace: View {
+private struct QuietWeek: View {
   let date: Date
-  let textURL: URL
-  let voiceURL: URL
+  let sage: Color
+  let charcoal: Color
+  @Environment(\.calendar) private var calendar
   @Environment(\.widgetRenderingMode) private var renderingMode
-  @ScaledMetric(relativeTo: .title) private var promptSize: CGFloat = 34
-
-  private let ink = Color(red: 0.94, green: 0.93, blue: 0.90)
-  private let byline = Color(red: 0.74, green: 0.78, blue: 0.72)
 
   var body: some View {
-    GeometryReader { geometry in
-      let diameter = min(86, geometry.size.height * 0.69, geometry.size.width * 0.29)
-      HStack(spacing: 12) {
-        Link(destination: textURL) {
-          VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 4) {
-              ChinottoLogoMark(size: 12, scheme: .dark)
-              Text("CHINOTTO").tracking(0.4)
-            }
-            .font(.system(size: 10, weight: .medium, design: .monospaced))
-            Spacer(minLength: 3)
-            Text(date, format: .dateTime.day().month(.abbreviated))
-              .textCase(.uppercase)
-              .font(.system(size: 11, design: .monospaced))
-            VStack(alignment: .leading, spacing: -5) {
-              Text("What")
-              Text("arrived?")
-            }
-            .font(.custom("Archivo-540-94", fixedSize: min(promptSize, geometry.size.height * 0.29)))
-            .tracking(-0.6)
-            .foregroundStyle(ink)
-            .lineLimit(1)
-            .minimumScaleFactor(0.8)
-            .padding(.top, 3)
-            Spacer(minLength: 2)
+    if let week = calendar.dateInterval(of: .weekOfYear, for: date) {
+      let days = (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: week.start) }
+      HStack(spacing: 0) {
+        ForEach(days, id: \.self) { day in
+          let today = calendar.isDate(day, inSameDayAs: date)
+          VStack(spacing: 7) {
+            Text(day, format: .dateTime.weekday(.narrow))
+            Text(day, format: .dateTime.day())
+              .fontWeight(today ? .bold : .regular)
+              .frame(maxWidth: .infinity, minHeight: 22)
+              .foregroundStyle(today && renderingMode == .fullColor ? charcoal : .primary)
+              .background { if today { Capsule().fill(sage) } }
           }
-          .foregroundStyle(byline)
-          .padding(.leading, 3)
-          .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-          .contentShape(Rectangle())
+          .frame(maxWidth: .infinity)
         }
-        .accessibilityLabel("What arrived? Write a thought")
-
-        Link(destination: voiceURL) {
-          Circle()
-            .fill(LinearGradient(colors: [
-              Color(red: 0.76, green: 0.82, blue: 0.71),
-              Color(red: 0.62, green: 0.70, blue: 0.58),
-            ], startPoint: .topLeading, endPoint: .bottomTrailing))
-            .overlay { Circle().strokeBorder(.white.opacity(0.23), lineWidth: 0.7) }
-            .shadow(color: .black.opacity(0.24), radius: 2, y: 2)
-            .overlay {
-              Circle().fill(renderingMode == .fullColor ? Color(red: 0.13, green: 0.16, blue: 0.12) : .primary)
-                .frame(width: diameter * 0.12, height: diameter * 0.12)
-            }
-            .frame(width: diameter, height: diameter)
-            .contentShape(Circle())
-        }
-        .accessibilityLabel("Record a thought")
-        .background {
-          ZStack {
-            ForEach([1.50, 1.86, 2.37, 2.91], id: \.self) { factor in
-              Circle().stroke(byline.opacity(0.32 / factor), lineWidth: 0.65)
-                .frame(width: diameter * factor, height: diameter * factor)
-            }
-          }
-          .accessibilityHidden(true)
-          .allowsHitTesting(false)
-        }
-        .padding(.trailing, 7)
       }
-      .frame(maxWidth: .infinity, maxHeight: .infinity)
+      .font(.system(.caption, design: .monospaced))
+      .environment(\.colorScheme, .dark)
+      .accessibilityElement(children: .ignore)
+      .accessibilityLabel(Text(date, format: .dateTime.weekday(.wide).month(.wide).day().year()))
     }
   }
 }
