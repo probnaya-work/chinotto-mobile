@@ -1,66 +1,63 @@
-import React, { useContext, useState } from 'react';
-import { NativeModules, Pressable, ScrollView, Text, View } from 'react-native';
+import React, { useContext } from 'react';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { initialWindowMetrics, SafeAreaInsetsContext } from 'react-native-safe-area-context';
-import { useRecordTheme } from './appearance';
-import { QuietGuideIcon } from './QuietGuideIcon';
+import { useRecordAppearance, useRecordTheme } from './appearance';
 import { type } from './type';
 
 const setup = [
-  ['Choose your Quiet page', 'In iPhone Settings → Focus → Personal, choose the Home Screen under Customise Screens. Pick a suggested page and tap Add.'],
-  ['Add Chinotto Quiet', 'Turn Personal on in Control Center. Hold the Home Screen background, then tap Edit → Add Widget. Find Chinotto Quiet and choose Medium or Large.'],
+  ['Settings › Focus › Personal', 'Under Customize Screens, choose Home Screen. Pick a suggested page and tap Add.'],
+  ['Control Center › Focus › Personal', 'Swipe down from the top right to open Control Center. Turn on Personal, then go Home.'],
+  ['Edit › Add Widget › Chinotto', 'Hold the page background to reveal Edit. Choose Chinotto Quiet in Medium or Large, then tap Add Widget and Done.'],
 ] as const;
 
-export function QuietHomeGuide({ onClose, onCapture, backTo = 'Record' }: {
-  onClose: () => void; onCapture: () => void; backTo?: 'Record' | 'Settings';
+export function QuietHomeGuide({ onClose, backTo = 'Record' }: {
+  onClose: () => void; backTo?: 'Record' | 'Settings';
 }) {
-  const [showPreviousTools, setShowPreviousTools] = useState(false);
-  const [error, setError] = useState(false);
-  const { SURFACE, ink, bandLabel, rule } = useRecordTheme();
+  const { SURFACE, ink, bandLabel, rule, mode } = useRecordTheme();
+  const { contrast } = useRecordAppearance();
   const insets = useContext(SafeAreaInsetsContext) ?? initialWindowMetrics?.insets;
-  const action = type({ size: 16, width: 94, color: ink.near });
-  const section = type({ size: 12, width: 94, weight: 540, tracking: 0.07, color: bandLabel.color });
-  const body = type({ size: 16, width: 94, lineHeight: 1.36, color: ink.near });
+  const label = type({ size: 13, width: 90, color: bandLabel.color });
+  const action = type({ size: 16, width: 96, color: ink.ink });
+  const body = type({ size: 14, width: 94, lineHeight: 1.35, color: ink.near });
+
   return <View accessibilityViewIsModal style={{ position: 'absolute', inset: 0, zIndex: 12,
     paddingTop: Math.max(insets?.top ?? 54, 24), backgroundColor: SURFACE }}>
-    <Pressable accessibilityRole="button" onPress={onClose}
-      style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 24 }}>
-      <Text style={action}>{`‹ ${backTo}`}</Text>
+    {!contrast && <View pointerEvents="none" accessible={false} accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants" style={StyleSheet.absoluteFill}>
+      <Image accessible={false} source={require('../../assets/quiet/header-paper.png')}
+        resizeMode="cover" style={{ width: '100%', height: '100%', opacity: mode === 'dark' ? 0.032 : 0.028 }} />
+    </View>}
+    <Pressable accessibilityRole="button" onPress={onClose} style={styles.back}>
+      <Text style={type({ size: 14, width: 94, color: ink.near })}>{`‹ ${backTo}`}</Text>
     </Pressable>
-    <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: (insets?.bottom ?? 32) + 20, gap: 17 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 12 }}>
-        <View style={{ flex: 1 }}>
-          <Text accessibilityRole="header" style={type({ size: 38, width: 94, weight: 540, tracking: -0.035, lineHeight: 1.06, color: ink.ink })}>Quiet Home Screen</Text>
-        </View>
-        <QuietGuideIcon size={46} />
+    <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: (insets?.bottom ?? 32) + 20 }}>
+      <Text accessibilityRole="header" style={[type({ size: 25, width: 96, color: ink.ink }), styles.title]}>Quiet Home Screen</Text>
+      <Text accessibilityRole="header" style={label}>Set up once</Text>
+      <View style={styles.steps}>
+        {setup.map(([path, detail], index) => <View key={path} style={styles.row}>
+          <Text accessible={false} accessibilityElementsHidden importantForAccessibility="no"
+            style={[label, styles.number]}>{index + 1}</Text>
+          <View style={styles.copy}>
+            <Text accessibilityRole="header" accessibilityLabel={`Step ${index + 1}. ${path}`} style={action}>{path}</Text>
+            <Text style={body}>{detail}</Text>
+          </View>
+        </View>)}
       </View>
-      <Text accessibilityRole="header" style={section}>ONE-TIME SETUP</Text>
-      {setup.map(([heading, detail]) => <View key={heading} style={{ gap: 5 }}>
-        <Text accessibilityRole="header" style={type({ size: 21, width: 94, weight: 540, color: ink.ink })}>{heading}</Text>
-        <Text style={body}>{detail}</Text>
-      </View>)}
-      <View style={{ borderTopWidth: 1, borderTopColor: rule.hair, paddingTop: 16, gap: 10 }}>
-        <Text accessibilityRole="header" style={section}>EVERYDAY USE</Text>
-        <Text style={body}>Switch Personal on in Control Center to see your Quiet page. Tap “What arrived?” to write or the green disc to record.</Text>
-        <Text style={body}>Swipe Home from any app to return to the page. Switch Personal off to bring back your usual pages.</Text>
+      <View style={[styles.daily, { borderTopColor: rule.hair }]}>
+        <Text accessibilityRole="header" style={label}>Daily use</Text>
+        <Text style={body}>Turn on Personal in Control Center. Tap “What arrived?” to write or the green disc to record.</Text>
+        <Text style={body}>Swipe Home to return to Quiet. Turn Personal off to bring back your usual pages.</Text>
       </View>
-      <Pressable accessibilityRole="button" onPress={onCapture} style={{ minHeight: 44, justifyContent: 'center' }}>
-        <Text style={action}>Open in-app Quiet capture</Text>
-      </Pressable>
-      {NativeModules.QuietAppsModule?.open && <Pressable accessibilityRole="button"
-        accessibilityState={{ expanded: showPreviousTools }} onPress={() => setShowPreviousTools(!showPreviousTools)}
-        style={{ minHeight: 44, justifyContent: 'center' }}>
-        <Text style={action}>Previous app-hiding experiment</Text>
-      </Pressable>}
-      {showPreviousTools && <View>
-        <Text style={action}>Turning off app hiding can move icons to a different page. To restore hidden apps, open the controls below.</Text>
-        <Pressable accessibilityRole="button" onPress={async () => {
-          setError(false);
-          try { await NativeModules.QuietAppsModule.open(); } catch { setError(true); }
-        }} style={{ minHeight: 44, justifyContent: 'center' }}>
-          <Text style={action}>Hide apps with Quiet</Text>
-        </Pressable>
-        {error && <Text accessibilityRole="alert" style={action}>Couldn’t open Quiet. Try again.</Text>}
-      </View>}
     </ScrollView>
   </View>;
 }
+
+const styles = StyleSheet.create({
+  back: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 24 },
+  title: { marginTop: 6, marginBottom: 18 },
+  steps: { marginTop: 10, gap: 14 },
+  row: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  number: { minWidth: 12, marginTop: 2, fontVariant: ['tabular-nums'] },
+  copy: { flexShrink: 1, gap: 3 },
+  daily: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 19, paddingTop: 14, gap: 7 },
+});

@@ -655,7 +655,7 @@ exercises a separate path. See [Quiet Home Screen](quiet.md) for observations an
 
 ### Quiet on the current Home Screen (experimental)
 
-The optional Quiet guide offers individual app hiding through Family Controls.
+Chinotto Settings offers the old Family Controls sheet only for a saved app-hiding selection or an active restriction.
 The user selects apps explicitly and can clear the restriction from Chinotto or
 its Control Center control. Normal Record capture requires no Screen Time
 permission. See the [device check](quiet.md#hide-selected-apps-on-the-current-home-screen-prototype).
@@ -665,5 +665,5 @@ permission. See the [device check](quiet.md#hide-selected-apps-on-the-current-ho
 Both Quiet sizes use the approved darker graphite and sage artwork and the
 original Medium logo. The disc opens voice capture. Large adds a week strip
 using the local calendar. Both sizes retain their widget kind and routes.
-Record chronology uses light sage in dark appearance and olive on paper. The guide leads with the Personal Focus page the
+Record chronology uses muted grey-green in dark appearance and a deeper grey-green on paper. The guide leads with the Personal Focus page the
 owner used successfully on iPhone.

@@ -13,64 +13,21 @@ final class QuietScenarioTests: XCTestCase {
     add(attachment)
   }
   private func openQuiet() {
-    app.launch()
-    let entry = element("Quiet Home Screen guide")
-    XCTAssertTrue(entry.waitForExistence(timeout: 30), app.debugDescription)
-    entry.tap()
-    openInAppCapture()
-    XCTAssertTrue(element("Message").waitForExistence(timeout: 5))
+    app.open(URL(string: "chinotto://quiet")!)
+    XCTAssertTrue(element("Message").waitForExistence(timeout: 15))
   }
 
-  private func openInAppCapture() {
-    let capture = element("Open in-app Quiet capture")
-    for _ in 0..<8 {
-      if capture.isHittable { break }
-      app.swipeUp()
-    }
-    capture.tap()
-  }
-
-  func testQuietAppSelectionOnSimulator() throws {
-    #if targetEnvironment(simulator)
+  func testQuietGuideShowsSetupAndDailyUse() {
     app.launch()
     let guide = element("Quiet Home Screen guide")
     XCTAssertTrue(guide.waitForExistence(timeout: 30))
     guide.tap()
-    let previous = element("Previous app-hiding experiment")
-    if !previous.isHittable { app.swipeUp() }
-    previous.tap()
-    if !element("Hide apps with Quiet").isHittable { app.swipeUp() }
-    element("Hide apps with Quiet").tap()
-    let enable = app.buttons["Turn Quiet on"]
-    XCTAssertTrue(enable.waitForExistence(timeout: 10), app.debugDescription)
-    XCTAssertFalse(enable.isEnabled, "An empty selection must never activate Quiet")
-    let allow = app.buttons["Allow Screen Time access"]
-    if allow.exists {
-      allow.tap()
-      let system = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-      let consent = system.alerts.containing(.staticText, identifier: "“Chinotto” Would Like to Access Screen Time").firstMatch
-      if consent.waitForExistence(timeout: 4) {
-        capture("quiet-apps-consent")
-        consent.buttons["Don’t Allow"].tap()
-      }
-      let failed = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Couldn’t enable Screen Time access.")).firstMatch
-      XCTAssertTrue(failed.waitForExistence(timeout: 10), app.debugDescription)
-      XCTAssertTrue(allow.isEnabled)
-    } else {
-      // The simulator owner may already have completed the real consent prompt.
-      app.buttons["Choose apps (0)"].tap()
-      XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 5))
-      capture("quiet-apps-picker")
-      app.buttons["Cancel"].tap()
-      XCTAssertTrue(app.buttons["Choose apps (0)"].waitForExistence(timeout: 5))
-    }
-    XCTAssertFalse(enable.isEnabled)
-    capture("quiet-apps-setup")
-    app.buttons["Done"].tap()
-    XCTAssertTrue(element("Hide apps with Quiet").waitForExistence(timeout: 4))
-    #else
-    throw XCTSkip("This test exercises simulator authorization.")
-    #endif
+    XCTAssertTrue(element("Set up once").waitForExistence(timeout: 5))
+    XCTAssertTrue(element("Daily use").exists)
+    XCTAssertFalse(element("Open in-app Quiet capture").exists)
+    XCTAssertFalse(element("Previous app-hiding experiment").exists)
+    element("‹ Record").tap()
+    XCTAssertTrue(guide.waitForExistence(timeout: 5))
   }
 
   func test01Walk() {
@@ -103,8 +60,7 @@ final class QuietScenarioTests: XCTestCase {
     XCTAssertTrue(element("Quiet verification: a thought by the water.").waitForExistence(timeout: 8), app.debugDescription)
     capture("quiet-record")
     // Inspect SQLite independently for an exact count; the UI confirms the ordinary Record.
-    element("Quiet Home Screen guide").tap()
-    openInAppCapture()
+    openQuiet()
   }
 
   func test02DraftCancellation() {
@@ -138,8 +94,7 @@ final class QuietScenarioTests: XCTestCase {
     let back = element("‹ edge")
     XCTAssertTrue(back.waitForExistence(timeout: 5), app.debugDescription)
     back.tap()
-    element("Quiet Home Screen guide").tap()
-    openInAppCapture()
+    openQuiet()
     XCTAssertTrue(element("Message").waitForExistence(timeout: 5))
     capture("quiet-light")
   }

@@ -13,6 +13,10 @@ enum QuietApps {
 
   static var enabled: Bool { !(store.application.blockedApplications ?? []).isEmpty }
 
+  static var previouslyConfigured: Bool {
+    enabled || defaults?.data(forKey: selectionKey) != nil
+  }
+
   static var authorized: Bool {
     let status = AuthorizationCenter.shared.authorizationStatus
     if #available(iOS 26.4, *), status == .approvedWithDataAccess { return true }
@@ -51,11 +55,11 @@ enum QuietApps {
     case storage, permission, active, appsOnly, empty
     var errorDescription: String? {
       switch self {
-      case .storage: return "Couldn’t access your saved selection. Open Quiet guide in Chinotto and choose apps again."
-      case .permission: return "Open Quiet guide in Chinotto to allow Screen Time access."
+      case .storage: return "Couldn’t access your saved selection. Open hidden apps in Chinotto Settings to review your selection."
+      case .permission: return "Screen Time access is off. For a Quiet page, use Personal Focus in Control Center."
       case .active: return "Turn Quiet off before changing your apps."
       case .appsOnly: return "Select up to 50 individual apps. Expand a category to choose its apps and leave websites unselected."
-      case .empty: return "Open Quiet guide in Chinotto and choose apps first."
+      case .empty: return "No apps selected. Use Personal Focus in Control Center for your Quiet page."
       }
     }
   }

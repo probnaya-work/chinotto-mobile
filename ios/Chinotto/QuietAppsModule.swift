@@ -6,6 +6,11 @@ import SwiftUI
 final class QuietAppsModule: NSObject {
   @objc static func requiresMainQueueSetup() -> Bool { true }
 
+  @objc(previouslyConfigured:rejecter:)
+  func previouslyConfigured(_ resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
+    resolve(QuietApps.previouslyConfigured)
+  }
+
   @objc(open:rejecter:)
   func open(_ resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
     Task { @MainActor in

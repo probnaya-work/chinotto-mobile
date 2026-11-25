@@ -2,12 +2,12 @@
 
 The optional Focus page belongs to iOS. Messages, Phone and Maps open from their own icons.
 Chinotto supplies a private Medium or Large widget with text and voice capture. Its optional
-**Quiet guide** opens from the book icon at the top right of Record, including locked capture, or from **Settings → Quiet Home Screen**.
+**Quiet guide** opens from the **quiet /** label at the top right of Record, including locked capture, or from **Settings → Quiet Home Screen**. **Set up once** walks through page selection, Focus activation and widget placement. **Daily use** covers starting capture and restoring the usual pages.
 
 ## Set up the suggested Personal Focus page
 
 1. Open **Settings → Focus → Personal**. Under **Customize Screens**, choose the Home Screen, select a suggestion under **Create a New Page** and tap **Add**.
-2. Turn Personal on from **Control Center → Focus**. Hold the background of the suggested page, then tap **Edit → Add Widget**. Search for Chinotto and select **Chinotto Quiet** in Medium. Add it and tap **Done**. Use the standard apps already on the page or in the Dock.
+2. Turn Personal on from **Control Center → Focus**. Hold the background of the suggested page, then tap **Edit → Add Widget**. Search for Chinotto and select **Chinotto Quiet** in Medium or Large. Add it and tap **Done**. Use the standard apps already on the page or in the Dock.
 3. During use, swipe Home from Messages or Chinotto to return to this page. Toggle Personal in Control Center to restore your usual pages or bring the suggested page back.
 
 ## Suggested pages on a physical iPhone
@@ -48,8 +48,7 @@ The physical-device observation above covers Personal Focus. The timings below d
 
 Both sizes display the local date and contain no Record data. In Medium, the
 two-line **What arrived?** opens `chinotto://capture` and the sage disc opens
-`chinotto://capture?mode=voice`. Large uses the same two controls and shows the local calendar week with today highlighted. Its header opens build 50’s in-app capture at
-`chinotto://quiet`, also accessible in the guide.
+`chinotto://capture?mode=voice`. Large uses the same two controls and shows the local calendar week with today highlighted. Its header opens the in-app Quiet capture screen at `chinotto://quiet`.
 These app links operate independently of system Focus.
 
 On the iPhone 17 Pro simulator (iOS 27.2), the gallery offered Medium. With the
@@ -173,7 +172,7 @@ app tests.
 icons from the first Home Screen page to the second. Restoring their original
 positions requires manual rearrangement.
 
-Open **Quiet guide → Previous app-hiding experiment → Hide apps with Quiet** and grant individual Screen Time access.
+On previously configured iPhones, **Chinotto Settings → hidden apps → manage** opens the legacy controls. Turning off app hiding there restores access.
 Choose individual apps inside the system picker, then tap **Save**. The selection
 stays on this device. Keep Chinotto and Messages available for the first test.
 Turn Quiet on or off in the sheet. On iOS 18 or later, add **Chinotto Quiet**

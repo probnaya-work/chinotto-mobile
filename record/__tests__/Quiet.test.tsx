@@ -134,15 +134,11 @@ describe('Quiet walking scenario', () => {
     view.unmount(); db.close();
   });
 
-  it('keeps the ordinary capture entrance and returns from Quiet to the same Record', async () => {
+  it('returns from the existing Quiet widget route to a single saved entry in Record', async () => {
     const db = openTestDb(); await migrate(db);
+    jest.mocked(Linking.getInitialURL).mockResolvedValueOnce('chinotto://quiet');
     const view = render(<ChinottoApp services={testAppServices(db, null, jest.fn())} />);
-    await act(async () => { await Promise.resolve(); });
-    expect(screen.queryByTestId('quiet')).toBeNull();
-    expect(screen.getByLabelText('capture')).toBeTruthy();
-    fireEvent.press(screen.getByLabelText('Quiet Home Screen guide'));
-    fireEvent.press(screen.getByText('Open in-app Quiet capture'));
-    expect(screen.getByTestId('quiet')).toBeTruthy();
+    await screen.findByTestId('quiet');
     fireEvent.press(screen.getByLabelText('What arrived?'));
     fireEvent.changeText(screen.getByLabelText('capture'), 'a single local moment');
     fireEvent.press(screen.getByLabelText('leave it'));

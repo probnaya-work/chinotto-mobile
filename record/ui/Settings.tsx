@@ -12,7 +12,7 @@
 
 import { useRecordTheme, useRecordAppearance } from './appearance';
 import React from 'react';
-import { Platform, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import { NativeModules, Platform, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 
 import { Mark } from './Mark';
 import { capabilitiesFor, type PlatformCapabilities } from '../platform';
@@ -190,6 +190,7 @@ function Root(props: SettingsProps & { capabilities: PlatformCapabilities }) {
         {can.voice ? (
           <SettingRow title="original audio" detail={props.audioUsage ?? 'measuring on this phone…'} />
         ) : null}
+        {can.homeWidget && <HiddenAppsSettings />}
         {can.homeWidget && props.onOpenQuietGuide ? (
           <SettingRow title="Quiet Home Screen" detail="Focus page and capture widgets"
             action="guide ›" onPress={props.onOpenQuietGuide} />
@@ -417,6 +418,30 @@ function Root(props: SettingsProps & { capabilities: PlatformCapabilities }) {
       </Section>
     </ScrollView>
   );
+}
+
+function HiddenAppsSettings() {
+  const [configured, setConfigured] = React.useState(false);
+  const [failed, setFailed] = React.useState(false);
+  const { ink } = useRecordTheme();
+  React.useEffect(() => {
+    let mounted = true;
+    NativeModules.QuietAppsModule?.previouslyConfigured?.().then((value: boolean) => {
+      if (mounted) setConfigured(value);
+    }).catch(() => {});
+    return () => { mounted = false; };
+  }, []);
+  if (!configured) return null;
+  return <View>
+    <SettingRow title="hidden apps" detail="Review apps hidden with Chinotto or turn hiding off."
+      action="manage ›" onPress={async () => {
+        setFailed(false);
+        try { await NativeModules.QuietAppsModule.open(); } catch { setFailed(true); }
+      }} />
+    {failed && <Text accessibilityRole="alert" style={type({ size: 14, width: 94, color: ink.near })}>
+      Couldn’t open hidden apps. Try again.
+    </Text>}
+  </View>;
 }
 
 const referenceLines = [

@@ -786,8 +786,7 @@ export function ChinottoApp({ services }: { services: Services }) {
       />
       </View>
 
-      {quietPanel === 'guide' ? <QuietHomeGuide backTo={surface.kind === 'settings' ? 'Settings' : 'Record'} onClose={() => setQuietPanel(null)}
-        onCapture={() => setQuietPanel('capture')} /> : null}
+      {quietPanel === 'guide' ? <QuietHomeGuide backTo={surface.kind === 'settings' ? 'Settings' : 'Record'} onClose={() => setQuietPanel(null)} /> : null}
       <Quiet visible={quietPanel === 'capture'} openRequest={quietRequest} capture={(body) => surfaceStore.capture({ body, origin: 'mobile' })}
         onExit={() => setQuietPanel(null)} />
 

@@ -3,7 +3,8 @@
  */
 
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { NativeModules } from 'react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import { capabilitiesFor } from '../platform';
 import { Settings, settingsCopy, type SettingsProps } from '../ui/Settings';
@@ -193,6 +194,28 @@ describe('settings on android', () => {
     fireEvent.press(reference);
     expect(reference.props.accessibilityState).toEqual({ expanded: false });
     expect(screen.queryByText('/ find')).toBeNull();
+  });
+
+  it.each([true, false])('shows legacy hidden apps only with a previous configuration (%s)', async (configured) => {
+    const original = NativeModules.QuietAppsModule;
+    const open = jest.fn().mockRejectedValueOnce(new Error('busy')).mockResolvedValue(undefined);
+    NativeModules.QuietAppsModule = { previouslyConfigured: async () => configured, open };
+    try {
+      render(<Settings {...props} capabilities={capabilitiesFor('ios')} />);
+      await act(async () => {});
+      const name = 'hidden apps, manage ›';
+      if (configured) {
+        fireEvent.press(screen.getByLabelText(name));
+        await screen.findByText('Couldn’t open hidden apps. Try again.');
+        fireEvent.press(screen.getByLabelText(name));
+        await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+        expect(open).toHaveBeenCalledTimes(2);
+      } else {
+        expect(screen.queryByLabelText(name)).toBeNull();
+      }
+    } finally {
+      NativeModules.QuietAppsModule = original;
+    }
   });
 
   it('makes the quiet rows full-size controls instead of inline text links', () => {
