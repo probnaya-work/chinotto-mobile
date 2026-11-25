@@ -65,7 +65,7 @@ export function useRecord(
   const [anchor, setAnchor] = useState<Anchor | null>(null);
 
   /**
-   * Standing takes the field off the surface — `▲ back to the edge` stands where it was —
+   * Standing takes the field off the surface — `▲ back to now` stands where it was —
    * and an unmounted field never says it lost focus. The flag the caret is drawn from has
    * to follow whether the field is there at all, not the events it can no longer send, or
    * the edge comes back from standing with no caret on it. Every way of standing goes

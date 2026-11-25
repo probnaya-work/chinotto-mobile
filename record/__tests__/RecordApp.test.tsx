@@ -806,7 +806,7 @@ describe('the record surface', () => {
     await act(async () => {
       fireEvent.press(screen.getByText('the folder thing again'));
     });
-    await waitFor(() => expect(screen.getByText('‹ edge')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('‹ Record')).toBeTruthy());
     expect(screen.getByText(/^a fragment · /)).toBeTruthy();
     h.db.close();
   });
@@ -888,14 +888,14 @@ describe('the record surface', () => {
     });
 
     await waitFor(() => expect(screen.getByText(/you are in mar 2024/)).toBeTruthy());
-    expect(screen.getByText('▲ back to the edge')).toBeTruthy();
+    expect(screen.getByText('▲ back to now')).toBeTruthy();
     // The field took the date as a movement, not as material.
     expect((await h.store.loadRecord()).map((r) => r.body)).not.toContain('march 2024');
 
     await act(async () => {
-      fireEvent.press(screen.getByText('▲ back to the edge'));
+      fireEvent.press(screen.getByText('▲ back to now'));
     });
-    await waitFor(() => expect(screen.queryByText('▲ back to the edge')).toBeNull());
+    await waitFor(() => expect(screen.queryByText('▲ back to now')).toBeNull());
 
     // Standing unmounted the field, which therefore never said it lost focus — and the
     // caret is drawn from that flag. The edge used to come back from standing bare.
@@ -1599,7 +1599,7 @@ describe('quiet reading', () => {
     expect(scrollTo).toHaveBeenLastCalledWith({ y: 120, animated: false });
     scrollTo.mockRestore();
     expect(screen.getByLabelText('a new moment, dated now').props.value).toBe('a draft in the same Line');
-    expect(screen.getByRole('button', { name: '‹ edge' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '‹ Record' })).toBeTruthy();
     expect(screen.getByLabelText('capture')).toBeTruthy();
     expect(await h.store.loadRecord()).toHaveLength(2);
     view.unmount(); h.db.close();

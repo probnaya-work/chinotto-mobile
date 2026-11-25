@@ -304,7 +304,7 @@ export function Edge(props: EdgeProps) {
                 { flex: 1, paddingVertical: 22 },
               ]}
             >
-              ▲ back to the edge
+              ▲ back to now
             </Text>
           ) : (
             <>

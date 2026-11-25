@@ -132,7 +132,7 @@ describe('Quiet walking scenario', () => {
     expect(screen.queryByLabelText('capture')).toBeNull();
     fireEvent.press(screen.getByText('‹ Settings'));
     expect(screen.getByLabelText('Quiet Home Screen, guide ›')).toBeTruthy();
-    fireEvent.press(screen.getByText('‹ edge'));
+    fireEvent.press(screen.getByText('‹ Record'));
     expect(screen.getByLabelText('capture').props.value).toBe('a passing thought');
     expect((await db.getAllAsync('SELECT id FROM fragments'))).toHaveLength(0);
     view.unmount(); db.close();

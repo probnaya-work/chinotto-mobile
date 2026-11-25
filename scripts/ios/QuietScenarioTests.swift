@@ -24,7 +24,7 @@ final class QuietScenarioTests: XCTestCase {
     XCTAssertFalse(element("Quiet Home Screen guide").exists)
     app.coordinate(withNormalizedOffset: CGVector(dx: 0.10, dy: 0.08))
       .press(forDuration: 0.15, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.10, dy: 0.35)))
-    XCTAssertTrue(element("‹ edge").waitForExistence(timeout: 5))
+    XCTAssertTrue(element("‹ Record").waitForExistence(timeout: 5))
     let guide = element("Quiet Home Screen, guide ›")
     XCTAssertTrue(guide.isHittable)
     guide.tap()
@@ -33,8 +33,8 @@ final class QuietScenarioTests: XCTestCase {
     XCTAssertFalse(element("Open in-app Quiet capture").exists)
     XCTAssertFalse(element("Previous app-hiding experiment").exists)
     element("‹ Settings").tap()
-    XCTAssertTrue(element("‹ edge").waitForExistence(timeout: 5))
-    element("‹ edge").tap()
+    XCTAssertTrue(element("‹ Record").waitForExistence(timeout: 5))
+    element("‹ Record").tap()
     XCTAssertTrue(element("pull-strip").waitForExistence(timeout: 5))
   }
 
@@ -96,7 +96,7 @@ final class QuietScenarioTests: XCTestCase {
     let light = element("light appearance")
     XCTAssertTrue(light.waitForExistence(timeout: 5))
     light.tap()
-    let back = element("‹ edge")
+    let back = element("‹ Record")
     XCTAssertTrue(back.waitForExistence(timeout: 5), app.debugDescription)
     back.tap()
     openQuiet()

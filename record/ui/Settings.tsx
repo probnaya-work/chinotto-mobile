@@ -85,7 +85,7 @@ export function Settings(props: SettingsProps) {
     manifesto: 'why chinotto', delete: 'account', notifications: 'this iphone', scheduled: 'notifications',
   };
   const head = headings[props.page] ?? `this ${can.deviceNoun}`;
-  const backLabel = props.page === 'scheduled' ? '‹ notifications' : isNotifications ? '‹ settings' : '‹ edge';
+  const backLabel = props.page === 'root' ? '‹ Record' : props.page === 'scheduled' ? '‹ notifications' : '‹ Settings';
 
   return (
     <View

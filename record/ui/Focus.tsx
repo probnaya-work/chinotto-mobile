@@ -212,7 +212,7 @@ export function Focus(props: FocusProps) {
         <View pointerEvents="none" style={{ width: 10, height: 10, borderRadius: 5, borderWidth: 1.5, borderColor: LIVE }} />
       ) : null}
       <Text style={[type({ size: 14, width: 90, color: ink.far }), { flexShrink: 1 }]}>
-        {quietReading ? 'exit quiet reading' : '‹ edge'}
+        {quietReading ? 'exit quiet reading' : '‹ Record'}
       </Text>
     </Pressable>
   );

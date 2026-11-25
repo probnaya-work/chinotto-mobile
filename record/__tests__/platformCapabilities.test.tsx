@@ -181,6 +181,17 @@ describe('settings on android', () => {
     ).toBeTruthy();
   });
 
+  it.each([
+    ['root', '‹ Record'], ['manifesto', '‹ Settings'], ['delete', '‹ Settings'],
+    ['notifications', '‹ Settings'], ['scheduled', '‹ notifications'],
+  ] as const)('names the destination of the back button on %s', (page, label) => {
+    const onClose = jest.fn();
+    const onBack = jest.fn();
+    render(<Settings {...props} page={page} onClose={onClose} onBack={onBack} />);
+    fireEvent.press(screen.getByRole('button', { name: label }));
+    expect(page === 'root' ? onClose : onBack).toHaveBeenCalledTimes(1);
+  });
+
   it('shows the Chinotto footer and maker credit without opening a section', () => {
     render(<Settings {...props} capabilities={capabilitiesFor('ios')} />);
     expect(screen.getByRole('button', { name: 'appearance' }).props.accessibilityState.expanded).toBe(false);
