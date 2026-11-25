@@ -6,6 +6,10 @@ Chinotto supplies a private large widget with text and voice capture. Its option
 
 ## Hide selected apps on the current Home Screen (prototype)
 
+**Layout change observed on iPhone 15.** Turning Quiet off moved both selected
+icons from the first Home Screen page to the second. Restoring their original
+positions requires manual rearrangement.
+
 Open **Quiet guide → Hide apps with Quiet** and grant individual Screen Time access.
 Choose individual apps inside the system picker, then tap **Save**. The selection
 stays on this device. Keep Chinotto and Messages available for the first test.
@@ -31,8 +35,11 @@ using known sample bundle IDs, one sample icon remained visible after requesting
 restrictions. That diagnostic bypassed the picker. It does not establish how
 restrictions from the picker affect a physical device. A development-signed
 build with Family Controls on both targets was installed over build 50 and
-launched on an iPhone 15. Icon hiding, return from Messages with restrictions
-active and exact layout restoration on that device await the owner's test.
+launched on an iPhone 15. The owner selected two apps they had grouped on the
+first Home Screen page. Both icons disappeared when Quiet was turned on. When
+Quiet was turned off, both reappeared on the second page. This failed the
+requirement to restore the usual layout. The owner did not separately report
+the swipe Home from Messages or the positions within a folder or the Dock.
 
 ## Set up on an iPhone
 
