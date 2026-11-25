@@ -161,6 +161,9 @@ function Root(props: SettingsProps & { capabilities: PlatformCapabilities }) {
           <SettingRow title="Quiet Home Screen"
             action="guide ›" onPress={props.onOpenQuietGuide} />
         ) : null}
+        {can.homeWidget ? (
+          <SettingRow title="Widgets" action="preview ›" onPress={props.onSeeWidget} />
+        ) : null}
         {can.syncSetup ? (
           <SettingRow
             title="sync"
@@ -196,8 +199,6 @@ function Root(props: SettingsProps & { capabilities: PlatformCapabilities }) {
           <SettingRow
             title="from elsewhere"
             detail={`share sheet · send ${can.shareKinds} to chinotto from any app. it lands dated now.`}
-            action={can.homeWidget ? 'see it' : undefined}
-            onPress={can.homeWidget ? props.onSeeWidget : undefined}
             divider={false}
           />
         </Details>

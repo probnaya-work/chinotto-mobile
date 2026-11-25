@@ -844,9 +844,9 @@ export function ChinottoApp({ services }: { services: Services }) {
         />
       ) : null}
 
-      {surface.kind === 'widget' && readAllowed ? (
+      {surface.kind === 'widget' ? (
         <WidgetLive
-          store={surfaceStore}
+          store={readAllowed && !protection.enabled ? surfaceStore : null}
           onClose={() => setSurface({ kind: 'settings', page: 'root' })}
           onCapture={() => setSurface({ kind: 'record' })}
         />
@@ -1092,19 +1092,24 @@ function WidgetLive({
   onClose,
   onCapture,
 }: {
-  store: RecordStore;
+  store: RecordStore | null;
   onClose: () => void;
   onCapture: () => void;
 }) {
   const [last, setLast] = useState<Material | null>(null);
   useEffect(() => {
-    void store.loadRecord(1).then((rows) => setLast(rows[0] ?? null));
+    if (!store) return;
+    let active = true;
+    void store.loadRecord(1).then(rows => {
+      if (active) setLast(rows[0] ?? null);
+    }).catch(() => { if (active) setLast(null); });
+    return () => { active = false; };
   }, [store]);
 
   const now = Date.now();
   return (
     <WidgetPreview
-      lastLine={last ? firstLine(last) : 'nothing yet'}
+      lastLine={store ? (last ? firstLine(last) : 'nothing yet') : null}
       lastWhen={
         last ? (dayLabel(last.at, now) === 'today' ? fmtTime(last.at) : dayLabel(last.at, now)) : ''
       }

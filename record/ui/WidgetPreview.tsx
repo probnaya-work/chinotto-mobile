@@ -19,7 +19,7 @@ import { face, type } from './type';
 
 export type WidgetPreviewProps = {
   /** The opening line of the last thing left, or `nothing yet`. */
-  lastLine: string;
+  lastLine: string | null;
   /** `09:41` today, or `12 mar`. */
   lastWhen: string;
   onCapture: () => void;
@@ -90,13 +90,15 @@ export function WidgetPreview(props: WidgetPreviewProps) {
             </Pressable>
           </View>
 
-          <Text
-            style={type({ size: 13, width: 90, lineHeight: 1.35, color: ink.far })}
-            numberOfLines={2}
-          >
-            <Text style={{ color: ink.meta }}>{`${props.lastWhen} · `}</Text>
-            {props.lastLine}
-          </Text>
+          {props.lastLine !== null ? (
+            <Text
+              style={type({ size: 13, width: 90, lineHeight: 1.35, color: ink.far })}
+              numberOfLines={2}
+            >
+              <Text style={{ color: ink.meta }}>{props.lastWhen ? `${props.lastWhen} · ` : ''}</Text>
+              {props.lastLine}
+            </Text>
+          ) : null}
         </Pressable>
 
         {/* A small widget beside an app icon, for scale. */}

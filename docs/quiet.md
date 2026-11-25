@@ -2,7 +2,7 @@
 
 The optional Focus page belongs to iOS. Messages, Phone and Maps open from their own icons.
 Chinotto supplies a private Medium or Large widget with text and voice capture. Its optional
-**Quiet guide** opens from **Chinotto Settings → Quiet Home Screen → guide**. Pull down from the mark on Record to open Settings. **Set up once** walks through page selection, Focus activation and widget placement. **Daily use** explains how to return to the Quiet page from Messages or Chinotto and restore the usual pages.
+**Quiet guide** opens from **Chinotto Settings → Quiet Home Screen → guide**. Pull down from the mark on Record to open Settings. The separate **Widgets → preview** row shows the standard capture widget. **Set up once** walks through page selection, Focus activation and widget placement. **Daily use** explains how to return to the Quiet page from Messages or Chinotto and restore the usual pages.
 
 ## Set up the suggested Personal Focus page
 

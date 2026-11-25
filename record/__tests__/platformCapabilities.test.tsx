@@ -116,7 +116,7 @@ describe('settings on android', () => {
     expect(screen.queryByText('sync')).toBeNull();
     expect(screen.queryByText('set up ›')).toBeNull();
     expect(screen.queryByText('home screen icon')).toBeNull();
-    expect(screen.queryByText(/home widget/)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Widgets, preview ›' })).toBeNull();
     expect(screen.queryByText(/apple|icloud|iphone|\bios\b|\bmac\b|subscri|cloud account/i)).toBeNull();
     expect(screen.getByText(/send a page or a selection to chinotto/)).toBeTruthy();
   });
@@ -280,8 +280,7 @@ describe('settings on android', () => {
     );
 
     fireEvent.press(screen.getByLabelText('sync, set up ›'));
-    fireEvent.press(screen.getByRole('button', { name: 'capture & sharing' }));
-    fireEvent.press(screen.getByLabelText('from elsewhere, see it'));
+    fireEvent.press(screen.getByRole('button', { name: 'Widgets, preview ›' }));
     fireEvent.press(screen.getByLabelText('Quiet Home Screen, guide ›'));
     fireEvent.press(screen.getByRole('button', { name: 'privacy & protection' }));
     fireEvent.press(screen.getByLabelText('anonymous usage, off ›'));

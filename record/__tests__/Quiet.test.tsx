@@ -6,7 +6,7 @@ import { composeQuietMessage, quietMessageNotice } from '../quietMessage';
 import { openTestDb } from '../__testsupport__/nodeSqliteDb';
 import { migrate } from '../migrate';
 import { createRecordStore } from '../store';
-import { protectRecordStore } from '../privacy';
+import { createPrivacy, protectRecordStore } from '../privacy';
 import { ChinottoApp } from '../ChinottoApp';
 import { testAppServices } from '../__testsupport__/appServices';
 
@@ -136,6 +136,29 @@ describe('Quiet walking scenario', () => {
     expect(screen.getByLabelText('capture').props.value).toBe('a passing thought');
     expect((await db.getAllAsync('SELECT id FROM fragments'))).toHaveLength(0);
     view.unmount(); db.close();
+  });
+
+  it('opens the widget preview from locked Settings without revealing the Record', async () => {
+    const db = openTestDb();
+    await migrate(db);
+    const store = createRecordStore(db, { newId: () => 'private' });
+    await store.capture({ body: 'private widget test' });
+    const privacy = createPrivacy({
+      state: async () => ({ enabled: true, locked: true, epoch: 1 }),
+      authenticate: jest.fn(), complete: jest.fn(), rendered: jest.fn(),
+    });
+    const view = render(<ChinottoApp services={{ ...testAppServices(db, null, jest.fn()), privacy }} />);
+    try {
+      fireEvent.press(await screen.findByText('settings'));
+      fireEvent.press(await screen.findByRole('button', { name: 'Widgets, preview ›' }));
+      expect(await screen.findByLabelText('close the widget preview')).toBeTruthy();
+      expect(screen.queryByText(/private widget test/)).toBeNull();
+      fireEvent.press(screen.getByLabelText('close the widget preview'));
+      expect(screen.getByRole('button', { name: 'Widgets, preview ›' })).toBeTruthy();
+    } finally {
+      view.unmount();
+      db.close();
+    }
   });
 
   it('returns from the existing Quiet widget route to a single saved entry in Record', async () => {
