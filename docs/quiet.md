@@ -48,9 +48,11 @@ Home Screen pages under Settings → Focus → Personal → Choose Home Screen �
 Create a New Page. Existing pages appeared in a separate section below.
 Opening the first suggestion showed a New Page preview with Edit Apps and
 Add. The inspection ended with Back and Cancel. Work was marked Set Up.
-Adding a suggested page, widget placement, and switching it on and off after
-a visit to Messages still require a separate device test. This observation is
-specific to Personal Focus.
+In a subsequent owner walkthrough on the same iPhone, the Home Screen showed
+the large Chinotto Quiet widget and the standard Messages icon. The owner
+confirmed that swiping Home from Messages returned to that page and turning
+off Personal Focus restored the usual layout with icons in their original
+positions. Setup time and a second activation were not measured.
 
 ## Set up on an iPhone
 
@@ -71,7 +73,7 @@ specific to Personal Focus.
 
 The iPhone system steps follow Apple’s guides to [Focus](https://support.apple.com/guide/iphone/iphd6288a67f/ios)
 and [Home Screen pages](https://support.apple.com/guide/iphone/iphd2fc8ce30/ios).
-The Focus-specific acceptance and timings below require a physical device.
+The physical-device observation above covers Personal Focus. The timings below describe the simulator walkthrough.
 
 ## Widget and existing in-app capture
 
