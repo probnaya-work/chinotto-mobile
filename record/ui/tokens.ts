@@ -194,9 +194,7 @@ export const edge = {
 /** The band label above every tier but D0. */
 export const bandLabel = {
   size: 10,
-  // Time is navigation, not material. The quiet cream keeps month/year landmarks distinct
-  // without adding a plaque, rule or second accent hue.
-  color: agency.quiet,
+  color: '#bfd39c',
   /** `0.06em` at 10px. RN letter spacing is in points, not em. */
   letterSpacing: 0.6,
   marginBottom: 6,
