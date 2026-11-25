@@ -68,6 +68,12 @@ off and on again in Control Center and confirmed the Quiet page reappeared
 without opening Chinotto. This repeat activation was not timed. The number of
 voice entries in Record was not reported.
 
+**Widget capture during launch.** On the iPhone 17 Pro simulator, tapping the
+Medium disc from a terminated app reproduced the owner’s overlapping logo and
+recorder controls. After the fix, the same tap started recording with the
+brand animation dismissed. A capture request arriving before the fonts load
+also suppresses the animation for the rest of that launch.
+
 **Message** presents Apple's `MFMessageComposeViewController` when the device supports it.
 The person selects or types a recipient, writes the message and presses Send in that system
 interface. Chinotto does not supply recipients, request the address book, retain message

@@ -127,7 +127,9 @@ export function RecordApp(props: RecordAppProps) {
   useRecordStatusBar(props.privacy?.busy ?? false);
 
   const [active, setActive] = useState(() => !AppState.currentState || AppState.currentState === 'active');
-  const [launchVisible, setLaunchVisible] = useState(props.coldStart);
+  const captureInProgress = Boolean(props.captureRequest || props.voiceOnOpen || props.voice.state);
+  const [showLaunch, setShowLaunch] = useState(props.coldStart);
+  const launchVisible = showLaunch && !captureInProgress;
   const returnCovered = Boolean(props.returnCovered || !active || launchVisible || props.voice.state || props.reminderRequest);
   const record = useRecord(props.store, props.bridge, undefined, props.audio, !props.privacy?.locked, returnCovered);
   const capabilities = props.capabilities ?? capabilitiesFor(Platform.OS);
@@ -340,11 +342,11 @@ export function RecordApp(props: RecordAppProps) {
   /* ------------------------------------------------------------------- launch */
 
   const dismissLaunch = useCallback(() => {
-    setLaunchLeaving((already) => {
-      if (!already) return true;
-      return already;
-    });
+    setLaunchLeaving(true);
   }, []);
+
+  // Launch's exit animation must keep the same completion callback across Record updates.
+  const finishLaunch = useCallback(() => setShowLaunch(false), []);
 
   /**
    * The lockup waits for the fonts, so `coldStart` arrives false and turns true a moment
@@ -353,10 +355,16 @@ export function RecordApp(props: RecordAppProps) {
    * time it was true, nothing was looking. It is latched here instead, once per mount.
    */
   useEffect(() => {
+    if (captureInProgress) {
+      // A widget request can precede font loading, or arrive halfway through the animation.
+      launchPlayed.current = true;
+      finishLaunch();
+      return;
+    }
     if (!props.coldStart || launchPlayed.current) return;
     launchPlayed.current = true;
-    setLaunchVisible(true);
-  }, [props.coldStart]);
+    setShowLaunch(true);
+  }, [props.coldStart, captureInProgress, finishLaunch]);
 
   useEffect(() => {
     if (!launchVisible) return;
@@ -841,7 +849,7 @@ export function RecordApp(props: RecordAppProps) {
         <Launch
           leaving={launchLeaving}
           reducedMotion={reducedMotion}
-          onFinished={() => setLaunchVisible(false)}
+          onFinished={finishLaunch}
         />
       ) : null}
     </View>

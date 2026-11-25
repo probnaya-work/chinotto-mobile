@@ -569,18 +569,6 @@ export function ChinottoApp({ services }: { services: Services }) {
     return () => clearInterval(id);
   }, [recording?.phase]);
 
-  /**
-   * The widget's circle opens the app already listening. Held until the fonts are up so the
-   * first frame is not a half-drawn surface behind a recording.
-   */
-  useEffect(() => {
-    // Handled inside `RecordApp`, where the permission rules live. This only gates it on
-    // the fonts, so the surface exists before it starts listening.
-    if (!services.voiceOnOpen || !fontsReady) return;
-    setVoiceOnOpenReady(true);
-  }, [services.voiceOnOpen, fontsReady]);
-  const [voiceOnOpenReady, setVoiceOnOpenReady] = useState(false);
-
   const startVoice = useCallback(async () => {
     recordingTranscript.current = '';
     setVoiceIssue(null);
@@ -777,11 +765,8 @@ export function ChinottoApp({ services }: { services: Services }) {
         }}
         voiceIssue={voiceIssue}
         audio={services.audio}
-        voiceOnOpen={voiceOnOpenReady}
-        onVoiceOnOpenHandled={() => {
-          setVoiceOnOpenReady(false);
-          services.onVoiceOnOpenHandled();
-        }}
+        voiceOnOpen={services.voiceOnOpen && fontsReady}
+        onVoiceOnOpenHandled={services.onVoiceOnOpenHandled}
         changedAt={changedAt}
         capabilities={capabilities}
         backRef={recordBack}

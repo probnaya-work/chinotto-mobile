@@ -1145,6 +1145,34 @@ describe('the record surface', () => {
     h.db.close();
   });
 
+  it.each([
+    ['voice', { voiceOnOpen: true }],
+    ['text', { captureRequest: 1 }],
+  ] as const)('drops a visible lockup immediately for a %s widget request', async (_, request) => {
+    const h = harness();
+    await migrate(h.db);
+    const props = { ...defaults, store: h.store, bridge: h.bridge, coldStart: true };
+    const view = await mount(h, { coldStart: true });
+    expect(screen.getByLabelText('by PROBNAYA')).toBeTruthy();
+
+    view.rerender(<RecordApp {...props} {...request} />);
+    expect(screen.queryByLabelText('by PROBNAYA')).toBeNull();
+    view.rerender(<RecordApp {...props} />);
+    expect(screen.queryByLabelText('by PROBNAYA')).toBeNull();
+    view.unmount();
+    h.db.close();
+  });
+
+  it('does not show the lockup when fonts arrive after a widget request', async () => {
+    const h = harness();
+    await migrate(h.db);
+    const view = await mount(h, { captureRequest: 1 });
+    view.rerender(<RecordApp store={h.store} bridge={h.bridge} {...defaults} coldStart />);
+    expect(screen.queryByLabelText('by PROBNAYA')).toBeNull();
+    view.unmount();
+    h.db.close();
+  });
+
   it('does not play the lockup on a warm resume', async () => {
     const h = harness();
     await migrate(h.db);
