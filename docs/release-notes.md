@@ -1,3 +1,11 @@
+# iPhone 3.0.1 — Chinotto Quiet
+
+Add the medium or large Chinotto Quiet widget to a Home Screen page. Tap **What arrived?** to open the text editor or the sage disc to record a thought. Both save to the local Record. The widget shows the date and capture controls, keeping past thoughts private.
+
+For an optional Quiet page, follow **Chinotto Settings → Quiet Home Screen**. Select a Home Screen page for Personal Focus in iPhone Settings. Turn Personal on in Control Center, open Messages from that page and swipe Home to return to it. Turn Personal off to bring back the usual pages. The same widget works on an ordinary page.
+
+This iPhone update also restores the **Widgets → preview** entry in Settings and dismisses the capture keyboard while Settings or the launch animation is visible. [Quiet setup and device checks](quiet.md) cover the physical iPhone and simulator scenarios. The [English store copy](store-description.txt) and [App Review instructions](app-store-review-notes.txt) correspond to this version.
+
 # iOS 3.0.0 (local build 46) — source integrated 22 November 2026
 
 The 3.0.0 source is in `main`: [#6](https://github.com/probnaya-work/chinotto-mobile/pull/6) brought the mobile baseline, [#9](https://github.com/probnaya-work/chinotto-mobile/pull/9) added the iOS thought actions menu, and [#10](https://github.com/probnaya-work/chinotto-mobile/pull/10) integrated the remaining changes from #7 and #8. The integration merge is `d22d6fa`.

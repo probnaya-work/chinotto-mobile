@@ -15,7 +15,7 @@ Structure can come later — when you revisit on desktop.
 Local-first. Capture and local reading work offline.
 Optional sync with Chinotto desktop on iOS (Chinotto Pro).
 
-The iOS 3.0.0 source is integrated into `main`. Android is in preparation and has not been published. See [release notes](docs/release-notes.md) for its scope and verification status.
+The iPhone 3.0.1 release adds [Chinotto Quiet](docs/quiet.md). See the [release notes](docs/release-notes.md) for its scope and verification status.
 
 ## Download (iOS)
 
@@ -32,7 +32,8 @@ The iOS 3.0.0 source is integrated into `main`. Android is in preparation and ha
 - Set one-shot thought reminders, manage notification preferences, and opt in to discreet Return alerts (iOS)
 - Quiet reading puts secondary controls away; iOS 26 groups thought actions in a system menu
 - Bring a page or selected text into the Record from another app (iOS)
-- iOS Home Widget — quick capture and recent thoughts that open directly in the reader
+- The standard Home Screen widget opens recent thoughts in the reader
+- The medium and large Chinotto Quiet widgets open text or voice capture and keep past entries private. Add one to a Focus page to return there after using Messages or Chinotto.
 - Voice capture with retained original audio and on-device transcription where available
 - Optional Face ID or device-code protection for reading, with capture still available
 - Dark or warm light appearance, system text size and lifted contrast
