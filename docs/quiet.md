@@ -166,7 +166,9 @@ page and Apple’s sample Messages data. It checks actual bottom-edge gestures a
 screenshots of both returns. Run `pnpm typecheck` and `pnpm test --runInBand` for the
 app tests.
 
-## Hide selected apps on the current Home Screen (prototype)
+## Hide selected apps on the current Home Screen (development builds)
+
+The 3.0.1 App Store build uses system Focus for the Quiet page. The Screen Time prototype and its Control Center toggle are compiled only in Debug. If you used a development build to hide apps on your own iPhone, turn hiding off there before installing the store build.
 
 **Layout change observed on iPhone 15.** Turning Quiet off moved both selected
 icons from the first Home Screen page to the second. Restoring their original
