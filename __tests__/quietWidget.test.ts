@@ -33,6 +33,17 @@ describe('the native Quiet widget contract', () => {
     expect(project).toContain('QuietCaptureWidget.swift in Sources');
   });
 
+  it('keeps Screen Time out of the two store targets while retaining shared widget storage', () => {
+    for (const target of ['Chinotto', 'ExpoWidgetsTarget']) {
+      const base = path.join(root, 'ios', target, target);
+      const release = fs.readFileSync(base + '.entitlements', 'utf8');
+      const debug = fs.readFileSync(base + '.debug.entitlements', 'utf8');
+      expect(release).toContain('group.com.chinotto.mobile');
+      expect(release).not.toContain('com.apple.developer.family-controls');
+      expect(debug).toContain('com.apple.developer.family-controls');
+    }
+  });
+
   it('uses the original Medium mark and the shared capture controls in both sizes', () => {
     expect(source).toContain('.supportedFamilies([.systemMedium, .systemLarge])');
     expect(source).toContain('ChinottoLogoMark(size: 12, scheme: .dark)');

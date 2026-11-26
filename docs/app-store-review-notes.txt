@@ -1,10 +1,15 @@
-Chinotto 2.2.0 — iPhone App Review notes
+Chinotto 3.0.1 | iPhone App Review notes
 
 Chinotto is a private, local-first thinking tool. Text and voice capture, reading, Find, Lines, correction history, the Home Screen widget, local audio playback, archive export and restore work without an account or subscription. No demo account is required.
 
-Settings: pull down from the Chinotto mark below the status bar. The mark also exposes a Settings accessibility action. Return to the Record with the edge control.
+Settings: pull down from the Chinotto mark below the status bar. The mark also exposes a Settings accessibility action. Tap “‹ Record” to return.
 
-New in this version:
+New in 3.0.1
+On iPhone, launch Chinotto once. In the Home Screen widget gallery, search for Chinotto and add “Chinotto Quiet” in Medium or Large. Tap “What arrived?”, type a sample thought and save it. The thought appears in Record. Return Home and tap the disc to open voice capture. Grant microphone permission if prompted and tap the square to keep the recording. The Quiet widget displays no saved entries.
+
+The widget works independently of Focus. To test the optional page setup, pull down from the mark in Record, then open Quiet Home Screen in Chinotto Settings. The guide uses the system Personal Focus. In iPhone Settings, open Focus → Personal and select the Home Screen page with the Chinotto Quiet widget. Turn on Personal from Control Center. From that page, open Messages, then swipe Home. The same page with the widget should reappear. Turn off Personal in Control Center to return to your usual Home Screen pages.
+
+Other review paths:
 - Settings → privacy & protection → Face ID / Touch ID → turn on enables optional system authentication for reading. Face ID, Touch ID or the device code uses the device's authentication system. Blank capture stays available while reading is locked. With protection enabled, widgets show capture only. This is an access lock; it does not add encryption to the database or exported archives.
 - Settings → appearance offers dark/light and lift contrast. Reading follows the iPhone's text size. The opening mark respects Reduce Motion.
 - Settings → backup & restore → export the record creates a portable ZIP. Under restore from archive, choose archive opens the iOS document picker. The app validates the ZIP and shows a preview before a separate restore action. It merges into the existing Record, skips existing moments and keeps a recovery copy. Use an archive exported by a current Chinotto iPhone or Mac client; older Mac text-only exports are unsupported.

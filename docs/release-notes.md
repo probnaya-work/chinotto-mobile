@@ -1,3 +1,19 @@
+# iPhone 3.0.1 — Chinotto Quiet
+
+Add the medium or large Chinotto Quiet widget to a Home Screen page. Tap **What arrived?** to open the text editor or the sage disc to record a thought. Both save to the local Record. The widget shows the date and capture controls, keeping past thoughts private.
+
+For an optional Quiet page, follow **Chinotto Settings → Quiet Home Screen**. Select a Home Screen page for Personal Focus in iPhone Settings. Turn Personal on in Control Center, open Messages from that page and swipe Home to return to it. Turn Personal off to bring back the usual pages. The same widget works on an ordinary page.
+
+This iPhone update also restores the **Widgets → preview** entry in Settings and dismisses the capture keyboard while Settings or the launch animation is visible. [Quiet setup and device checks](quiet.md) cover the physical iPhone and simulator scenarios. The [English store copy](store-description.txt) and [App Review instructions](app-store-review-notes.txt) correspond to this version.
+
+## Build 51 verification
+
+Xcode 27.2 archived the Release configuration. Apple validated the distribution IPA. Its signed bundles are the iPhone app, the Home Screen widget extension and the share extension, all version 3.0.1 (51). The EAS production iOS build counter is 51.
+
+On the iOS 27.2 simulator, the guide and widget preview opened from Settings. Opening Settings dismissed the capture keyboard and preserved the draft. The first cold-widget check immediately after installation could not locate the widget. After launching Chinotto once, a cold tap focused the text editor. A separate cold voice test reached the microphone-permission recovery screen. An unsent draft in Messages and a saved thought in Chinotto both returned to the widget page on swiping Home. A read-only query found exactly one copy of the test thought.
+
+TypeScript passed. Jest passed 936 tests across 136 suites with one skipped test. The six English iPhone screenshots matched the approved files by checksum and order.
+
 # iOS 3.0.0 (local build 46) — source integrated 22 November 2026
 
 The 3.0.0 source is in `main`: [#6](https://github.com/probnaya-work/chinotto-mobile/pull/6) brought the mobile baseline, [#9](https://github.com/probnaya-work/chinotto-mobile/pull/9) added the iOS thought actions menu, and [#10](https://github.com/probnaya-work/chinotto-mobile/pull/10) integrated the remaining changes from #7 and #8. The integration merge is `d22d6fa`.

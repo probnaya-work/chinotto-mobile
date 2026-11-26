@@ -1,16 +1,14 @@
-App Review submission — iPhone 2.2.0 (44), 15 November 2026. Uploaded and selected; Waiting for Review, manual release.
-Publish with the matching app release after device acceptance; plans and prices come from the app.
+Chinotto 3.0.1 for iPhone (en-US)
 
-App Store subtitle: A private record of thoughts
+Promotional Text
 
-Promotional Text (copied from iPhone 2.0.2):
-A pocket for thoughts, encounters, and what comes back. Capture instantly, no folders or projects. Local-first, works fully offline.
+Can a digital product give people more of their attention back than it takes from them? Capture a thought, return to what you were doing, and continue it later.
 
-Chinotto — iPhone description
+Description
 
 A private record of thoughts, encounters, and what continues between them.
 
-Capture a thought as it arrives. Type, speak, or use the home-screen widget. Bring a page or selected text into the Record from another app. No folders, tags or account to set up before writing.
+Capture a thought as it arrives. Type or speak in Chinotto. For a quieter Home Screen, keep the Chinotto Quiet widget alongside the apps you want close at hand. Tap “What arrived?” to write, or the microphone to speak. The optional Chinotto Quiet widget opens text or voice capture while keeping past entries out of view. Bring a page or selected text into the Record from another app. No folders, tags or account to set up before writing.
 
 Every moment keeps its date. Continue adds a new moment dated now. Correct changes the wording while keeping the original date and earlier words. Find the words you remember, follow a Line, or pick up an older thought when recent writing brings it back.
 
@@ -21,3 +19,7 @@ Capture, reading, Find and local audio playback need no subscription. Optional s
 Export a portable archive with history and original audio, and restore a Chinotto archive without duplicating moments already in your Record.
 
 Terms of Use: https://www.apple.com/legal/internet-services/itunes/dev/stdeula/
+
+What’s New
+
+Add the new Chinotto Quiet widget to a Home Screen page and link that page to a Focus. With the Focus on, you can reply to a message and swipe home to the same quiet page. Thoughts you capture go into your Record. Past entries stay off the widget.

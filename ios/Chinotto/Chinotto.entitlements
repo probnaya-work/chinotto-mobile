@@ -12,8 +12,6 @@
     <array>
       <string>applinks:getchinotto.app</string>
     </array>
-    <key>com.apple.developer.family-controls</key>
-    <true/>
     <key>com.apple.security.application-groups</key>
     <array>
       <string>group.com.chinotto.mobile</string>
